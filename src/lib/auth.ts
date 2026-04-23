@@ -8,6 +8,12 @@ const credentialsSchema = z.object({
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  // next-auth beta.30 doesn't set basePath when NEXTAUTH_URL has a root pathname,
+  // causing @auth/core to fall back to '/auth' instead of '/api/auth'.
+  basePath: '/api/auth',
+  // @auth/core rejects every request as UntrustedHost unless this is set.
+  trustHost: true,
   pages: {
     signIn: '/auth/login',
   },

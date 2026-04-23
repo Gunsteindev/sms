@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getClassById, updateClass, deleteClass, getClassStudents, getClassSubjects } from '@/lib/dataverse/classes';
+import { getClassById, updateClass, deleteClass } from '@/lib/dataverse/classes';
 
 export async function GET(
-    request: NextRequest,
+    _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { id } = await params;
-        const searchParams = request.nextUrl.searchParams;
-        const includeStudents = searchParams.get('includeStudents') === 'true';
-        const includeSubjects = searchParams.get('includeSubjects') === 'true';
-
         const classData = await getClassById(id);
 
         if (!classData) {
@@ -20,23 +16,7 @@ export async function GET(
             );
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response: any = {
-            success: true,
-            data: classData
-        };
-
-        if (includeStudents) {
-            const students = await getClassStudents(id);
-            response.students = students;
-        }
-
-        if (includeSubjects) {
-            const subjects = await getClassSubjects(id);
-            response.subjects = subjects;
-        }
-
-        return NextResponse.json(response);
+        return NextResponse.json({ success: true, data: classData });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error('Error in GET /api/classes/[id]:', error);

@@ -13,7 +13,8 @@ class DataverseClient {
             headers: {
                 "Accept": "application/json",
                 "OData-MaxVersion": "4.0",
-                "OData-Version": "4.0"
+                "OData-Version": "4.0",
+                "Prefer": 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
             }
         });
 
@@ -57,10 +58,14 @@ class DataverseClient {
         return response.data;
     }
 
-    // Generic POST method
+    // Generic POST method — requests return=representation so callers get the created entity back
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async post<T>(endpoint: string, data: any): Promise<T> {
-        const response = await this.client.post<T>(endpoint, data);
+        const response = await this.client.post<T>(endpoint, data, {
+            headers: {
+                Prefer: 'return=representation,odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
+            },
+        });
         return response.data;
     }
 

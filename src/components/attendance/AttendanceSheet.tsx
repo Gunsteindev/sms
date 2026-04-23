@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/Button';
 import type { Attendance, CreateAttendanceRequest } from '@/lib/dataverse/attendance';
 
 const STATUSES = [
-  { value: 0, label: 'Present', icon: CheckCircle2, color: 'text-green-600 bg-green-50 border-green-200' },
-  { value: 1, label: 'Absent',  icon: XCircle,      color: 'text-red-600 bg-red-50 border-red-200' },
-  { value: 2, label: 'Late',    icon: Clock,         color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
-  { value: 3, label: 'Excused', icon: AlertCircle,  color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { value: 1, label: 'Present', icon: CheckCircle2, color: 'text-green-600 bg-green-50 border-green-200' },
+  { value: 2, label: 'Absent',  icon: XCircle,      color: 'text-red-600 bg-red-50 border-red-200' },
+  { value: 3, label: 'Late',    icon: Clock,         color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
+  { value: 4, label: 'Excused', icon: AlertCircle,  color: 'text-blue-600 bg-blue-50 border-blue-200' },
 ];
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
 
 export function AttendanceSheet({ records, date, onSave }: Props) {
   const [statusMap, setStatusMap] = useState<Record<string, number>>(() =>
-    Object.fromEntries(records.map((r) => [r.studentid, r.status]))
+    Object.fromEntries(records.map((r) => [r.studentid, r.attendancestatus]))
   );
   const [saving, setSaving] = useState(false);
 
@@ -29,8 +29,7 @@ export function AttendanceSheet({ records, date, onSave }: Props) {
     const updated: CreateAttendanceRequest[] = records.map((r) => ({
       studentid: r.studentid,
       date,
-      status: statusMap[r.studentid] ?? r.status,
-      classname: r.classname,
+      attendancestatus: statusMap[r.studentid] ?? r.attendancestatus,
     }));
     await onSave(updated);
     setSaving(false);
@@ -75,7 +74,7 @@ export function AttendanceSheet({ records, date, onSave }: Props) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {records.map((r) => {
-              const current = statusMap[r.studentid] ?? r.status;
+              const current = statusMap[r.studentid] ?? r.attendancestatus;
               return (
                 <tr key={r.attendanceid} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-3">

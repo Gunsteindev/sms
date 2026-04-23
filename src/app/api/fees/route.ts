@@ -1,6 +1,6 @@
 // src/app/api/fees/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getFeeStructures, getStudentFees, createFeePayment, getMonthlyRevenue } from '@/lib/dataverse/fees';
+import { getFeeStructures, getFeePayments, createFeePayment, getCurrentMonthRevenue } from '@/lib/dataverse/fees';
 
 // GET /api/fees - Get fee structures or student fees
 export async function GET(request: NextRequest) {
@@ -8,14 +8,13 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams;
         const studentId = searchParams.get('studentId');
         const gradelevel = searchParams.get('gradelevel') ? parseInt(searchParams.get('gradelevel')!) : undefined;
-        const academicyear = searchParams.get('academicyear') || new Date().getFullYear().toString();
         const revenue = searchParams.get('revenue') === 'true';
         const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : new Date().getMonth() + 1;
         const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear();
 
         // Get monthly revenue
         if (revenue) {
-            const revenueData = await getMonthlyRevenue(month, year);
+            const revenueData = await getCurrentMonthRevenue();
             return NextResponse.json({
                 success: true,
                 data: revenueData,
@@ -23,18 +22,18 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        // Get student fees
+        // Get student fee payments
         if (studentId) {
-            const fees = await getStudentFees(studentId, academicyear);
+            const result = await getFeePayments({ studentid: studentId });
             return NextResponse.json({
                 success: true,
-                data: fees,
-                total: fees.length
+                data: result.items,
+                total: result.totalCount
             });
         }
 
         // Get fee structures
-        const feeStructures = await getFeeStructures(gradelevel, academicyear);
+        const feeStructures = await getFeeStructures(gradelevel);
         
         return NextResponse.json({
             success: true,

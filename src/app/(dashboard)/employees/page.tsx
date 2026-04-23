@@ -3,14 +3,19 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, Pencil, Trash2, Briefcase } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
+import {
+  SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from '@/components/ui/Select';
 import { employeesAPI } from '@/lib/api-client';
 import type { Employee } from '@/lib/dataverse/employees';
 
@@ -41,49 +46,98 @@ const STATUS: Record<number, { label: string; variant: 'success' | 'warning' | '
   4: { label: 'Terminated',  variant: 'default' },
 };
 
+function F({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      {children}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 function EmployeeForm({ defaultValues, onSubmit, onCancel }: {
   defaultValues?: Partial<FormData>;
   onSubmit: (d: FormData) => Promise<void>;
   onCancel: () => void;
 }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema) as any,
     defaultValues: { gender: 1, employeetype: 1, ...defaultValues },
   });
 
-  const field = (name: keyof FormData, label: string, rest?: React.InputHTMLAttributes<HTMLInputElement>) => (
-    <div key={name}>
-      <label className="text-xs font-medium text-gray-700 mb-1 block">{label}</label>
-      <Input {...register(name)} {...rest} />
-      {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]?.message as string}</p>}
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-      <div className="grid grid-cols-2 gap-3">
-        {field('firstname',    'First Name *')}
-        {field('lastname',     'Last Name *')}
-        {field('dateofbirth',  'Date of Birth *', { type: 'date' })}
-        <div>
-          <label className="text-xs font-medium text-gray-700 mb-1 block">Gender *</label>
-          <Select {...register('gender')}><option value={1}>Male</option><option value={2}>Female</option></Select>
-        </div>
-        {field('emailaddress1', 'Email *', { type: 'email' })}
-        {field('telephone1',    'Phone', { type: 'tel' })}
-        {field('employeecode',  'Employee Code *')}
-        {field('department',    'Department *')}
-        {field('designation',   'Designation *')}
-        <div>
-          <label className="text-xs font-medium text-gray-700 mb-1 block">Type *</label>
-          <Select {...register('employeetype')}>
-            {Object.entries(EMP_TYPE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </Select>
-        </div>
-        {field('hiredate', 'Hire Date *', { type: 'date' })}
-        {field('salary',   'Salary', { type: 'number' })}
-        {field('emergencycontactname',  'Emergency Contact *')}
-        {field('emergencycontactphone', 'Emergency Phone *', { type: 'tel' })}
+      <div className="grid grid-cols-2 gap-4">
+        <F id="firstname" label="First Name *" error={errors.firstname?.message}>
+          <Input id="firstname" {...register('firstname')} />
+        </F>
+        <F id="lastname" label="Last Name *" error={errors.lastname?.message}>
+          <Input id="lastname" {...register('lastname')} />
+        </F>
+
+        <F id="dateofbirth" label="Date of Birth *">
+          <Controller control={control} name="dateofbirth" render={({ field }) => (
+            <DatePicker id="dateofbirth" value={field.value} onChange={field.onChange} />
+          )} />
+        </F>
+
+        <F id="gender" label="Gender *">
+          <Controller control={control} name="gender" render={({ field }) => (
+            <SelectRoot value={String(field.value ?? '')} onValueChange={(v) => field.onChange(Number(v))}>
+              <SelectTrigger id="gender" className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Male</SelectItem>
+                <SelectItem value="2">Female</SelectItem>
+              </SelectContent>
+            </SelectRoot>
+          )} />
+        </F>
+
+        <F id="emailaddress1" label="Email *" error={errors.emailaddress1?.message}>
+          <Input id="emailaddress1" {...register('emailaddress1')} type="email" />
+        </F>
+        <F id="telephone1" label="Phone">
+          <Input id="telephone1" {...register('telephone1')} type="tel" />
+        </F>
+        <F id="employeecode" label="Employee Code *" error={errors.employeecode?.message}>
+          <Input id="employeecode" {...register('employeecode')} />
+        </F>
+        <F id="department" label="Department *" error={errors.department?.message}>
+          <Input id="department" {...register('department')} />
+        </F>
+        <F id="designation" label="Designation *" error={errors.designation?.message}>
+          <Input id="designation" {...register('designation')} />
+        </F>
+
+        <F id="employeetype" label="Type *">
+          <Controller control={control} name="employeetype" render={({ field }) => (
+            <SelectRoot value={String(field.value ?? '')} onValueChange={(v) => field.onChange(Number(v))}>
+              <SelectTrigger id="employeetype" className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(EMP_TYPE).map(([v, l]) => (
+                  <SelectItem key={v} value={v}>{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </SelectRoot>
+          )} />
+        </F>
+
+        <F id="hiredate" label="Hire Date *">
+          <Controller control={control} name="hiredate" render={({ field }) => (
+            <DatePicker id="hiredate" value={field.value} onChange={field.onChange} />
+          )} />
+        </F>
+
+        <F id="salary" label="Salary">
+          <Input id="salary" {...register('salary')} type="number" />
+        </F>
+        <F id="emergencycontactname" label="Emergency Contact *" error={errors.emergencycontactname?.message}>
+          <Input id="emergencycontactname" {...register('emergencycontactname')} />
+        </F>
+        <F id="emergencycontactphone" label="Emergency Phone *" error={errors.emergencycontactphone?.message}>
+          <Input id="emergencycontactphone" {...register('emergencycontactphone')} type="tel" />
+        </F>
       </div>
       <div className="flex justify-end gap-2 pt-2 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -100,6 +154,7 @@ export default function EmployeesPage() {
   const [search, setSearch]       = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]     = useState<Employee | null>(null);
+  const [toDelete, setToDelete]   = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -127,7 +182,6 @@ export default function EmployeesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this employee?')) return;
     try { await employeesAPI.delete(id); toast.success('Deleted'); load(); }
     catch { toast.error('Failed to delete'); }
   };
@@ -191,7 +245,7 @@ export default function EmployeesPage() {
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(e); setModalOpen(true); }}>
                           <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(e.employeeid)}>
+                        <Button variant="ghost" size="icon" onClick={() => setToDelete(e.employeeid)}>
                           <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
                         </Button>
                       </div>
@@ -205,8 +259,16 @@ export default function EmployeesPage() {
       )}
 
       <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} title={editing ? 'Edit Employee' : 'Add Employee'}>
-        <EmployeeForm defaultValues={editing ?? undefined} onSubmit={handleSubmit} onCancel={() => { setModalOpen(false); setEditing(null); }} />
+        <EmployeeForm defaultValues={editing as any ?? undefined} onSubmit={handleSubmit} onCancel={() => { setModalOpen(false); setEditing(null); }} />
       </Modal>
+
+      <ConfirmDialog
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title="Delete employee?"
+        description="This will permanently remove the employee record."
+        onConfirm={() => { if (toDelete) handleDelete(toDelete); setToDelete(null); }}
+      />
     </div>
   );
 }

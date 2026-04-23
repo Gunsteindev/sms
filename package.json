@@ -9,9 +9,17 @@
         "lint": "eslint",
         "test:dataverse": "tsx scripts/test-dataverse.ts",
         "test:connection": "tsx scripts/test-connection.ts",
-        "test:quick": "tsx scripts/quick-test.ts"
+        "test:quick": "tsx scripts/quick-test.ts",
+        "test:departments": "tsx scripts/test-departments.ts",
+        "seed:departments": "tsx scripts/seed-departments.ts",
+        "test:scholarships": "tsx scripts/test-scholarships.ts",
+        "seed:scholarships": "tsx scripts/seed-scholarships.ts",
+        "test:terms": "tsx scripts/test-terms.ts",
+        "test:grade-levels": "tsx scripts/test-grade-levels.ts",
+        "seed:grade-levels": "tsx scripts/seed-grade-levels.ts"
     },
     "dependencies": {
+        "@anthropic-ai/sdk": "^0.88.0",
         "@base-ui/react": "^1.3.0",
         "@hookform/resolvers": "^5.2.2",
         "autoprefixer": "^10.4.27",
@@ -24,6 +32,7 @@
         "next-auth": "^5.0.0-beta.30",
         "postcss": "^8.5.9",
         "react": "19.2.4",
+        "react-day-picker": "^9.14.0",
         "react-dom": "19.2.4",
         "react-hook-form": "^7.72.1",
         "react-hot-toast": "^2.6.0",
@@ -41,7 +50,7 @@
         "dotenv": "^17.4.0",
         "eslint": "^9",
         "eslint-config-next": "16.2.2",
-        "tailwindcss": "^3.4.19",
+        "tailwindcss": "^4",
         "ts-node": "^10.9.2",
         "tsx": "^4.21.0",
         "typescript": "^5"

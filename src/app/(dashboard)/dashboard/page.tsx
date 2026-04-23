@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Users, GraduationCap, UserCheck, DollarSign, BookOpen, TrendingUp, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { AttendanceChart } from '@/components/charts/AttendanceChart';
 import { PerformanceChart } from '@/components/charts/PerformanceChart';
 import { dashboardAPI } from '@/lib/api-client';
+import { AISummary } from '@/components/ui/AISummary';
 import toast from 'react-hot-toast';
 
 interface Stats {
@@ -28,34 +28,34 @@ const statCards = (s: Stats) => [
   { title: 'Total Employees',  value: s.totalEmployees,                             icon: Users,          color: 'pink',   delta: '+3%' },
 ];
 
-const ICON_BG: Record<string, string> = {
-  blue:   'bg-blue-100 text-blue-600',
-  violet: 'bg-violet-100 text-violet-600',
-  green:  'bg-green-100 text-green-600',
-  orange: 'bg-orange-100 text-orange-600',
-  sky:    'bg-sky-100 text-sky-600',
-  pink:   'bg-pink-100 text-pink-600',
+const COLOR_MAP: Record<string, { accent: string; light: string; darkLight: string; icon: string; darkIcon: string; border: string; darkBorder: string }> = {
+  blue:   { accent: 'bg-blue-500',    light: 'bg-blue-50',    darkLight: 'dark:bg-blue-900/30',    icon: 'text-blue-600',    darkIcon: 'dark:text-blue-400',    border: 'border-blue-100',    darkBorder: 'dark:border-blue-900' },
+  violet: { accent: 'bg-violet-500',  light: 'bg-violet-50',  darkLight: 'dark:bg-violet-900/30',  icon: 'text-violet-600',  darkIcon: 'dark:text-violet-400',  border: 'border-violet-100',  darkBorder: 'dark:border-violet-900' },
+  green:  { accent: 'bg-emerald-500', light: 'bg-emerald-50', darkLight: 'dark:bg-emerald-900/30', icon: 'text-emerald-600', darkIcon: 'dark:text-emerald-400', border: 'border-emerald-100', darkBorder: 'dark:border-emerald-900' },
+  orange: { accent: 'bg-orange-500',  light: 'bg-orange-50',  darkLight: 'dark:bg-orange-900/30',  icon: 'text-orange-600',  darkIcon: 'dark:text-orange-400',  border: 'border-orange-100',  darkBorder: 'dark:border-orange-900' },
+  sky:    { accent: 'bg-sky-500',     light: 'bg-sky-50',     darkLight: 'dark:bg-sky-900/30',     icon: 'text-sky-600',     darkIcon: 'dark:text-sky-400',     border: 'border-sky-100',     darkBorder: 'dark:border-sky-900' },
+  pink:   { accent: 'bg-pink-500',    light: 'bg-pink-50',    darkLight: 'dark:bg-pink-900/30',    icon: 'text-pink-600',    darkIcon: 'dark:text-pink-400',    border: 'border-pink-100',    darkBorder: 'dark:border-pink-900' },
 };
 
 function StatCard({ title, value, icon: Icon, color, delta }: ReturnType<typeof statCards>[0]) {
+  const c = COLOR_MAP[color] ?? COLOR_MAP.blue;
   return (
-    <Card>
-      <CardContent className="pt-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-gray-500 font-medium">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-            <div className="flex items-center gap-1 mt-2">
-              <TrendingUp className="h-3 w-3 text-green-500" />
-              <span className="text-xs text-green-600 font-medium">{delta} this month</span>
-            </div>
-          </div>
-          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${ICON_BG[color]}`}>
-            <Icon className="h-5 w-5" />
+    <div className={`relative rounded-xl border bg-white dark:bg-slate-900 p-5 shadow-sm overflow-hidden ${c.border} ${c.darkBorder}`}>
+      <div className={`absolute inset-x-0 top-0 h-1 ${c.accent}`} />
+      <div className="flex items-start justify-between gap-4 mt-1">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">{title}</p>
+          <p className="mt-2.5 text-3xl font-bold text-slate-900 dark:text-slate-50 leading-none tracking-tight">{value}</p>
+          <div className="flex items-center gap-1.5 mt-3">
+            <TrendingUp className="h-3 w-3 text-emerald-500 flex-shrink-0" />
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{delta} this month</span>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl ${c.light} ${c.darkLight}`}>
+          <Icon className={`h-6 w-6 ${c.icon} ${c.darkIcon}`} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -96,10 +96,10 @@ export default function DashboardPage() {
 
   if (error || !stats) {
     return (
-      <div className="flex h-80 flex-col items-center justify-center gap-3 text-gray-400">
+      <div className="flex h-80 flex-col items-center justify-center gap-3 text-slate-400 dark:text-slate-500">
         <AlertCircle className="h-10 w-10 opacity-40" />
         <p className="text-sm">Failed to load dashboard</p>
-        <button onClick={load} className="text-xs text-blue-600 hover:underline">Retry</button>
+        <button onClick={load} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Retry</button>
       </div>
     );
   }
@@ -108,9 +108,11 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Page title */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Welcome back — here&apos;s your school overview.</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Dashboard</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Welcome back — here&apos;s your school overview.</p>
       </div>
+
+      <AISummary type="dashboard" getData={() => ({ stats, recentAttendanceTrend: trends.slice(-7) })} />
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,27 +121,29 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Attendance Trend (30 days)</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+            <p className="font-semibold text-slate-900 dark:text-slate-100">Attendance Trend</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Last 30 days</p>
+          </div>
+          <div className="p-5">
             {trends.length ? (
               <AttendanceChart data={trends} />
             ) : (
-              <div className="h-60 flex items-center justify-center text-sm text-gray-400">No trend data yet</div>
+              <div className="h-60 flex items-center justify-center text-sm text-slate-400 dark:text-slate-500">No trend data yet</div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Subject Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+            <p className="font-semibold text-slate-900 dark:text-slate-100">Subject Performance</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Current term</p>
+          </div>
+          <div className="p-5">
             <PerformanceChart />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

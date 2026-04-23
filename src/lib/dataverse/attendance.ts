@@ -1,27 +1,45 @@
-// src/lib/dataverse/attendance.ts
 import { dataverseClient } from "./client";
+
+// Verified Dataverse fields (sms_attendance):
+// sms_attendanceid, sms_name, sms_date (DateOnly),
+// sms_attendancestatus (1=Present, 2=Absent, 3=Late, 4=Excused),
+// sms_checkintime, sms_remarks,
+// sms_student  (Lookup → sms_students),  _sms_student_value
+// sms_class    (Lookup → sms_classes),   _sms_class_value
+// sms_subject  (Lookup → sms_subjects),  _sms_subject_value
+
+const TABLE = 'sms_attendances';
+
+export const ATTENDANCE_STATUS: Record<number, string> = {
+    1: 'Present',
+    2: 'Absent',
+    3: 'Late',
+    4: 'Excused',
+};
 
 export interface Attendance {
     attendanceid: string;
     studentid: string;
-    studentname?: string;
+    studentname: string;
     date: string;
-    status: number;
+    attendancestatus: number;
     checkintime?: string;
-    checkouttime?: string;
     remarks?: string;
+    classid?: string;
     classname?: string;
+    subjectid?: string;
+    subjectname?: string;
     createdon: string;
 }
 
 export interface CreateAttendanceRequest {
     studentid: string;
     date: string;
-    status: number;
+    attendancestatus: number;
     checkintime?: string;
-    checkouttime?: string;
     remarks?: string;
-    classname?: string;
+    classid?: string;
+    subjectid?: string;
 }
 
 export interface AttendanceSummary {
@@ -33,135 +51,142 @@ export interface AttendanceSummary {
     percentage: number;
 }
 
-export const getAttendanceByDate = async (date: string, className?: string) => {
-    try {
-        let filter = `sms_date eq ${date}`;
-        if (className) {
-            filter += ` and sms_classname eq '${className}'`;
-        }
-        
-        const response = await dataverseClient.getWithFilter<{ value: Attendance[] }>(
-            "attendances",
-            ["sms_attendanceid", "sms_studentid", "sms_student", "sms_date", "sms_attendancestatus", "sms_checkintime", "sms_remarks"],
-            filter,
-            "sms_student asc"
-        );
-        
-        console.log(`Attendance for ${date}:`, response.value.length);
-        return response.value;
-    } catch (error) {
-        console.error("Error fetching attendance:", error);
-        throw error;
+const SELECT = [
+    'sms_attendanceid', 'sms_name', 'sms_date', 'sms_attendancestatus',
+    'sms_checkintime', 'sms_remarks',
+    '_sms_student_value', '_sms_class_value', '_sms_subject_value',
+    'createdon',
+].join(',');
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAttendance(item: any): Attendance {
+    return {
+        attendanceid:     item.sms_attendanceid,
+        studentid:        item._sms_student_value ?? '',
+        studentname:      item['_sms_student_value@OData.Community.Display.V1.FormattedValue'] ?? item.sms_name ?? '',
+        date:             item.sms_date ? item.sms_date.slice(0, 10) : '',
+        attendancestatus: item.sms_attendancestatus ?? 1,
+        checkintime:      item.sms_checkintime ?? undefined,
+        remarks:          item.sms_remarks ?? undefined,
+        classid:          item._sms_class_value   ?? undefined,
+        classname:        item['_sms_class_value@OData.Community.Display.V1.FormattedValue']   ?? undefined,
+        subjectid:        item._sms_subject_value ?? undefined,
+        subjectname:      item['_sms_subject_value@OData.Community.Display.V1.FormattedValue'] ?? undefined,
+        createdon:        item.createdon ?? '',
+    };
+}
+
+export const getAttendance = async (date?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=createdon desc`, `$top=${top}`];
+    if (date) {
+        parts.push(`$filter=${encodeURIComponent(`sms_date eq ${date.slice(0, 10)}`)}`);
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (r.value ?? []).map((item: any) => mapAttendance(item));
+};
+
+export const getAttendanceById = async (id: string): Promise<Attendance> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    return mapAttendance(r);
 };
 
 export const markAttendance = async (records: CreateAttendanceRequest[]) => {
-    try {
-        const results = [];
-        for (const record of records) {
-            const response = await dataverseClient.post<Attendance>("attendances", record);
-            results.push(response);
+    const results = [];
+    for (const record of records) {
+        const payload: Record<string, unknown> = {
+            'sms_student@odata.bind': `/sms_students(${record.studentid})`,
+            sms_date:             record.date,
+            sms_attendancestatus: record.attendancestatus,
+        };
+        if (record.checkintime) {
+            payload.sms_checkintime = record.checkintime.includes('T')
+                ? record.checkintime
+                : `1970-01-01T${record.checkintime}:00Z`;
         }
-        console.log(`Marked ${records.length} attendance records`);
-        return results;
-    } catch (error) {
-        console.error("Error marking attendance:", error);
-        throw error;
+        if (record.remarks)   payload.sms_remarks = record.remarks;
+        if (record.classid)   payload['sms_class@odata.bind']   = `/sms_classes(${record.classid})`;
+        if (record.subjectid) payload['sms_subject@odata.bind'] = `/sms_subjects(${record.subjectid})`;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        results.push(await dataverseClient.post<any>(TABLE, payload));
     }
+    return results;
 };
 
 export const updateAttendance = async (id: string, data: Partial<CreateAttendanceRequest>) => {
-    try {
-        const response = await dataverseClient.patch<Attendance>(`attendances(${id})`, data);
-        return response;
-    } catch (error) {
-        console.error(`Error updating attendance ${id}:`, error);
-        throw error;
+    const payload: Record<string, unknown> = {};
+    if (data.attendancestatus !== undefined) payload.sms_attendancestatus = data.attendancestatus;
+    if (data.checkintime !== undefined) {
+        payload.sms_checkintime = data.checkintime
+            ? (data.checkintime.includes('T') ? data.checkintime : `1970-01-01T${data.checkintime}:00Z`)
+            : null;
     }
+    if (data.remarks  !== undefined) payload.sms_remarks = data.remarks || null;
+    if (data.classid  !== undefined) payload['sms_class@odata.bind']   = data.classid   ? `/sms_classes(${data.classid})`   : null;
+    if (data.subjectid !== undefined) payload['sms_subject@odata.bind'] = data.subjectid ? `/sms_subjects(${data.subjectid})` : null;
+    await dataverseClient.patch(`${TABLE}(${id})`, payload);
 };
 
-export const getAttendanceSummary = async (date: string, className?: string): Promise<AttendanceSummary> => {
-    try {
-        const filter = `sms_date eq ${date}${className ? ` and sms_classname eq '${className}'` : ''}`;
-        const response = await dataverseClient.getWithFilter<{ value: Attendance[] }>(
-            "attendances",
-            ["sms_status"],
-            filter
-        );
-        
-        const total = response.value.length;
-        const present = response.value.filter(a => a.status === 0).length;
-        const absent = response.value.filter(a => a.status === 1).length;
-        const late = response.value.filter(a => a.status === 2).length;
-        const excused = response.value.filter(a => a.status === 3).length;
-        
-        return {
-            totalStudents: total,
-            present,
-            absent,
-            late,
-            excused,
-            percentage: total > 0 ? (present / total) * 100 : 0
-        };
-    } catch (error) {
-        console.error("Error fetching attendance summary:", error);
-        throw error;
-    }
+export const deleteAttendance = async (id: string): Promise<void> => {
+    await dataverseClient.delete(`${TABLE}(${id})`);
+};
+
+export const getAttendanceSummary = async (date: string): Promise<AttendanceSummary> => {
+    const filter = encodeURIComponent(`sms_date eq ${date.slice(0, 10)}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_attendancestatus&$filter=${filter}`);
+    const records = r.value ?? [];
+    const total   = records.length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const present = records.filter((a: any) => a.sms_attendancestatus === 1).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const absent  = records.filter((a: any) => a.sms_attendancestatus === 2).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const late    = records.filter((a: any) => a.sms_attendancestatus === 3).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const excused = records.filter((a: any) => a.sms_attendancestatus === 4).length;
+    return { totalStudents: total, present, absent, late, excused, percentage: total > 0 ? (present / total) * 100 : 0 };
 };
 
 export const getStudentAttendanceReport = async (studentId: string, startDate: string, endDate: string) => {
-    try {
-        const filter = `sms_studentid eq ${studentId} and sms_date ge ${startDate} and sms_date le ${endDate}`;
-        const response = await dataverseClient.getWithFilter<{ value: Attendance[] }>(
-            "attendances",
-            ["sms_attendanceid", "sms_date", "sms_status", "sms_checkintime", "sms_remarks"],
-            filter,
-            "sms_date asc"
-        );
-        
-        return response.value;
-    } catch (error) {
-        console.error("Error fetching student attendance report:", error);
-        throw error;
-    }
+    const start = startDate.slice(0, 10);
+    const end   = endDate.slice(0, 10);
+    const filter = encodeURIComponent(
+        `sms_student/sms_studentid eq ${studentId} and sms_date ge ${start} and sms_date le ${end}`
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_date asc`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (r.value ?? []).map((item: any) => mapAttendance(item));
 };
 
-export const getAttendanceTrends = async (days: number = 30) => {
-    try {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - days);
-        
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = endDate.toISOString().split('T')[0];
-        
-        const filter = `sms_date ge ${startDateStr} and sms_date le ${endDateStr}`;
-        const response = await dataverseClient.getWithFilter<{ value: Attendance[] }>(
-            "attendances",
-            ["sms_date", "sms_status"],
-            filter,
-            "sms_date asc"
-        );
-        
-        // Group by date and calculate daily attendance percentage
-        const dailyData = new Map();
-        response.value.forEach(record => {
-            if (!dailyData.has(record.date)) {
-                dailyData.set(record.date, { total: 0, present: 0 });
-            }
-            const day = dailyData.get(record.date);
-            day.total++;
-            if (record.status === 0) day.present++;
-        });
-        
-        return Array.from(dailyData.entries()).map(([date, data]) => ({
-            date,
-            percentage: (data.present / data.total) * 100,
-            present: data.present,
-            total: data.total
-        }));
-    } catch (error) {
-        console.error("Error fetching attendance trends:", error);
-        throw error;
-    }
+export const getAttendanceTrends = async (days = 30) => {
+    const endDate   = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr   = endDate.toISOString().split('T')[0];
+    const filter   = encodeURIComponent(`sms_date ge ${startStr} and sms_date le ${endStr}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_date,sms_attendancestatus&$filter=${filter}&$orderby=sms_date asc`);
+    const records = r.value ?? [];
+
+    const dailyMap = new Map<string, { total: number; present: number }>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    records.forEach((rec: any) => {
+        const d = (rec.sms_date as string).slice(0, 10);
+        if (!dailyMap.has(d)) dailyMap.set(d, { total: 0, present: 0 });
+        const day = dailyMap.get(d)!;
+        day.total++;
+        if (rec.sms_attendancestatus === 1) day.present++;
+    });
+
+    return Array.from(dailyMap.entries()).map(([date, data]) => ({
+        date,
+        percentage: (data.present / data.total) * 100,
+        present:    data.present,
+        total:      data.total,
+    }));
 };

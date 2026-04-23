@@ -1,64 +1,29 @@
 // src/app/api/attendance/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getAttendanceByDate, 
-  markAttendance, 
-  getAttendanceSummary,
-  getAttendanceTrends 
+import {
+  getAttendance,
+  markAttendance,
+  getAttendanceTrends,
 } from '@/lib/dataverse/attendance';
 
-// GET /api/attendance - Get attendance records
+// GET /api/attendance?date=YYYY-MM-DD
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const date = searchParams.get('date');
-    const className = searchParams.get('className') || undefined;
-    const summary = searchParams.get('summary') === 'true';
+    const date  = searchParams.get('date') || undefined;
     const trends = searchParams.get('trends') === 'true';
-    const days = parseInt(searchParams.get('days') || '30');
+    const days   = parseInt(searchParams.get('days') || '30');
 
-    if (!date && !trends) {
-      return NextResponse.json(
-        { success: false, error: 'Date parameter is required' },
-        { status: 400 }
-      );
-    }
-
-    // Get attendance trends
     if (trends) {
-      const trendsData = await getAttendanceTrends(days);
-      return NextResponse.json({
-        success: true,
-        data: trendsData
-      });
+      const data = await getAttendanceTrends(days);
+      return NextResponse.json({ success: true, data });
     }
 
-    // Get attendance summary
-    if (summary && date) {
-      const summaryData = await getAttendanceSummary(date, className);
-      return NextResponse.json({
-        success: true,
-        data: summaryData
-      });
-    }
-
-    // Get attendance records for a date
-    const attendance = await getAttendanceByDate(date!, className);
-    
-    return NextResponse.json({
-      success: true,
-      data: attendance,
-      total: attendance.length
-    });
+    const data = await getAttendance(date);
+    return NextResponse.json({ success: true, data });
   } catch (error: any) {
-    console.error('Error in GET /api/attendance:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to fetch attendance' 
-      },
-      { status: 500 }
-    );
+    console.error('GET /api/attendance error:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Failed to fetch attendance' }, { status: 500 });
   }
 }
 

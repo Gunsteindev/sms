@@ -22,10 +22,14 @@ export async function GET(
     const attendance = await getStudentAttendanceReport(id, startDate, endDate);
 
     const total = attendance.length;
-    const present = attendance.filter(a => a.status === 0).length;
-    const absent = attendance.filter(a => a.status === 1).length;
-    const late = attendance.filter(a => a.status === 2).length;
-    const excused = attendance.filter(a => a.status === 3).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const present = attendance.filter((a: any) => a.attendancestatus === 1).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const absent  = attendance.filter((a: any) => a.attendancestatus === 2).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const late    = attendance.filter((a: any) => a.attendancestatus === 3).length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const excused = attendance.filter((a: any) => a.attendancestatus === 4).length;
 
     return NextResponse.json({
       success: true,
@@ -43,13 +47,13 @@ export async function GET(
     });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    console.error('Error in GET /api/attendance/student/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to fetch student attendance'
-      },
-      { status: 500 }
-    );
+    // Extract the actual Dataverse error body so we can diagnose OData 400s
+    const dvError = error.response?.data?.error ?? error.response?.data;
+    const msg = dvError?.message ?? dvError ?? error.message ?? 'Failed to fetch student attendance';
+    console.error('GET /api/attendance/student/[id] failed:', {
+      status: error.response?.status,
+      dataverse: dvError,
+    });
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }

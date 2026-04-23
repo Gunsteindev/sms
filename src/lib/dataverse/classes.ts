@@ -1,248 +1,158 @@
-// src/lib/dataverse/classes.ts
 import { dataverseClient } from "./client";
 
-// Correct table name (singular as per your Dataverse pattern)
-const CLASS_TABLE = 'sms_classes';
+const TABLE = 'sms_classes';
+
+// Verified Dataverse fields (sms_classes) — discovered 2026-04-21:
+// sms_classid, sms_name, sms_classnumber, sms_section, sms_capacity,
+// sms_roomnumber, sms_enrolledcount (rollup),
+// _sms_academicyear_value (Lookup → sms_academicyears),
+// _sms_gradelevel_value   (Lookup → sms_gradelevels),
+// _sms_teacher_value      (Lookup → sms_teachers),   ← NOT _sms_classteacher_value
+// createdon, modifiedon
+// NOTE: sms_gradelevel (integer) does NOT exist — grade is a lookup.
 
 export interface Class {
-    classid: string;
-    classname: string;
-    gradelevel: number;
-    academicyear: string;
-    classteacherid: string;
-    classteachername?: string;
-    capacity: number;
-    roomnumber: string;
-    currentenrollment: number;
-    createdon: string;
-    modifiedon: string;
+    classid:          string;
+    classname:        string;
+    classnumber:      string;
+    section:          string;
+    capacity:         number;
+    enrolledcount:    number;
+    roomnumber:       string;
+    academicyearid:   string;
+    academicyearname: string;
+    gradelevelid:     string;
+    gradelevelname:   string;
+    teacherid:        string;
+    teachername:      string;
+    createdon:        string;
+    modifiedon:       string;
 }
 
 export interface CreateClassRequest {
-    classname: string;
-    gradelevel: number;
-    academicyear: string;
-    classteacherid: string;
-    capacity: number;
-    roomnumber: string;
+    classname:       string;
+    classnumber?:    string;
+    section?:        string;
+    capacity:        number;
+    roomnumber:      string;
+    /** GUID of the academic year record */
+    academicyearid?: string;
+    /** GUID of the grade level record */
+    gradelevelid?:   string;
+    /** GUID of the teacher record */
+    teacherid?:      string;
 }
 
-// Get all classes
+const SELECT = [
+    'sms_classid', 'sms_name', 'sms_classnumber', 'sms_section',
+    'sms_capacity', 'sms_roomnumber', 'sms_enrolledcount',
+    '_sms_academicyear_value',
+    '_sms_gradelevel_value',
+    '_sms_teacher_value',
+    'createdon', 'modifiedon',
+].join(',');
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapClass(item: any): Class {
+    return {
+        classid:          item.sms_classid                    ?? '',
+        classname:        item.sms_name                       ?? '',
+        classnumber:      item.sms_classnumber                ?? '',
+        section:          item.sms_section                    ?? '',
+        capacity:         item.sms_capacity                   ?? 0,
+        enrolledcount:    item.sms_enrolledcount              ?? 0,
+        roomnumber:       item.sms_roomnumber                 ?? '',
+        academicyearid:   item._sms_academicyear_value        ?? '',
+        academicyearname: item['_sms_academicyear_value@OData.Community.Display.V1.FormattedValue'] ?? '',
+        gradelevelid:     item._sms_gradelevel_value          ?? '',
+        gradelevelname:   item['_sms_gradelevel_value@OData.Community.Display.V1.FormattedValue']   ?? '',
+        teacherid:        item._sms_teacher_value             ?? '',
+        teachername:      item['_sms_teacher_value@OData.Community.Display.V1.FormattedValue']      ?? '',
+        createdon:        item.createdon                      ?? '',
+        modifiedon:       item.modifiedon                     ?? '',
+    };
+}
+
 export const getClasses = async () => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.get<any>(
-            `${CLASS_TABLE}?$select=sms_classid,sms_classname,sms_gradelevel,sms_academicyear,sms_classteacher,sms_capacity,sms_roomnumber&$orderby=sms_gradelevel asc,sms_classname asc`
-        );
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const classes = response.value.map((item: any) => ({
-            classid: item.sms_classid,
-            classname: item.sms_classname || '',
-            gradelevel: item.sms_gradelevel,
-            academicyear: item.sms_academicyear || '',
-            classteacherid: item.sms_classteacherid || '',
-            classteachername: item.sms_classteachername || '',
-            capacity: item.sms_capacity || 0,
-            roomnumber: item.sms_roomnumber || '',
-            currentenrollment: item.sms_currentenrollment || 0,
-            createdon: item.createdon,
-            modifiedon: item.modifiedon
-        }));
-        
-        console.log("Classes fetched:", classes.length);
-        return classes;
-    } catch (error) {
-        console.error("Error fetching classes:", error);
-        throw error;
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await dataverseClient.get<any>(
+        `${TABLE}?$select=${SELECT}&$orderby=sms_name asc`
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (response.value ?? []).map((item: any) => mapClass(item));
 };
 
-// Get class by ID
 export const getClassById = async (id: string): Promise<Class> => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.get<any>(`${CLASS_TABLE}(sms_classid=${id})`);
-        
-        const classData = {
-            classid: response.sms_classid,
-            classname: response.sms_classname || '',
-            gradelevel: response.sms_gradelevel,
-            academicyear: response.sms_academicyear || '',
-            classteacherid: response.sms_classteacherid || '',
-            classteachername: response.sms_classteachername || '',
-            capacity: response.sms_capacity || 0,
-            roomnumber: response.sms_roomnumber || '',
-            currentenrollment: response.sms_currentenrollment || 0,
-            createdon: response.createdon,
-            modifiedon: response.modifiedon
-        };
-        
-        console.log("Class fetched:", classData.classid);
-        return classData;
-    } catch (error) {
-        console.error(`Error fetching class ${id}:`, error);
-        throw error;
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    return mapClass(r);
 };
 
-// Create new class
 export const createClass = async (data: CreateClassRequest) => {
-    try {
-        const dataverseData = {
-            sms_classname: data.classname,
-            sms_gradelevel: data.gradelevel,
-            sms_academicyear: data.academicyear,
-            sms_classteacherid: data.classteacherid,
-            sms_capacity: data.capacity,
-            sms_roomnumber: data.roomnumber,
-            sms_currentenrollment: 0
-        };
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.post<any>(CLASS_TABLE, dataverseData);
-        console.log("Class created:", response);
-        return response;
-    } catch (error) {
-        console.error("Error creating class:", error);
-        throw error;
-    }
+    const payload: Record<string, unknown> = {
+        sms_name:     data.classname,
+        sms_capacity: data.capacity,
+        sms_roomnumber: data.roomnumber,
+    };
+    if (data.classnumber)    payload.sms_classnumber = data.classnumber;
+    if (data.section)        payload.sms_section     = data.section;
+    if (data.academicyearid) payload['sms_academicyear@odata.bind'] = `/sms_academicyears(${data.academicyearid})`;
+    if (data.gradelevelid)   payload['sms_gradelevel@odata.bind']   = `/sms_gradelevels(${data.gradelevelid})`;
+    if (data.teacherid)      payload['sms_teacher@odata.bind']      = `/sms_teachers(${data.teacherid})`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return dataverseClient.post<any>(TABLE, payload);
 };
 
-// Update class
 export const updateClass = async (id: string, data: Partial<CreateClassRequest>) => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const dataverseData: any = {};
-        
-        if (data.classname !== undefined) dataverseData.sms_classname = data.classname;
-        if (data.gradelevel !== undefined) dataverseData.sms_gradelevel = data.gradelevel;
-        if (data.academicyear !== undefined) dataverseData.sms_academicyear = data.academicyear;
-        if (data.classteacherid !== undefined) dataverseData.sms_classteacherid = data.classteacherid;
-        if (data.capacity !== undefined) dataverseData.sms_capacity = data.capacity;
-        if (data.roomnumber !== undefined) dataverseData.sms_roomnumber = data.roomnumber;
-        
-        await dataverseClient.patch(`${CLASS_TABLE}(sms_classid=${id})`, dataverseData);
-        
-        const updatedClass = await getClassById(id);
-        console.log("Class updated:", id);
-        return updatedClass;
-    } catch (error) {
-        console.error(`Error updating class ${id}:`, error);
-        throw error;
-    }
+    const payload: Record<string, unknown> = {};
+    if (data.classname     !== undefined) payload.sms_name       = data.classname;
+    if (data.classnumber   !== undefined) payload.sms_classnumber = data.classnumber;
+    if (data.section       !== undefined) payload.sms_section    = data.section;
+    if (data.capacity      !== undefined) payload.sms_capacity   = data.capacity;
+    if (data.roomnumber    !== undefined) payload.sms_roomnumber = data.roomnumber;
+    if (data.academicyearid !== undefined)
+        payload['sms_academicyear@odata.bind'] = data.academicyearid ? `/sms_academicyears(${data.academicyearid})` : null;
+    if (data.gradelevelid !== undefined)
+        payload['sms_gradelevel@odata.bind']   = data.gradelevelid   ? `/sms_gradelevels(${data.gradelevelid})`   : null;
+    if (data.teacherid !== undefined)
+        payload['sms_teacher@odata.bind']      = data.teacherid      ? `/sms_teachers(${data.teacherid})`         : null;
+    await dataverseClient.patch(`${TABLE}(${id})`, payload);
+    return getClassById(id);
 };
 
-// Delete class
 export const deleteClass = async (id: string): Promise<void> => {
-    try {
-        await dataverseClient.delete(`${CLASS_TABLE}(sms_classid=${id})`);
-        console.log("Class deleted:", id);
-    } catch (error) {
-        console.error(`Error deleting class ${id}:`, error);
-        throw error;
-    }
+    await dataverseClient.delete(`${TABLE}(${id})`);
 };
 
-// Get classes count and statistics
 export const getClassesCount = async () => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.get<any>(
-            `${CLASS_TABLE}?$select=sms_classid,sms_gradelevel,sms_capacity,sms_currentenrollment&$count=true`
-        );
-        
-        const classes = response.value || [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalCapacity = classes.reduce((sum: number, cls: any) => sum + (cls.sms_capacity || 0), 0);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalEnrollment = classes.reduce((sum: number, cls: any) => sum + (cls.sms_currentenrollment || 0), 0);
-        
-        const byGrade: Record<number, number> = {};
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        classes.forEach((cls: any) => {
-            const grade = cls.sms_gradelevel;
-            if (grade) {
-                byGrade[grade] = (byGrade[grade] || 0) + 1;
-            }
-        });
-        
-        return {
-            total: response["@odata.count"] || classes.length,
-            byGrade,
-            totalCapacity,
-            totalEnrollment,
-            averageClassSize: classes.length > 0 ? totalEnrollment / classes.length : 0,
-            utilizationRate: totalCapacity > 0 ? (totalEnrollment / totalCapacity) * 100 : 0
-        };
-    } catch (error) {
-        console.error("Error fetching classes count:", error);
-        throw error;
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(
+        `${TABLE}?$select=sms_classid,sms_capacity,_sms_gradelevel_value&$count=true`
+    );
+    const classes = r.value ?? [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalCapacity = classes.reduce((sum: number, c: any) => sum + (c.sms_capacity || 0), 0);
+
+    const byGrade: Record<string, number> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    classes.forEach((c: any) => {
+        const name = c['_sms_gradelevel_value@OData.Community.Display.V1.FormattedValue'] ?? 'Unknown';
+        byGrade[name] = (byGrade[name] || 0) + 1;
+    });
+
+    return {
+        total: r['@odata.count'] ?? classes.length,
+        byGrade,
+        totalCapacity,
+    };
 };
 
-// Get classes by grade level
-export const getClassesByGrade = async (gradelevel: number) => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.get<any>(
-            `${CLASS_TABLE}?$select=sms_classid,sms_classname,sms_gradelevel,sms_roomnumber,sms_capacity,sms_currentenrollment&$filter=sms_gradelevel eq ${gradelevel}&$orderby=sms_classname asc`
-        );
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return response.value.map((item: any) => ({
-            classid: item.sms_classid,
-            classname: item.sms_classname || '',
-            gradelevel: item.sms_gradelevel,
-            roomnumber: item.sms_roomnumber || '',
-            capacity: item.sms_capacity || 0,
-            currentenrollment: item.sms_currentenrollment || 0
-        }));
-    } catch (error) {
-        console.error(`Error fetching classes for grade ${gradelevel}:`, error);
-        throw error;
-    }
-};
-
-// Get class students (enrollments)
-export const getClassStudents = async (classId: string) => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.get<any>(
-            `sms_student?$select=sms_studentid,sms_firstname,sms_lastname,sms_rollnumber,sms_emailaddress&$filter=sms_classid eq '${classId}'&$orderby=sms_rollnumber asc`
-        );
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return response.value.map((item: any) => ({
-            studentid: item.sms_studentid,
-            firstname: item.sms_firstname || '',
-            lastname: item.sms_lastname || '',
-            rollnumber: item.sms_rollnumber || '',
-            email: item.sms_emailaddress || ''
-        }));
-    } catch (error) {
-        console.error("Error fetching class students:", error);
-        throw error;
-    }
-};
-
-// Get class subjects
-export const getClassSubjects = async (classId: string) => {
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response = await dataverseClient.get<any>(
-            `sms_classsubject?$select=sms_subjectid,sms_subjectname,sms_teachername,sms_credithours&$filter=sms_classid eq '${classId}'&$orderby=sms_subjectname asc`
-        );
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return response.value.map((item: any) => ({
-            subjectid: item.sms_subjectid,
-            subjectname: item.sms_subjectname || '',
-            teachername: item.sms_teachername || '',
-            credithours: item.sms_credithours || 0
-        }));
-    } catch (error) {
-        console.error("Error fetching class subjects:", error);
-        throw error;
-    }
+export const getClassesByGradeLevel = async (gradelevelid: string) => {
+    const filter = encodeURIComponent(`_sms_gradelevel_value eq ${gradelevelid}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(
+        `${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_name asc`
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (r.value ?? []).map((item: any) => mapClass(item));
 };

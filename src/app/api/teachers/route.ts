@@ -14,12 +14,16 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const teachers = await getTeachers();
-        
+        const search   = searchParams.get('search')   ?? undefined;
+        const status   = searchParams.get('status')   ? Number(searchParams.get('status'))   : undefined;
+        const pageSize = searchParams.get('pageSize') ? Number(searchParams.get('pageSize')) : undefined;
+
+        const result = await getTeachers({ search, status, pageSize });
+
         return NextResponse.json({
             success: true,
-            data: teachers,
-            total: teachers.length
+            data: result.items,
+            total: result.totalCount
         });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

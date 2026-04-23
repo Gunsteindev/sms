@@ -25,7 +25,7 @@ import {
   getEmployeeById,
   createEmployee,
   deleteEmployee,
-  getAttendanceByDate,
+  getAttendance,
   markAttendance,
   getAttendanceSummary,
   getClasses,
@@ -122,21 +122,15 @@ async function testStudents() {
       lastname: "Student",
       dateofbirth: "2010-01-01",
       gender: 1,
-      emailaddress1: `test.student.${Date.now()}@example.com`,
-      telephone1: "+1234567890",
-      address1_line1: "123 Test St",
-      address1_city: "Test City",
-      address1_stateorprovince: "Test State",
-      address1_postalcode: "12345",
+      email: `test.student.${Date.now()}@example.com`,
+      phone: "+1234567890",
+      address: "123 Test St",
       enrollmentdate: new Date().toISOString().split('T')[0],
-      parentname: "Test Parent",
-      parentphone: "+1234567890",
-      parentemail: `parent.${Date.now()}@example.com`,
-      rollnumber: `ROLL${Date.now()}`,
-      classname: "Test Class"
+      rollnumber: `ROLL${Date.now()}`
     });
     
-    testStudentId = student.studentid;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    testStudentId = (student as any).sms_studentid ?? (student as any).studentid;
     console.log(`  Created student with ID: ${testStudentId}`);
     return student;
   });
@@ -205,8 +199,7 @@ async function testTeachers() {
       hiredate: "2020-01-01",
       qualification: "Master's Degree",
       specialization: "Mathematics",
-      employeecode: `TCH${Date.now()}`,
-      department: "Mathematics"
+      employeecode: `TCH${Date.now()}`
     });
     
     testTeacherId = teacher.teacherid;
@@ -217,8 +210,8 @@ async function testTeachers() {
   // Get all teachers
   await runTest("Get All Teachers", async () => {
     const teachers = await getTeachers();
-    console.log(`  Found ${teachers.length} teachers`);
-    return { count: teachers.length };
+    console.log(`  Found ${teachers.totalCount} teachers`);
+    return { count: teachers.totalCount };
   });
   
   // Get teacher by ID
@@ -290,7 +283,7 @@ async function testAttendance() {
   
   // Get attendance by date
   await runTest("Get Attendance By Date", async () => {
-    const attendance = await getAttendanceByDate(today);
+    const attendance = await getAttendance(today);
     console.log(`  Found ${attendance.length} attendance records for today`);
     return { count: attendance.length };
   });
@@ -311,9 +304,8 @@ async function testAttendance() {
       const result = await markAttendance([{
         studentid: testStudentId!,
         date: today,
-        status: 0, // Present
+        attendancestatus: 1, // Present
         checkintime: "08:00",
-        checkouttime: "15:00",
         remarks: "Test attendance record"
       }]);
       
@@ -344,7 +336,7 @@ async function testFees() {
   const currentYear = new Date().getFullYear().toString();
   
   await runTest("Get Fee Structures", async () => {
-    const feeStructures = await getFeeStructures(undefined, currentYear);
+    const feeStructures = await getFeeStructures();
     console.log(`  Found ${feeStructures.length} fee structures for ${currentYear}`);
     return { count: feeStructures.length };
   });

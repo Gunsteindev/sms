@@ -17,7 +17,7 @@ async function test() {
     
     // Test teachers
     const teachers = await getTeachers();
-    console.log("Teachers loaded:", teachers.length);
+    console.log("Teachers loaded:", teachers.totalCount);
     
     // Test employees
     const employees = await getEmployees();

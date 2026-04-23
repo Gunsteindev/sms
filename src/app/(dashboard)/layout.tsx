@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (status === 'unauthenticated') return null;
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden pl-64">
         <Header />

@@ -5,7 +5,6 @@ export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const stats = searchParams.get('stats') === 'true';
-        const gradelevel = searchParams.get('gradelevel') ? parseInt(searchParams.get('gradelevel')!) : undefined;
 
         if (stats) {
             const classStats = await getClassesCount();
@@ -15,13 +14,8 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        let classes = await getClasses();
-        
-        // Filter by grade level if specified
-        if (gradelevel) {
-            classes = classes.filter((c: { gradelevel: number }) => c.gradelevel === gradelevel);
-        }
-        
+        const classes = await getClasses();
+
         return NextResponse.json({
             success: true,
             data: classes,
@@ -45,7 +39,7 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         
-        const requiredFields = ['classname', 'gradelevel', 'academicyear', 'classteacherid', 'capacity'];
+        const requiredFields = ['classname', 'capacity'];
         const missingFields = requiredFields.filter(field => !body[field]);
         
         if (missingFields.length > 0) {
