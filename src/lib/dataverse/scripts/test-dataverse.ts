@@ -193,13 +193,13 @@ async function testTeachers() {
       lastname: "Test",
       dateofbirth: "1980-01-01",
       gender: 1,
-      emailaddress1: `teacher.${Date.now()}@example.com`,
-      telephone1: "+1234567890",
-      address1_line1: "123 Teacher St",
+      email: `teacher.${Date.now()}@example.com`,
+      phone: "+1234567890",
+      address: "123 Teacher St",
       hiredate: "2020-01-01",
       qualification: "Master's Degree",
       specialization: "Mathematics",
-      employeecode: `TCH${Date.now()}`
+      employeeid: `TCH${Date.now()}`
     });
     
     testTeacherId = teacher.teacherid;

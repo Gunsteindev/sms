@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        if (!body.studentid || !body.feestructureid || body.amount === undefined || !body.paymentmethod) {
-            return NextResponse.json({ success: false, error: 'studentid, feestructureid, amount, and paymentmethod are required' }, { status: 400 });
+        if (!body.studentid || !body.feeid || body.amount === undefined || !body.paymentmethod) {
+            return NextResponse.json({ success: false, error: 'studentid, feeid, amount, and paymentmethod are required' }, { status: 400 });
         }
         if (!body.receiptnumber) {
             body.receiptnumber = `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;

@@ -11,33 +11,41 @@ interface Pagination {
   hasNextPage: boolean;
 }
 
-export function useStudents(page = 1, pageSize = 15, search?: string, status?: number) {
-  const [students, setStudents]   = useState<Student[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [pagination, setPagination] = useState<Pagination>({ page, pageSize, totalCount: 0, hasNextPage: false });
+// Fetches all students matching the current filters once, then paginates client-side.
+// Page navigation is instant — only filter/search changes trigger a new Dataverse call.
+export function useStudents(page = 1, pageSize = 20, search?: string, status?: number) {
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response: any = await studentsAPI.getAll({ page, pageSize, search: search || undefined, status });
-      const items: Student[] = response.data ?? [];
-      setStudents(items);
-      setPagination(
-        response.pagination ?? { page, pageSize, totalCount: items.length, hasNextPage: false }
-      );
+      const response: any = await studentsAPI.getAll({ search: search || undefined, status });
+      setAllStudents(response.data ?? []);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.error ?? err.message ?? 'Failed to fetch students');
-      setStudents([]);
+      setAllStudents([]);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, status]);
+  }, [search, status]); // page/pageSize intentionally excluded — handled client-side
 
   useEffect(() => { fetchStudents(); }, [fetchStudents]);
+
+  const start      = (page - 1) * pageSize;
+  const students   = allStudents.slice(start, start + pageSize);
+  const totalCount = allStudents.length;
+
+  const pagination: Pagination = {
+    page,
+    pageSize,
+    totalCount,
+    hasNextPage: start + pageSize < totalCount,
+  };
 
   return { students, loading, error, pagination, refetch: fetchStudents };
 }

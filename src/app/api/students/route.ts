@@ -3,28 +3,21 @@ import { getStudents, createStudent, getStudentStats } from '@/lib/dataverse/stu
 
 export async function GET(request: NextRequest) {
     try {
-        const p        = request.nextUrl.searchParams;
-        const page     = parseInt(p.get('page')     || '1');
-        const pageSize = parseInt(p.get('pageSize') || '15');
-        const search   = p.get('search')  || undefined;
-        const status   = p.get('status')  ? parseInt(p.get('status')!) : undefined;
+        const p      = request.nextUrl.searchParams;
+        const search = p.get('search') || undefined;
+        const status = p.get('status') ? parseInt(p.get('status')!) : undefined;
 
         if (p.get('stats') === 'true') {
             const data = await getStudentStats();
             return NextResponse.json({ success: true, data });
         }
 
-        const result = await getStudents({ page, pageSize, search, status });
+        const result = await getStudents({ search, status });
 
         return NextResponse.json({
             success: true,
-            data: result.items,
-            pagination: {
-                page:       result.page,
-                pageSize:   result.pageSize,
-                totalCount: result.totalCount,
-                hasNextPage: result.hasNextPage,
-            },
+            data:       result.items,
+            totalCount: result.totalCount,
         });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Failed to fetch students';

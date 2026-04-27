@@ -2,28 +2,35 @@ import { dataverseClient } from "./client";
 
 const TABLE = 'sms_subjects';
 
-// Verified Dataverse fields (sms_subjects) — discovered 2026-04-21:
-// sms_subjectid, sms_name,
-// sms_code        ← NOT sms_subjectcode
-// sms_description, sms_credithours, sms_passscore, sms_type,
-// _sms_gradelevel_value (Lookup → sms_gradelevels),
-// _sms_teacher_value    (Lookup → sms_teachers),
+// Verified Dataverse fields (sms_subject) — probed 2026-04-24:
+// sms_subjectid, sms_name, sms_code (String),
+// sms_description (Memo), sms_credithours (Integer), sms_passscore (Decimal),
+// sms_type (Picklist: 922330000=Core, 922330001=Elective, 922330002=Extra),
+// sms_gradelevel (Lookup → sms_gradelevels),
+// sms_teacher    (Lookup → sms_teachers),
 // createdon, modifiedon
 
+export const SUBJECT_TYPES: Record<number, string> = {
+    922330000: 'Core',
+    922330001: 'Elective',
+    922330002: 'Extra',
+};
+
 export interface Subject {
-    subjectid:     string;
-    name:          string;
-    code:          string;
-    description:   string;
-    credithours:   number;
-    passscore:     number | null;
-    type:          string;
-    gradelevelid:  string;
+    subjectid:      string;
+    name:           string;
+    code:           string;
+    description:    string;
+    credithours:    number;
+    passscore:      number | null;
+    type:           number | null;
+    typelabel:      string;
+    gradelevelid:   string;
     gradelevelname: string;
-    teacherid:     string;
-    teachername:   string;
-    createdon:     string;
-    modifiedon:    string;
+    teacherid:      string;
+    teachername:    string;
+    createdon:      string;
+    modifiedon:     string;
 }
 
 export interface CreateSubjectRequest {
@@ -32,7 +39,7 @@ export interface CreateSubjectRequest {
     description?:  string;
     credithours?:  number;
     passscore?:    number;
-    type?:         string;
+    type?:         number;
     gradelevelid?: string;
     teacherid?:    string;
 }
@@ -46,20 +53,22 @@ const SELECT = [
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapSubject(item: any): Subject {
+    const typeVal = item.sms_type ?? null;
     return {
-        subjectid:     item.sms_subjectid   ?? '',
-        name:          item.sms_name        ?? '',
-        code:          item.sms_code        ?? '',
-        description:   item.sms_description ?? '',
-        credithours:   item.sms_credithours ?? 0,
-        passscore:     item.sms_passscore   ?? null,
-        type:          item.sms_type        ?? '',
-        gradelevelid:  item._sms_gradelevel_value ?? '',
+        subjectid:      item.sms_subjectid   ?? '',
+        name:           item.sms_name        ?? '',
+        code:           item.sms_code        ?? '',
+        description:    item.sms_description ?? '',
+        credithours:    item.sms_credithours ?? 0,
+        passscore:      item.sms_passscore   ?? null,
+        type:           typeVal,
+        typelabel:      typeVal !== null ? (SUBJECT_TYPES[typeVal] ?? String(typeVal)) : '',
+        gradelevelid:   item._sms_gradelevel_value ?? '',
         gradelevelname: item['_sms_gradelevel_value@OData.Community.Display.V1.FormattedValue'] ?? '',
-        teacherid:     item._sms_teacher_value    ?? '',
-        teachername:   item['_sms_teacher_value@OData.Community.Display.V1.FormattedValue']    ?? '',
-        createdon:     item.createdon       ?? '',
-        modifiedon:    item.modifiedon      ?? '',
+        teacherid:      item._sms_teacher_value    ?? '',
+        teachername:    item['_sms_teacher_value@OData.Community.Display.V1.FormattedValue']    ?? '',
+        createdon:      item.createdon       ?? '',
+        modifiedon:     item.modifiedon      ?? '',
     };
 }
 

@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const studentId = searchParams.get('studentId');
-        const gradelevel = searchParams.get('gradelevel') ? parseInt(searchParams.get('gradelevel')!) : undefined;
+        const gradelevel = searchParams.get('gradelevel') ?? undefined;
         const revenue = searchParams.get('revenue') === 'true';
         const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : new Date().getMonth() + 1;
         const year = searchParams.get('year') ? parseInt(searchParams.get('year')!) : new Date().getFullYear();

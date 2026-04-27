@@ -3,8 +3,8 @@ import { getFeeStructures, createFeeStructure } from '@/lib/dataverse/fees';
 
 export async function GET(request: NextRequest) {
     try {
-        const gradelevel = request.nextUrl.searchParams.get('gradelevel');
-        const data = await getFeeStructures(gradelevel ? Number(gradelevel) : undefined);
+        const gradelevel = request.nextUrl.searchParams.get('gradelevel') ?? undefined;
+        const data = await getFeeStructures(gradelevel);
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : 'Failed to fetch fee structures';

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Pencil, AlertCircle, Plus, Trash2, Star,
-  Search, UserPlus, CalendarDays, ShieldCheck,
+  Search, UserPlus, CalendarDays, ShieldCheck, Users,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -25,25 +25,39 @@ import type { Parent } from '@/lib/dataverse/parents';
 import type { StudentParent } from '@/lib/dataverse/studentparents';
 import { PARENT_RELATIONSHIPS } from '@/lib/dataverse/parents';
 
-// ─── Parent form schema ───────────────────────────────────────────────────────
+// ─── Schemas ──────────────────────────────────────────────────────────────────
 const parentSchema = z.object({
-  firstname:      z.string().min(1, 'Required'),
-  lastname:       z.string().min(1, 'Required'),
-  emailaddress1:  z.string().email('Invalid email').optional().or(z.literal('')),
-  telephone1:     z.string().optional(),
-  relationship:   z.coerce.number().default(3),
-  address1_line1: z.string().optional(),
+  firstname:    z.string().min(1, 'Required'),
+  lastname:     z.string().min(1, 'Required'),
+  email:        z.string().email('Invalid email').optional().or(z.literal('')),
+  phone:        z.string().optional(),
+  relationship: z.coerce.number().default(3),
+  address:      z.string().optional(),
 });
 type ParentFormData = z.infer<typeof parentSchema>;
 
-interface AttendanceSummary {
-  total: number;
-  present: number;
-  absent: number;
-  late: number;
-  percentage: number;
+// ─── Constants ────────────────────────────────────────────────────────────────
+const STUDENT_STATUSES = [
+  { value: 1, label: 'Active',      variant: 'success' as const },
+  { value: 2, label: 'Graduated',   variant: 'info'    as const },
+  { value: 3, label: 'Transferred', variant: 'warning' as const },
+  { value: 4, label: 'Suspended',   variant: 'error'   as const },
+];
+
+const ENROLLMENT_STATUSES = [
+  { value: 1, label: 'Enrolled',  color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+  { value: 2, label: 'Completed', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 3, label: 'Dropped',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  { value: 4, label: 'On Hold',   color: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+];
+
+function formatDate(d: string | undefined) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+  catch { return '—'; }
 }
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
 function F({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
@@ -82,15 +96,15 @@ function ParentForm({ defaultValues, onSubmit, onCancel }: {
         </select>
       </F>
       <div className="grid grid-cols-2 gap-3">
-        <F id="emailaddress1" label="Email" error={errors.emailaddress1?.message}>
-          <Input id="emailaddress1" type="email" {...register('emailaddress1')} placeholder="parent@email.com" />
+        <F id="email" label="Email" error={errors.email?.message}>
+          <Input id="email" type="email" {...register('email')} placeholder="parent@email.com" />
         </F>
-        <F id="telephone1" label="Phone">
-          <Input id="telephone1" type="tel" {...register('telephone1')} placeholder="+1 555 0001" />
+        <F id="phone" label="Phone">
+          <Input id="phone" type="tel" {...register('phone')} placeholder="+233 20 000 0000" />
         </F>
       </div>
-      <F id="address1_line1" label="Address">
-        <Input id="address1_line1" {...register('address1_line1')} placeholder="Street address" />
+      <F id="address" label="Address">
+        <Input id="address" {...register('address')} placeholder="Street address" />
       </F>
       <div className="flex justify-end gap-2 pt-2 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -100,41 +114,35 @@ function ParentForm({ defaultValues, onSubmit, onCancel }: {
   );
 }
 
-// ─── Enrollment status label ──────────────────────────────────────────────────
-const ENROLLMENT_STATUS: Record<number, string> = {
-  922330000: 'Active',
-  922330001: 'Withdrawn',
-  922330002: 'Graduated',
-  922330003: 'Suspended',
-};
-
-function formatDate(d: string | undefined) {
-  if (!d) return '—';
-  try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
-  catch { return '—'; }
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
-export default function StudentDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
+interface AttendanceSummary { total: number; present: number; absent: number; late: number; percentage: number; }
 
-  const [student, setStudent]             = useState<Student | null>(null);
-  const [attendance, setAttendance]       = useState<AttendanceSummary | null>(null);
+export default function StudentDetailPage() {
+  const { id }  = useParams<{ id: string }>();
+  const router  = useRouter();
+
+  const [student,       setStudent]       = useState<Student | null>(null);
+  const [attendance,    setAttendance]    = useState<AttendanceSummary | null>(null);
   const [linkedParents, setLinkedParents] = useState<StudentParent[]>([]);
-  const [loading, setLoading]             = useState(true);
+  const [loading,       setLoading]       = useState(true);
 
   // Modals
-  const [editOpen, setEditOpen]           = useState(false);
-  const [addParentOpen, setAddParentOpen] = useState(false);
-  const [linkOpen, setLinkOpen]           = useState(false);
-  const [editingParent, setEditingParent] = useState<Parent | null>(null);
-  const [unlinkTarget, setUnlinkTarget]   = useState<string | null>(null);
+  const [editOpen,       setEditOpen]       = useState(false);
+  const [addParentOpen,  setAddParentOpen]  = useState(false);
+  const [linkOpen,       setLinkOpen]       = useState(false);
+  const [editingParent,  setEditingParent]  = useState<Parent | null>(null);
+  const [unlinkTarget,   setUnlinkTarget]   = useState<string | null>(null);
+  const [statusOpen,     setStatusOpen]     = useState(false);
 
-  // Link-existing-parent search
-  const [parentSearch, setParentSearch]   = useState('');
+  // Parent search
+  const [parentSearch,  setParentSearch]  = useState('');
   const [parentResults, setParentResults] = useState<Parent[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // Status quick-edit
+  const [draftStudentStatus,    setDraftStudentStatus]    = useState(1);
+  const [draftEnrollmentStatus, setDraftEnrollmentStatus] = useState(1);
+  const [savingStatus, setSavingStatus] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -147,9 +155,14 @@ export default function StudentDetailPage() {
         attendanceAPI.getStudentReport(id, start, end),
         studentParentsAPI.getByStudent(id),
       ]);
-      setStudent(stuRes.data ?? null);
+      const stu: Student = stuRes.data ?? null;
+      setStudent(stu);
       setAttendance(attRes.data?.summary ?? null);
       setLinkedParents(parRes.data ?? []);
+      if (stu) {
+        setDraftStudentStatus(stu.studentstatus || 1);
+        setDraftEnrollmentStatus(stu.enrollmentstatus || 1);
+      }
     } catch {
       toast.error('Failed to load student');
     } finally {
@@ -159,7 +172,7 @@ export default function StudentDetailPage() {
 
   useEffect(() => { load(); }, [id]);
 
-  // ── Student edit ──────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleStudentEdit = async (data: any) => {
     try {
@@ -167,12 +180,20 @@ export default function StudentDetailPage() {
       toast.success('Student updated');
       setEditOpen(false);
       load();
-    } catch {
-      toast.error('Failed to update student');
-    }
+    } catch { toast.error('Failed to update student'); }
   };
 
-  // ── Create new parent + auto-link ─────────────────────────────────────────
+  const handleSaveStatus = async () => {
+    setSavingStatus(true);
+    try {
+      await studentsAPI.update(id, { studentstatus: draftStudentStatus, enrollmentstatus: draftEnrollmentStatus });
+      toast.success('Status updated');
+      setStatusOpen(false);
+      load();
+    } catch { toast.error('Failed to update status'); }
+    finally { setSavingStatus(false); }
+  };
+
   const handleAddParent = async (data: ParentFormData) => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,12 +205,9 @@ export default function StudentDetailPage() {
       toast.success('Parent added and linked');
       setAddParentOpen(false);
       load();
-    } catch {
-      toast.error('Failed to add parent');
-    }
+    } catch { toast.error('Failed to add parent'); }
   };
 
-  // ── Edit existing parent ──────────────────────────────────────────────────
   const handleEditParent = async (data: ParentFormData) => {
     if (!editingParent) return;
     try {
@@ -197,12 +215,9 @@ export default function StudentDetailPage() {
       toast.success('Parent updated');
       setEditingParent(null);
       load();
-    } catch {
-      toast.error('Failed to update parent');
-    }
+    } catch { toast.error('Failed to update parent'); }
   };
 
-  // ── Search & link existing parent ────────────────────────────────────────
   const searchParents = async (q: string) => {
     if (!q.trim()) { setParentResults([]); return; }
     setSearchLoading(true);
@@ -221,12 +236,9 @@ export default function StudentDetailPage() {
       setLinkOpen(false);
       setParentSearch(''); setParentResults([]);
       load();
-    } catch {
-      toast.error('Failed to link parent');
-    }
+    } catch { toast.error('Failed to link parent'); }
   };
 
-  // ── Toggle primary ────────────────────────────────────────────────────────
   const togglePrimary = async (link: StudentParent) => {
     try {
       await studentParentsAPI.update(link.studentparentid, { isprimary: !link.isprimary });
@@ -235,7 +247,6 @@ export default function StudentDetailPage() {
     } catch { toast.error('Failed to update'); }
   };
 
-  // ── Unlink parent ─────────────────────────────────────────────────────────
   const handleUnlink = async (linkId: string) => {
     try {
       await studentParentsAPI.unlink(linkId);
@@ -263,10 +274,13 @@ export default function StudentDetailPage() {
     );
   }
 
-  const attRate = attendance?.percentage ?? 0;
+  const attRate          = attendance?.percentage ?? 0;
+  const studentStatusCfg = STUDENT_STATUSES.find(s => s.value === (student.studentstatus    || 1)) ?? STUDENT_STATUSES[0];
+  const enrollmentCfg    = ENROLLMENT_STATUSES.find(s => s.value === (student.enrollmentstatus || 1)) ?? ENROLLMENT_STATUSES[0];
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
+
       {/* Top bar */}
       <div className="flex items-center justify-between">
         <button onClick={() => router.push('/students')}
@@ -279,11 +293,49 @@ export default function StudentDetailPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
-        {/* Profile card */}
+
+        {/* ── Profile sidebar ── */}
         <StudentCard student={student} />
 
-        {/* Right column */}
+        {/* ── Right column ── */}
         <div className="space-y-5">
+
+          {/* Status panel */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-slate-400" />
+                  <CardTitle>Status</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => {
+                  setDraftStudentStatus(student.studentstatus || 1);
+                  setDraftEnrollmentStatus(student.enrollmentstatus || 1);
+                  setStatusOpen(true);
+                }}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" /> Update
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Student Status</p>
+                  <Badge variant={studentStatusCfg.variant}>{studentStatusCfg.label}</Badge>
+                </div>
+                <div className="rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">Enrollment Status</p>
+                  {enrollmentCfg ? (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${enrollmentCfg.color}`}>
+                      {enrollmentCfg.label}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-slate-400">—</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Attendance */}
           <Card>
@@ -304,10 +356,10 @@ export default function StudentDetailPage() {
                 <>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {[
-                      { label: 'Days Present', value: attendance.present,  color: 'text-green-600 dark:text-green-400' },
-                      { label: 'Days Absent',  value: attendance.absent,   color: 'text-red-500 dark:text-red-400' },
-                      { label: 'Days Late',    value: attendance.late,     color: 'text-amber-600 dark:text-amber-400' },
-                      { label: 'Total Days',   value: attendance.total,    color: 'text-slate-700 dark:text-slate-300' },
+                      { label: 'Present', value: attendance.present, color: 'text-green-600 dark:text-green-400'  },
+                      { label: 'Absent',  value: attendance.absent,  color: 'text-red-500 dark:text-red-400'     },
+                      { label: 'Late',    value: attendance.late,    color: 'text-amber-600 dark:text-amber-400' },
+                      { label: 'Total',   value: attendance.total,   color: 'text-slate-700 dark:text-slate-300' },
                     ].map(({ label, value, color }) => (
                       <div key={label} className="rounded-lg bg-slate-50 dark:bg-slate-800 px-4 py-3 text-center">
                         <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -323,9 +375,8 @@ export default function StudentDetailPage() {
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                      <div className={`h-full rounded-full transition-all ${
-                        attRate >= 90 ? 'bg-green-500' : attRate >= 75 ? 'bg-amber-500' : 'bg-red-400'
-                      }`} style={{ width: `${attRate}%` }} />
+                      <div className={`h-full rounded-full transition-all ${attRate >= 90 ? 'bg-green-500' : attRate >= 75 ? 'bg-amber-500' : 'bg-red-400'}`}
+                        style={{ width: `${attRate}%` }} />
                     </div>
                   </div>
                 </>
@@ -337,7 +388,10 @@ export default function StudentDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Parents / Guardians</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-slate-400" />
+                  <CardTitle>Parents / Guardians</CardTitle>
+                </div>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => { setLinkOpen(true); setParentSearch(''); setParentResults([]); }}>
                     <Search className="h-3.5 w-3.5 mr-1.5" /> Link Existing
@@ -362,7 +416,7 @@ export default function StudentDetailPage() {
                       className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex-shrink-0">
-                          {link.parentname?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                          {link.parentname?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -386,16 +440,17 @@ export default function StudentDetailPage() {
                         </Button>
                         <Button variant="ghost" size="icon"
                           onClick={() => setEditingParent({
-                            parentid:       link.parentid,
-                            firstname:      link.parentname?.split(' ')[0] ?? '',
-                            lastname:       link.parentname?.split(' ').slice(1).join(' ') ?? '',
-                            fullname:       link.parentname ?? '',
-                            emailaddress1:  link.parentemail ?? '',
-                            telephone1:     link.parentphone ?? '',
-                            relationship:   link.relationship,
-                            address1_line1: '',
-                            createdon:      '',
-                            modifiedon:     '',
+                            parentid:     link.parentid,
+                            firstname:    link.parentname?.split(' ')[0] ?? '',
+                            lastname:     link.parentname?.split(' ').slice(1).join(' ') ?? '',
+                            fullname:     link.parentname ?? '',
+                            email:        link.parentemail ?? '',
+                            phone:        link.parentphone ?? '',
+                            relationship: link.relationship,
+                            address:      '',
+                            occupation:   '',
+                            createdon:    '',
+                            modifiedon:   '',
                           })}
                           className="h-7 w-7 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
                           <Pencil className="h-3.5 w-3.5" />
@@ -416,20 +471,18 @@ export default function StudentDetailPage() {
           {/* Additional details */}
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-slate-400" />
-                <CardTitle>Additional Details</CardTitle>
-              </div>
+              <CardTitle>Additional Details</CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 {[
-                  ['Roll Number',       student.rollnumber || '—'],
-                  ['Enrollment Status', ENROLLMENT_STATUS[student.enrollmentstatus] ?? (student.enrollmentstatus ? String(student.enrollmentstatus) : '—')],
-                  ['Special Needs',     student.specialneeds ? 'Yes' : 'No'],
-                  ['Address',           student.address || '—'],
-                  ['Created',           formatDate(student.createdon)],
-                  ['Last Updated',      formatDate(student.modifiedon)],
+                  ['Roll Number',   student.rollnumber || '—'],
+                  ['Special Needs', student.specialneeds ? 'Yes' : 'No'],
+                  ['Guardian Name', student.guardianname || '—'],
+                  ['Guardian Phone', student.guardianphone || '—'],
+                  ['Address',       student.address || '—'],
+                  ['Created',       formatDate(student.createdon)],
+                  ['Last Updated',  formatDate(student.modifiedon)],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <dt className="text-xs font-medium text-slate-400 dark:text-slate-500">{label}</dt>
@@ -439,6 +492,7 @@ export default function StudentDetailPage() {
               </dl>
             </CardContent>
           </Card>
+
         </div>
       </div>
 
@@ -446,20 +500,69 @@ export default function StudentDetailPage() {
       <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Edit Student">
         <StudentForm
           defaultValues={{
-            firstname:      student.firstname,
-            lastname:       student.lastname,
-            dateofbirth:    student.dateofbirth?.slice(0, 10),
-            gender:         student.gender,
-            email:          student.email || undefined,
-            phone:          student.phone || undefined,
-            address:        student.address || undefined,
-            enrollmentdate: student.enrollmentdate?.slice(0, 10),
-            rollnumber:     student.rollnumber || undefined,
-            classid:        student.classid || undefined,
+            firstname:        student.firstname,
+            lastname:         student.lastname,
+            dateofbirth:      student.dateofbirth?.slice(0, 10),
+            gender:           student.gender,
+            email:            student.email || undefined,
+            phone:            student.phone || undefined,
+            address:          student.address || undefined,
+            enrollmentdate:   student.enrollmentdate?.slice(0, 10),
+            rollnumber:       student.rollnumber || undefined,
+            classid:          student.classid || undefined,
+            parentid:         student.parentid || undefined,
+            parentname:       student.parentname || student.guardianname || undefined,
+            studentstatus:    student.studentstatus || 1,
+            enrollmentstatus: student.enrollmentstatus || 1,
           }}
           onSubmit={handleStudentEdit}
           onCancel={() => setEditOpen(false)}
         />
+      </Modal>
+
+      {/* ── Update status modal ── */}
+      <Modal isOpen={statusOpen} onClose={() => setStatusOpen(false)} title="Update Student Status">
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Student Status</p>
+            <div className="grid grid-cols-2 gap-2">
+              {STUDENT_STATUSES.map(s => (
+                <button key={s.value} type="button" onClick={() => setDraftStudentStatus(s.value)}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                    draftStudentStatus === s.value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-200 dark:ring-blue-800'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  }`}>
+                  {s.label}
+                  {draftStudentStatus === s.value && <span className="text-blue-500">✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Enrollment Status</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ENROLLMENT_STATUSES.map(s => (
+                <button key={s.value} type="button" onClick={() => setDraftEnrollmentStatus(s.value)}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                    draftEnrollmentStatus === s.value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-200 dark:ring-blue-800'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  }`}>
+                  {s.label}
+                  {draftEnrollmentStatus === s.value && <span className="text-blue-500">✓</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveStatus} disabled={savingStatus}>
+              <ShieldCheck className="h-4 w-4 mr-1.5" />
+              {savingStatus ? 'Saving…' : 'Save Status'}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* ── Add new parent modal ── */}
@@ -472,12 +575,12 @@ export default function StudentDetailPage() {
         {editingParent && (
           <ParentForm
             defaultValues={{
-              firstname:      editingParent.firstname,
-              lastname:       editingParent.lastname,
-              emailaddress1:  editingParent.emailaddress1 || undefined,
-              telephone1:     editingParent.telephone1 || undefined,
-              relationship:   editingParent.relationship,
-              address1_line1: editingParent.address1_line1 || undefined,
+              firstname:    editingParent.firstname,
+              lastname:     editingParent.lastname,
+              email:        editingParent.email        || undefined,
+              phone:        editingParent.phone        || undefined,
+              relationship: editingParent.relationship,
+              address:      editingParent.address      || undefined,
             }}
             onSubmit={handleEditParent}
             onCancel={() => setEditingParent(null)}
@@ -490,12 +593,9 @@ export default function StudentDetailPage() {
         <div className="space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              className="pl-9"
-              placeholder="Search by name…"
-              value={parentSearch}
+            <Input className="pl-9" placeholder="Search by name…" value={parentSearch}
               onChange={e => { setParentSearch(e.target.value); searchParents(e.target.value); }}
-            />
+              autoFocus />
           </div>
           {searchLoading ? (
             <div className="flex justify-center py-6">
@@ -510,7 +610,7 @@ export default function StudentDetailPage() {
                     <p className="font-medium text-slate-900 dark:text-slate-100 text-sm">{p.fullname || `${p.firstname} ${p.lastname}`}</p>
                     <p className="text-xs text-slate-500">
                       {PARENT_RELATIONSHIPS[p.relationship] ?? 'Guardian'}
-                      {p.emailaddress1 ? ` · ${p.emailaddress1}` : ''}
+                      {p.email ? ` · ${p.email}` : ''}
                     </p>
                   </div>
                   <Plus className="h-4 w-4 text-blue-500 flex-shrink-0" />

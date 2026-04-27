@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Users, Eye, Pencil, Trash2, UserPlus, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { Student } from '@/lib/dataverse/students';
@@ -31,12 +31,14 @@ function avatarColor(name: string) {
 interface Props {
   students: Student[];
   loading: boolean;
-  onView?:   (id: string) => void;
-  onEdit?:   (student: Student) => void;
-  onDelete?: (id: string) => void;
+  onView?:           (id: string) => void;
+  onEdit?:           (student: Student) => void;
+  onDelete?:         (id: string) => void;
+  onAssignParent?:   (student: Student) => void;
+  onUpdateStatus?:   (student: Student) => void;
 }
 
-export function StudentTable({ students, loading, onView, onEdit, onDelete }: Props) {
+export function StudentTable({ students, loading, onView, onEdit, onDelete, onAssignParent, onUpdateStatus }: Props) {
   if (loading) {
     return (
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
@@ -64,7 +66,7 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete }: Pr
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-            {['Student', 'Roll No.', 'Class', 'Email', 'Phone', 'Status', ''].map((h) => (
+            {['Student', 'Roll No.', 'Class', 'Parent / Guardian', 'Status', ''].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {h}
               </th>
@@ -73,30 +75,74 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete }: Pr
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
           {students.map((s) => {
-            const status = STATUS[s.studentstatus] ?? { label: 'Unknown', variant: 'default' as const };
+            const status   = STATUS[s.studentstatus] ?? { label: 'Unknown', variant: 'default' as const };
             const initials = `${s.firstname?.[0] ?? ''}${s.lastname?.[0] ?? ''}`.toUpperCase();
-            const ac = avatarColor(`${s.firstname}${s.lastname}`);
+            const ac       = avatarColor(`${s.firstname}${s.lastname}`);
+            const parent   = s.parentname || s.guardianname || '';
+
             return (
               <tr key={s.studentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+
+                {/* Student */}
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${ac}`}>
                       {initials}
                     </div>
-                    <p className="font-semibold text-slate-900 dark:text-slate-100">{s.firstname} {s.lastname}</p>
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{s.firstname} {s.lastname}</p>
+                      {s.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[160px]">{s.email}</p>}
+                    </div>
                   </div>
                 </td>
+
+                {/* Roll No. */}
                 <td className="px-4 py-3.5">
                   <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5">
                     {s.rollnumber || '—'}
                   </span>
                 </td>
+
+                {/* Class */}
                 <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{s.classname || '—'}</td>
-                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 max-w-[180px] truncate">{s.email || '—'}</td>
-                <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400">{s.phone || '—'}</td>
+
+                {/* Parent / Guardian */}
                 <td className="px-4 py-3.5">
-                  <Badge variant={(STATUS[s.studentstatus] ?? STATUS[1]).variant}>{(STATUS[s.studentstatus] ?? { label: 'Unknown' }).label}</Badge>
+                  {parent ? (
+                    <button
+                      type="button"
+                      onClick={() => onAssignParent?.(s)}
+                      className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors group/parent"
+                    >
+                      <span className="truncate max-w-[140px]">{parent}</span>
+                      <Pencil className="h-3 w-3 opacity-0 group-hover/parent:opacity-60 flex-shrink-0" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onAssignParent?.(s)}
+                      className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      <span>Assign</span>
+                    </button>
+                  )}
                 </td>
+
+                {/* Status */}
+                <td className="px-4 py-3.5">
+                  <button
+                    type="button"
+                    onClick={() => onUpdateStatus?.(s)}
+                    className="flex items-center gap-1 group/status"
+                    title="Update status"
+                  >
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                    <ChevronDown className="h-3 w-3 text-slate-400 opacity-0 group-hover/status:opacity-100 transition-opacity" />
+                  </button>
+                </td>
+
+                {/* Actions */}
                 <td className="px-4 py-3.5">
                   <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button variant="ghost" size="icon" onClick={() => onView?.(s.studentid)} title="View"

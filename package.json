@@ -16,7 +16,12 @@
         "seed:scholarships": "tsx scripts/seed-scholarships.ts",
         "test:terms": "tsx scripts/test-terms.ts",
         "test:grade-levels": "tsx scripts/test-grade-levels.ts",
-        "seed:grade-levels": "tsx scripts/seed-grade-levels.ts"
+        "seed:grade-levels": "tsx scripts/seed-grade-levels.ts",
+        "seed:people": "tsx scripts/seed-people.ts",
+        "seed:employees": "tsx scripts/seed-employees.ts",
+        "seed:announcements": "tsx scripts/seed-announcements.ts",
+        "seed:enrollments": "tsx scripts/seed-enrollments.ts",
+        "seed:fees": "tsx scripts/seed-fees.ts"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.88.0",

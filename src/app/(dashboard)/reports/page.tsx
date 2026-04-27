@@ -1,99 +1,234 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, Users, GraduationCap, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+  Users, GraduationCap, BookOpen, TrendingUp, DollarSign,
+  CalendarDays, RefreshCw, AlertCircle, UserCheck,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { AttendanceChart } from '@/components/charts/AttendanceChart';
-import { PerformanceChart } from '@/components/charts/PerformanceChart';
-import { dashboardAPI, attendanceAPI } from '@/lib/api-client';
+import { Button } from '@/components/ui/Button';
+import { dashboardAPI, attendanceAPI, studentsAPI, classesAPI } from '@/lib/api-client';
+import type { Student } from '@/lib/dataverse/students';
 
-interface Stats {
-  totalStudents: number;
-  totalTeachers: number;
-  totalClasses: number;
-  todayAttendance: number;
-  monthlyRevenue: number;
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface DashboardStats {
+  totalStudents: number; totalTeachers: number; totalClasses: number;
+  todayAttendance: number; monthlyRevenue: number; activeUsers: number;
 }
-
 interface TrendPoint { date: string; percentage: number; present: number; total: number; }
 
-export default function ReportsPage() {
-  const [stats, setStats]     = useState<Stats | null>(null);
-  const [trends, setTrends]   = useState<TrendPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+const TREND_OPTIONS = [
+  { label: '7 days',  value: 7  },
+  { label: '30 days', value: 30 },
+  { label: '90 days', value: 90 },
+];
 
-  const load = async () => {
-    setLoading(true);
+const STATUS_CFG: Record<number, { label: string; color: string; bar: string }> = {
+  1: { label: 'Active',      color: 'text-emerald-600', bar: 'bg-emerald-500' },
+  2: { label: 'Graduated',   color: 'text-blue-600',    bar: 'bg-blue-500'    },
+  3: { label: 'Transferred', color: 'text-amber-600',   bar: 'bg-amber-500'   },
+  4: { label: 'Suspended',   color: 'text-red-500',     bar: 'bg-red-400'     },
+};
+
+const CLASS_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6','#f97316'];
+
+function formatDate(d: string) {
+  try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+  catch { return d; }
+}
+
+function formatCurrency(n: number) {
+  if (n >= 1000) return `GHS ${(n / 1000).toFixed(1)}k`;
+  return new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', maximumFractionDigits: 0 }).format(n);
+}
+
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, sub, icon: Icon, iconBg }: {
+  label: string; value: string | number; sub: string;
+  icon: React.ElementType; iconBg: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{value}</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{sub}</p>
+          </div>
+          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconBg} flex-shrink-0`}>
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+export default function ReportsPage() {
+  const [stats,    setStats]    = useState<DashboardStats | null>(null);
+  const [trends,   setTrends]   = useState<TrendPoint[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [classes,  setClasses]  = useState<any[]>([]);
+  const [days,     setDays]     = useState(30);
+  const [loading,  setLoading]  = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true); else setRefreshing(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [statsRes, trendsRes]: any[] = await Promise.all([
+      const [statsRes, trendsRes, stuRes, clsRes]: any[] = await Promise.all([
         dashboardAPI.getStats(),
-        attendanceAPI.getTrends(30),
+        attendanceAPI.getTrends(days),
+        studentsAPI.getAll(),
+        classesAPI.getAll(),
       ]);
       setStats(statsRes.data ?? null);
       setTrends(trendsRes.data ?? []);
+      setStudents(stuRes.data ?? []);
+      setClasses(clsRes.data ?? []);
     } catch { toast.error('Failed to load report data'); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setRefreshing(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [days]);
 
+  // ── Derived breakdowns ─────────────────────────────────────────────────────
+  const statusBreakdown = useMemo(() => {
+    const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    students.forEach(s => { const k = s.studentstatus || 1; counts[k] = (counts[k] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([k, v]) => ({ status: Number(k), count: v, cfg: STATUS_CFG[Number(k)] }))
+      .filter(r => r.count > 0)
+      .sort((a, b) => b.count - a.count);
+  }, [students]);
+
+  const genderBreakdown = useMemo(() => {
+    let male = 0, female = 0;
+    students.forEach(s => { if (s.gender === 1) male++; else if (s.gender === 2) female++; });
+    return { male, female, total: male + female };
+  }, [students]);
+
+  const classBreakdown = useMemo(() => {
+    const map: Record<string, { name: string; count: number }> = {};
+    students.forEach(s => {
+      const name = s.classname || 'Unassigned';
+      if (!map[name]) map[name] = { name, count: 0 };
+      map[name].count++;
+    });
+    return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
+  }, [students]);
+
+  const avgAttendance = useMemo(() => {
+    if (!trends.length) return 0;
+    return trends.reduce((s, t) => s + t.percentage, 0) / trends.length;
+  }, [trends]);
+
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex h-80 items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-600" />
       </div>
     );
   }
 
-  const kpiCards = [
-    { label: 'Enrolment',         value: stats?.totalStudents ?? 0, icon: Users,          color: 'bg-blue-100 text-blue-600',   note: 'Active students' },
-    { label: 'Teaching Staff',    value: stats?.totalTeachers ?? 0, icon: GraduationCap,  color: 'bg-violet-100 text-violet-600', note: 'Current teachers' },
-    { label: 'Today Attendance',  value: `${(stats?.todayAttendance ?? 0).toFixed(1)}%`, icon: TrendingUp, color: 'bg-green-100 text-green-600', note: 'Overall rate' },
-    { label: 'Monthly Revenue',   value: `$${(stats?.monthlyRevenue ?? 0).toLocaleString()}`, icon: BarChart3, color: 'bg-orange-100 text-orange-600', note: 'This month' },
-  ];
+  const totalStudents = stats?.totalStudents ?? students.length;
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-        <p className="text-sm text-gray-500 mt-0.5">School-wide analytics and performance overview</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Reports</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">School-wide analytics and performance overview</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            {TREND_OPTIONS.map(o => (
+              <button
+                key={o.value}
+                onClick={() => setDays(o.value)}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  days === o.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => load(true)} disabled={refreshing}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* KPI cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {kpiCards.map(({ label, value, icon: Icon, color, note }) => (
-          <Card key={label}>
-            <CardContent className="pt-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">{label}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-                  <p className="text-xs text-gray-400 mt-1">{note}</p>
-                </div>
-                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${color}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Students"    value={totalStudents}
+          sub={`${genderBreakdown.male}M · ${genderBreakdown.female}F`}
+          icon={Users}         iconBg="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
+        <KpiCard label="Active Students"   value={stats?.activeUsers ?? statusBreakdown.find(s => s.status === 1)?.count ?? 0}
+          sub="Currently enrolled"
+          icon={UserCheck}     iconBg="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
+        <KpiCard label="Teaching Staff"    value={stats?.totalTeachers ?? 0}
+          sub="Active teachers"
+          icon={GraduationCap} iconBg="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" />
+        <KpiCard label="Classes"           value={stats?.totalClasses ?? classes.length}
+          sub={`${classBreakdown.length} with students`}
+          icon={BookOpen}      iconBg="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" />
+        <KpiCard label="Avg Attendance"    value={`${avgAttendance.toFixed(1)}%`}
+          sub={`Over last ${days} days`}
+          icon={TrendingUp}    iconBg="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" />
+        <KpiCard label="Total Collected"   value={formatCurrency(stats?.monthlyRevenue ?? 0)}
+          sub="All fee collections"
+          icon={DollarSign}    iconBg="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" />
       </div>
 
-      {/* Charts row */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Card>
+      {/* Charts row — Attendance + Status */}
+      <div className="grid gap-5 lg:grid-cols-5">
+
+        {/* Attendance trend */}
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Attendance Trend (30 days)</CardTitle>
-            <p className="text-xs text-gray-400 mt-1">Daily attendance percentage across all classes</p>
+            <CardTitle>Attendance Trend</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Daily attendance rate over the last {days} days</p>
           </CardHeader>
           <CardContent>
             {trends.length ? (
-              <AttendanceChart data={trends} />
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={trends.map(d => ({ ...d, label: formatDate(d.date) }))}
+                  margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}    />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
+                  <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                    formatter={(v: unknown) => [`${(v as number).toFixed(1)}%`, 'Attendance']}
+                    labelFormatter={(l) => l} />
+                  <Area type="monotone" dataKey="percentage" stroke="#3b82f6" strokeWidth={2}
+                    fill="url(#attGrad)" dot={false} activeDot={{ r: 4 }} />
+                </AreaChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="h-60 flex flex-col items-center justify-center gap-2 text-gray-400">
+              <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-slate-400">
                 <AlertCircle className="h-8 w-8 opacity-40" />
                 <p className="text-sm">No attendance data available</p>
               </div>
@@ -101,52 +236,129 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Student status breakdown */}
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Subject Performance</CardTitle>
-            <p className="text-xs text-gray-400 mt-1">Average, highest, and lowest scores by subject</p>
+            <CardTitle>Student Status</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{totalStudents} students total</p>
           </CardHeader>
           <CardContent>
-            <PerformanceChart />
+            {statusBreakdown.length ? (
+              <div className="space-y-4">
+                {statusBreakdown.map(({ status, count, cfg }) => {
+                  const pct = totalStudents > 0 ? (count / totalStudents) * 100 : 0;
+                  return (
+                    <div key={status}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-sm font-medium ${cfg.color}`}>{cfg.label}</span>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          {count} <span className="text-xs text-slate-400 font-normal">({pct.toFixed(0)}%)</span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
+                        <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Gender split */}
+                {genderBreakdown.total > 0 && (
+                  <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-700">
+                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2">Gender</p>
+                    <div className="flex rounded-full overflow-hidden h-3">
+                      <div className="bg-blue-500 transition-all" style={{ width: `${(genderBreakdown.male / genderBreakdown.total) * 100}%` }} />
+                      <div className="bg-pink-400 flex-1" />
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-xs text-slate-500">
+                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> {genderBreakdown.male} Male</span>
+                      <span className="flex items-center gap-1">{genderBreakdown.female} Female <span className="h-2 w-2 rounded-full bg-pink-400 inline-block" /></span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="h-48 flex items-center justify-center text-slate-400 text-sm">No student data</div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Attendance breakdown table */}
+      {/* Enrollment by class */}
+      {classBreakdown.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Enrollment by Class</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Number of students per class</p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={classBreakdown} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  formatter={(v: unknown) => [v as React.ReactNode, 'Students']}
+                  cursor={{ fill: '#f8fafc' }}
+                />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  {classBreakdown.map((_, i) => (
+                    <Cell key={i} fill={CLASS_COLORS[i % CLASS_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Daily attendance log */}
       {trends.length > 0 && (
         <Card>
-          <CardHeader><CardTitle>Daily Attendance Log</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-slate-400" />
+              <CardTitle>Daily Attendance Log</CardTitle>
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Most recent 14 days</p>
+          </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100">
-                    {['Date', 'Present', 'Total', 'Rate'].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">{h}</th>
+                  <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                    {['Date', 'Present', 'Total', 'Absent', 'Rate'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {trends.slice(-14).reverse().map((t) => (
-                    <tr key={t.date} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5 text-gray-700">{new Date(t.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</td>
-                      <td className="px-4 py-2.5 text-gray-700">{t.present}</td>
-                      <td className="px-4 py-2.5 text-gray-500">{t.total}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-24 rounded-full bg-gray-100">
-                            <div
-                              className={`h-full rounded-full ${t.percentage >= 90 ? 'bg-green-500' : t.percentage >= 75 ? 'bg-yellow-500' : 'bg-red-400'}`}
-                              style={{ width: `${t.percentage}%` }}
-                            />
+                <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                  {[...trends].reverse().slice(0, 14).map(t => {
+                    const absent = t.total - t.present;
+                    const pct    = t.percentage;
+                    return (
+                      <tr key={t.date} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+                        <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">
+                          {new Date(t.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="px-4 py-2.5 text-emerald-600 dark:text-emerald-400 font-medium">{t.present}</td>
+                        <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{t.total}</td>
+                        <td className="px-4 py-2.5 text-red-500 dark:text-red-400">{absent}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-1.5 w-24 rounded-full bg-slate-100 dark:bg-slate-700 flex-shrink-0">
+                              <div className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-emerald-500' : pct >= 75 ? 'bg-amber-500' : 'bg-red-400'}`}
+                                style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className={`text-xs font-semibold tabular-nums ${pct >= 90 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}`}>
+                              {pct.toFixed(1)}%
+                            </span>
                           </div>
-                          <span className={`text-xs font-medium ${t.percentage >= 90 ? 'text-green-600' : t.percentage >= 75 ? 'text-yellow-600' : 'text-red-500'}`}>
-                            {t.percentage.toFixed(1)}%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

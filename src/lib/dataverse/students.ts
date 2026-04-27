@@ -30,6 +30,7 @@ export interface Student {
     classid: string;
     gradelevelid: string;
     parentid: string;
+    parentname: string;
     createdon: string;
     modifiedon: string;
 }
@@ -46,6 +47,9 @@ export interface CreateStudentRequest {
     rollnumber?: string;
     classid?: string;
     gradelevelid?: string;
+    parentid?: string;
+    studentstatus?: number;
+    enrollmentstatus?: number;
 }
 
 export interface StudentFilters {
@@ -79,7 +83,7 @@ function mapStudent(item: any): Student {
         address:      item.sms_address       ?? '',
         enrollmentdate:  item.sms_enrollmentdate   ?? '',
         studentstatus:   item.sms_studentstatus   ?? 1,
-        enrollmentstatus: item.sms_enrollmentstatus ?? 0,
+        enrollmentstatus: item.sms_enrollmentstatus ?? 1,
         specialneeds:    item.sms_specialneeds     ?? false,
         guardianname:    item.sms_guardianname     ?? '',
         guardianphone:  item.sms_guardianphone  ?? '',
@@ -89,26 +93,28 @@ function mapStudent(item: any): Student {
         classid:      item._sms_class_value      ?? '',
         gradelevelid: item._sms_gradelevel_value ?? '',
         parentid:     item._sms_parent_value     ?? '',
+        parentname:   item['_sms_parent_value@OData.Community.Display.V1.FormattedValue'] ?? '',
         createdon:    item.createdon  ?? '',
         modifiedon:   item.modifiedon ?? '',
     };
 }
 
+// Fetch all students matching the given filters (up to 500).
+// Pagination is handled client-side — Dataverse rejects $skip on non-indexed fields.
 export const getStudents = async (filters?: StudentFilters) => {
-    const pageSize = filters?.pageSize ?? 15;
-    const parts: string[] = [
-        `$select=${SELECT}`,
-        `$orderby=sms_firstname asc`,
-        `$top=${pageSize}`,
-        `$count=true`,
-    ];
-
     const conditions: string[] = [];
     if (filters?.search) {
         const q = filters.search.replace(/'/g, "''");
         conditions.push(`(contains(sms_firstname,'${q}') or contains(sms_lastname,'${q}') or contains(sms_studentnumber,'${q}'))`);
     }
     if (filters?.status) conditions.push(`sms_studentstatus eq ${filters.status}`);
+
+    const parts: string[] = [
+        `$select=${SELECT}`,
+        `$orderby=sms_firstname asc,sms_lastname asc`,
+        `$top=500`,
+        `$count=true`,
+    ];
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -117,11 +123,7 @@ export const getStudents = async (filters?: StudentFilters) => {
     const items = (response.value ?? []).map((r: any) => mapStudent(r));
     return {
         items,
-        totalCount: response['@odata.count'] ?? items.length,
-        page:       filters?.page ?? 1,
-        pageSize,
-        hasNextPage: !!response['@odata.nextLink'],
-        nextLink:    response['@odata.nextLink'] ?? null,
+        totalCount: (response['@odata.count'] as number) ?? items.length,
     };
 };
 
@@ -133,6 +135,7 @@ export const getStudentById = async (id: string): Promise<Student> => {
 
 export const createStudent = async (data: CreateStudentRequest) => {
     const payload: Record<string, unknown> = {
+        sms_name:          `${data.firstname} ${data.lastname}`.trim(),
         sms_firstname:     data.firstname,
         sms_lastname:      data.lastname,
         sms_dateofbirth:   data.dateofbirth,
@@ -143,8 +146,11 @@ export const createStudent = async (data: CreateStudentRequest) => {
     if (data.phone)        payload.sms_phone   = data.phone;
     if (data.address)      payload.sms_address = data.address;
     if (data.rollnumber)   payload.sms_studentnumber = data.rollnumber;
-    if (data.classid)      payload['sms_class@odata.bind']      = `/sms_classes(${data.classid})`;
-    if (data.gradelevelid) payload['sms_gradelevel@odata.bind'] = `/sms_gradelevels(${data.gradelevelid})`;
+    if (data.classid)        payload['sms_class@odata.bind']      = `/sms_classes(${data.classid})`;
+    if (data.gradelevelid)   payload['sms_gradelevel@odata.bind'] = `/sms_gradelevels(${data.gradelevelid})`;
+    if (data.parentid)       payload['sms_parent@odata.bind']     = `/sms_parents(${data.parentid})`;
+    if (data.studentstatus)  payload.sms_studentstatus            = data.studentstatus;
+    if (data.enrollmentstatus !== undefined) payload.sms_enrollmentstatus = data.enrollmentstatus;
     return dataverseClient.post(TABLE, payload);
 };
 
@@ -152,6 +158,10 @@ export const updateStudent = async (id: string, data: Partial<CreateStudentReque
     const payload: Record<string, unknown> = {};
     if (data.firstname      !== undefined) payload.sms_firstname      = data.firstname;
     if (data.lastname       !== undefined) payload.sms_lastname       = data.lastname;
+    if (data.firstname !== undefined || data.lastname !== undefined) {
+        const existing = await getStudentById(id);
+        payload.sms_name = `${data.firstname ?? existing.firstname} ${data.lastname ?? existing.lastname}`.trim();
+    }
     if (data.dateofbirth    !== undefined) payload.sms_dateofbirth    = data.dateofbirth;
     if (data.gender         !== undefined) payload.sms_gender         = data.gender;
     if (data.email          !== undefined) payload.sms_email          = data.email;
@@ -160,9 +170,13 @@ export const updateStudent = async (id: string, data: Partial<CreateStudentReque
     if (data.enrollmentdate !== undefined) payload.sms_enrollmentdate = data.enrollmentdate;
     if (data.rollnumber     !== undefined) payload.sms_studentnumber  = data.rollnumber;
     if (data.classid      !== undefined)
-        payload['sms_class@odata.bind'] = data.classid ? `/sms_classes(${data.classid})` : null;
+        payload['sms_class@odata.bind']      = data.classid      ? `/sms_classes(${data.classid})` : null;
     if (data.gradelevelid !== undefined)
         payload['sms_gradelevel@odata.bind'] = data.gradelevelid ? `/sms_gradelevels(${data.gradelevelid})` : null;
+    if (data.parentid !== undefined)
+        payload['sms_parent@odata.bind']     = data.parentid     ? `/sms_parents(${data.parentid})` : null;
+    if (data.studentstatus  !== undefined) payload.sms_studentstatus  = data.studentstatus;
+    if (data.enrollmentstatus !== undefined) payload.sms_enrollmentstatus = data.enrollmentstatus;
     await dataverseClient.patch(`${TABLE}(${id})`, payload);
     return getStudentById(id);
 };

@@ -1,54 +1,59 @@
 import { dataverseClient } from "./client";
 
 const TABLE = 'sms_parents';
-// Fields: sms_parentid, sms_firstname, sms_lastname, sms_emailaddress1,
-//         sms_telephone1, sms_relationship (1=Father,2=Mother,3=Guardian,4=Other),
-//         sms_address1_line1, sms_name
+// Verified Dataverse fields (sms_parent) — probed 2026-04-24:
+// sms_parentid, sms_firstname, sms_lastname, sms_name,
+// sms_email, sms_phone, sms_address,
+// sms_relationship (Picklist: 1=Father, 2=Mother, 3=Guardian),
+// sms_occupation, sms_nationalid, sms_emergencycontact,
+// createdon, modifiedon
 
 export interface Parent {
-    parentid: string;
-    firstname: string;
-    lastname: string;
-    fullname: string;
-    emailaddress1: string;
-    telephone1: string;
+    parentid:     string;
+    firstname:    string;
+    lastname:     string;
+    fullname:     string;
+    email:        string;
+    phone:        string;
     relationship: number;
-    address1_line1: string;
-    createdon: string;
-    modifiedon: string;
+    address:      string;
+    occupation:   string;
+    createdon:    string;
+    modifiedon:   string;
 }
 
 export interface CreateParentRequest {
-    firstname: string;
-    lastname: string;
-    emailaddress1?: string;
-    telephone1?: string;
+    firstname:    string;
+    lastname:     string;
+    email?:       string;
+    phone?:       string;
     relationship?: number;
-    address1_line1?: string;
+    address?:     string;
+    occupation?:  string;
 }
 
 export const PARENT_RELATIONSHIPS: Record<number, string> = {
     1: 'Father',
     2: 'Mother',
     3: 'Guardian',
-    4: 'Other',
 };
 
-const SELECT = 'sms_parentid,sms_name,sms_firstname,sms_lastname,sms_emailaddress1,sms_telephone1,sms_relationship,sms_address1_line1,createdon,modifiedon';
+const SELECT = 'sms_parentid,sms_name,sms_firstname,sms_lastname,sms_email,sms_phone,sms_relationship,sms_address,sms_occupation,createdon,modifiedon';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapParent(item: any): Parent {
     return {
-        parentid:       item.sms_parentid,
-        firstname:      item.sms_firstname     ?? '',
-        lastname:       item.sms_lastname      ?? '',
-        fullname:       item.sms_name          ?? `${item.sms_firstname ?? ''} ${item.sms_lastname ?? ''}`.trim(),
-        emailaddress1:  item.sms_emailaddress1 ?? '',
-        telephone1:     item.sms_telephone1    ?? '',
-        relationship:   item.sms_relationship  ?? 3,
-        address1_line1: item.sms_address1_line1 ?? '',
-        createdon:      item.createdon  ?? '',
-        modifiedon:     item.modifiedon ?? '',
+        parentid:     item.sms_parentid,
+        firstname:    item.sms_firstname    ?? '',
+        lastname:     item.sms_lastname     ?? '',
+        fullname:     item.sms_name         ?? `${item.sms_firstname ?? ''} ${item.sms_lastname ?? ''}`.trim(),
+        email:        item.sms_email        ?? '',
+        phone:        item.sms_phone        ?? '',
+        relationship: item.sms_relationship ?? 3,
+        address:      item.sms_address      ?? '',
+        occupation:   item.sms_occupation   ?? '',
+        createdon:    item.createdon        ?? '',
+        modifiedon:   item.modifiedon       ?? '',
     };
 }
 
@@ -72,22 +77,24 @@ export const createParent = async (data: CreateParentRequest) => {
         sms_firstname: data.firstname,
         sms_lastname:  data.lastname,
     };
-    if (data.emailaddress1  !== undefined) payload.sms_emailaddress1  = data.emailaddress1;
-    if (data.telephone1     !== undefined) payload.sms_telephone1     = data.telephone1;
-    if (data.relationship   !== undefined) payload.sms_relationship   = data.relationship;
-    if (data.address1_line1 !== undefined) payload.sms_address1_line1 = data.address1_line1;
+    if (data.email        !== undefined) payload.sms_email        = data.email;
+    if (data.phone        !== undefined) payload.sms_phone        = data.phone;
+    if (data.relationship !== undefined) payload.sms_relationship = data.relationship;
+    if (data.address      !== undefined) payload.sms_address      = data.address;
+    if (data.occupation   !== undefined) payload.sms_occupation   = data.occupation;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return dataverseClient.post<any>(TABLE, payload);
 };
 
 export const updateParent = async (id: string, data: Partial<CreateParentRequest>) => {
     const payload: Record<string, unknown> = {};
-    if (data.firstname      !== undefined) payload.sms_firstname      = data.firstname;
-    if (data.lastname       !== undefined) payload.sms_lastname       = data.lastname;
-    if (data.emailaddress1  !== undefined) payload.sms_emailaddress1  = data.emailaddress1;
-    if (data.telephone1     !== undefined) payload.sms_telephone1     = data.telephone1;
-    if (data.relationship   !== undefined) payload.sms_relationship   = data.relationship;
-    if (data.address1_line1 !== undefined) payload.sms_address1_line1 = data.address1_line1;
+    if (data.firstname    !== undefined) payload.sms_firstname    = data.firstname;
+    if (data.lastname     !== undefined) payload.sms_lastname     = data.lastname;
+    if (data.email        !== undefined) payload.sms_email        = data.email;
+    if (data.phone        !== undefined) payload.sms_phone        = data.phone;
+    if (data.relationship !== undefined) payload.sms_relationship = data.relationship;
+    if (data.address      !== undefined) payload.sms_address      = data.address;
+    if (data.occupation   !== undefined) payload.sms_occupation   = data.occupation;
     await dataverseClient.patch(`${TABLE}(${id})`, payload);
     return getParentById(id);
 };

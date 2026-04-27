@@ -14,14 +14,33 @@ import { Modal } from '@/components/ui/Modal';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { AISummary } from '@/components/ui/AISummary';
 import { subjectsAPI, teachersAPI, gradeLevelsAPI } from '@/lib/api-client';
+import { SUBJECT_TYPES } from '@/lib/dataverse/subjects';
 import type { Subject } from '@/lib/dataverse/subjects';
+
+// sms_type picklist: 922330000=Core, 922330001=Elective, 922330002=Extra
+const TYPE_OPTIONS = [
+    { label: 'Core',     value: 922330000 },
+    { label: 'Elective', value: 922330001 },
+    { label: 'Extra',    value: 922330002 },
+];
+// Convert label → numeric value
+const labelToType = (label?: string): number | undefined => {
+    if (!label) return undefined;
+    return TYPE_OPTIONS.find(o => o.label.toLowerCase() === label.toLowerCase())?.value;
+};
+
+const TYPE_STYLE: Record<number, string> = {
+    922330000: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
+    922330001: 'bg-amber-50  text-amber-700  dark:bg-amber-900/30  dark:text-amber-300',
+    922330002: 'bg-slate-100 text-slate-600  dark:bg-slate-800     dark:text-slate-300',
+};
 
 const schema = z.object({
     name:         z.string().min(1, 'Required'),
     code:         z.string().min(1, 'Required'),
     credithours:  z.coerce.number().min(0).optional(),
     passscore:    z.coerce.number().min(0).max(100).optional(),
-    type:         z.string().optional(),
+    typeLabel:    z.string().optional(),
     description:  z.string().optional(),
     gradelevelid: z.string().optional(),
     teacherid:    z.string().optional(),
@@ -78,8 +97,18 @@ function SubjectForm({ defaultValues, onSubmit, onCancel }: {
                 <F id="passscore" label="Pass Score (%)">
                     <Input id="passscore" {...register('passscore')} type="number" min={0} max={100} placeholder="e.g. 50" />
                 </F>
-                <F id="type" label="Type">
-                    <Input id="type" {...register('type')} placeholder="e.g. Core, Elective" />
+                <F id="typeLabel" label="Type">
+                    <Controller name="typeLabel" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">— None —</SelectItem>
+                                {TYPE_OPTIONS.map(o => (
+                                    <SelectItem key={o.value} value={o.label}>{o.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
                 </F>
                 <F id="gradelevelid" label="Grade Level">
                     <Controller name="gradelevelid" control={control} render={({ field }) => (
@@ -170,20 +199,25 @@ export default function SubjectsPage() {
         const q = search.toLowerCase();
         setFiltered(q
             ? subjects.filter(s =>
-                `${s.name} ${s.code} ${s.type} ${s.gradelevelname} ${s.teachername}`
+                `${s.name} ${s.code} ${s.typelabel} ${s.gradelevelname} ${s.teachername}`
                     .toLowerCase().includes(q))
             : subjects
         );
     }, [search, subjects]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleSubmit = async (data: any) => {
+    const handleSubmit = async (data: FormData) => {
         try {
+            // Convert string label back to numeric picklist value
+            const payload = {
+                ...data,
+                type: labelToType(data.typeLabel),
+                typeLabel: undefined,
+            };
             if (editing) {
-                await subjectsAPI.update(editing.subjectid, data);
+                await subjectsAPI.update(editing.subjectid, payload);
                 toast.success('Subject updated');
             } else {
-                await subjectsAPI.create(data);
+                await subjectsAPI.create(payload);
                 toast.success('Subject added');
             }
             setModalOpen(false);
@@ -206,8 +240,8 @@ export default function SubjectsPage() {
 
     const openEdit = (s: Subject) => { setEditing(s); setModalOpen(true); };
 
-    const coreCount     = subjects.filter(s => s.type?.toLowerCase() === 'core').length;
-    const electiveCount = subjects.filter(s => s.type?.toLowerCase() === 'elective').length;
+    const coreCount     = subjects.filter(s => s.type === 922330000).length;
+    const electiveCount = subjects.filter(s => s.type === 922330001).length;
 
     return (
         <div className="space-y-5">
@@ -257,7 +291,7 @@ export default function SubjectsPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
-                                {['Subject', 'Code', 'Grade Level', 'Teacher', 'Credit Hrs', 'Pass Score', ''].map(h => (
+                                {['Subject', 'Code', 'Type', 'Grade Level', 'Teacher', 'Hrs', 'Pass', ''].map(h => (
                                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
                                 ))}
                             </tr>
@@ -274,7 +308,7 @@ export default function SubjectsPage() {
                                             <div>
                                                 <p className="font-semibold text-slate-900 dark:text-slate-100">{s.name}</p>
                                                 {s.description && (
-                                                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[200px]">{s.description}</p>
+                                                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[180px]">{s.description}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -284,6 +318,14 @@ export default function SubjectsPage() {
                                         {s.code
                                             ? <span className="inline-flex items-center gap-1 font-mono text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
                                                 <Hash className="h-2.5 w-2.5" />{s.code}
+                                              </span>
+                                            : <span className="text-slate-400 dark:text-slate-600">—</span>}
+                                    </td>
+                                    {/* Type */}
+                                    <td className="px-4 py-3.5">
+                                        {s.type !== null && s.typelabel
+                                            ? <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[s.type] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                                                {s.typelabel}
                                               </span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                     </td>
@@ -341,7 +383,7 @@ export default function SubjectsPage() {
                         code:         editing.code,
                         credithours:  editing.credithours || undefined,
                         passscore:    editing.passscore   ?? undefined,
-                        type:         editing.type        || undefined,
+                        typeLabel:    editing.typelabel   || undefined,
                         description:  editing.description || undefined,
                         gradelevelid: editing.gradelevelid || undefined,
                         teacherid:    editing.teacherid    || undefined,

@@ -295,4 +295,23 @@ export const gradeLevelsAPI = {
     delete: (id: string) => apiClient.delete(`/grade-levels/${id}`),
 };
 
+// Announcements API
+export const announcementsAPI = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getAll:  (params?: any)        => apiClient.get('/announcements', { params }),
+    getById: (id: string)          => apiClient.get(`/announcements/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)           => apiClient.post('/announcements', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/announcements/${id}`, data),
+    delete:  (id: string)          => apiClient.delete(`/announcements/${id}`),
+};
+
+// Users API (sms_users)
+export const usersAPI = {
+    getAll:    (role?: number)    => apiClient.get('/users', { params: { role } }),
+    getByEmail:(email: string)    => apiClient.get('/users', { params: { email } }),
+    getStats:  ()                 => apiClient.get('/users', { params: { stats: true } }),
+};
+
 export default apiClient;
