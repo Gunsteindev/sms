@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTerms, createTerm } from '@/lib/dataverse/terms';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -8,8 +9,7 @@ export async function GET(request: NextRequest) {
         const data = await getTerms(search, academicyearid);
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch terms';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }
 
@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
         const data = await createTerm(body);
         return NextResponse.json({ success: true, data, message: 'Term created' }, { status: 201 });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to create term';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }

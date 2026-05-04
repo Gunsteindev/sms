@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
-import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, GraduationCap, Phone, Mail, BookOpen } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Plus, Search, Pencil, Trash2, GraduationCap, Phone, Mail, BookOpen, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,13 +12,14 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import {
   SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/Select';
 import { teachersAPI } from '@/lib/api-client';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import type { Teacher } from '@/lib/dataverse/teachers';
 
 const schema = z.object({
@@ -30,7 +32,7 @@ const schema = z.object({
   employeeid:     z.string().optional(),
   hiredate:       z.string().min(1, 'Required'),
   dateofbirth:    z.string().min(1, 'Required'),
-  gender:         z.coerce.number().min(1),
+  gender:         z.string().min(1, 'Required'),
   address:        z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -75,7 +77,7 @@ function TeacherForm({ defaultValues, onSubmit, onCancel }: {
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
-    defaultValues: { gender: 1, ...defaultValues },
+    defaultValues: { gender: 'Male', ...defaultValues },
   });
 
   return (
@@ -96,11 +98,11 @@ function TeacherForm({ defaultValues, onSubmit, onCancel }: {
 
         <F id="gender" label="Gender *">
           <Controller control={control} name="gender" render={({ field }) => (
-            <SelectRoot value={String(field.value ?? '')} onValueChange={(v) => field.onChange(Number(v))}>
+            <SelectRoot value={field.value ?? ''} onValueChange={(v) => field.onChange(v)}>
               <SelectTrigger id="gender" className="w-full"><SelectValue placeholder="Select gender" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Male</SelectItem>
-                <SelectItem value="2">Female</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
               </SelectContent>
             </SelectRoot>
           )} />
@@ -145,11 +147,13 @@ function TeacherForm({ defaultValues, onSubmit, onCancel }: {
   );
 }
 
+const PAGE_SIZE = 10;
+
 export default function TeachersPage() {
   const [teachers, setTeachers]   = useState<Teacher[]>([]);
-  const [filtered, setFiltered]   = useState<Teacher[]>([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
+  const [page, setPage]           = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]     = useState<Teacher | null>(null);
   const [toDelete, setToDelete]   = useState<string | null>(null);
@@ -159,9 +163,7 @@ export default function TeachersPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res: any = await teachersAPI.getAll();
-      const items = res.data ?? [];
-      setTeachers(items);
-      setFiltered(items);
+      setTeachers(res.data ?? []);
     } catch {
       toast.error('Failed to load teachers');
     } finally {
@@ -171,27 +173,30 @@ export default function TeachersPage() {
 
   useEffect(() => { load(); }, []);
 
-  useEffect(() => {
+  // Reset to page 1 whenever search changes
+  useEffect(() => { setPage(1); }, [search]);
+
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    setFiltered(
-      q
-        ? teachers.filter((t) =>
-            `${t.firstname} ${t.lastname} ${t.specialization} ${t.email} ${t.employeeid}`
-              .toLowerCase()
-              .includes(q)
-          )
-        : teachers
-    );
+    return q
+      ? teachers.filter((t) =>
+          `${t.firstname} ${t.lastname} ${t.specialization} ${t.email} ${t.employeeid}`
+            .toLowerCase().includes(q)
+        )
+      : teachers;
   }, [search, teachers]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSubmit = async (data: any) => {
     try {
       if (editing) {
-        await teachersAPI.update(editing.teacherid, data);
+        await teachersAPI.update(editing.teacherid, { ...data, gender: ({ Male:1, Female:2 } as Record<string,number>)[data.gender] ?? 1 });
         toast.success('Teacher updated');
       } else {
-        await teachersAPI.create(data);
+        await teachersAPI.create({ ...data, gender: ({ Male:1, Female:2 } as Record<string,number>)[data.gender] ?? 1 });
         toast.success('Teacher added');
       }
       setModalOpen(false);
@@ -227,9 +232,14 @@ export default function TeachersPage() {
             {loading ? 'Loading…' : `${teachers.length} teacher${teachers.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-          <Plus className="h-4 w-4 mr-1" /> Add Teacher
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1" /> Add Teacher
+          </Button>
+        </div>
       </div>
 
       <AISummary type="teachers" getData={() => ({ total: teachers.length, teachers })} />
@@ -259,96 +269,94 @@ export default function TeachersPage() {
           {!search && <p className="text-xs mt-1">Add a teacher to get started</p>}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
-                {['Teacher', 'Specialization', 'Class', 'Hired', 'Status', ''].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map((t) => {
-                const fullName = `${t.firstname} ${t.lastname}`;
-                const status = STATUS[t.statuscode] ?? { label: 'Unknown', variant: 'default' as const };
-                return (
-                  <tr key={t.teacherid} className="hover:bg-blue-50/30 dark:hover:bg-slate-800/50 transition-colors">
-                    {/* Teacher */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarColor(fullName)}`}>
-                          {t.firstname?.[0]}{t.lastname?.[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-100">{fullName}</p>
-                          <div className="flex items-center gap-3 mt-0.5">
-                            {t.email && (
-                              <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-                                <Mail className="h-3 w-3" />{t.email}
-                              </span>
-                            )}
-                            {t.phone && (
-                              <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-                                <Phone className="h-3 w-3" />{t.phone}
-                              </span>
-                            )}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table className="w-full text-sm">
+              <TableHeader>
+                <TableRow className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                  {['Teacher', 'Specialization', 'Class', 'Hired', 'Status', ''].map((h) => (
+                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {h}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {paginated.map((t) => {
+                  const fullName = `${t.firstname} ${t.lastname}`;
+                  const status = STATUS[t.statuscode] ?? { label: 'Unknown', variant: 'default' as const };
+                  return (
+                    <TableRow key={t.teacherid} className="hover:bg-blue-50/30 dark:hover:bg-slate-800/50 transition-colors">
+                      <TableCell className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarColor(fullName)}`}>
+                            {t.firstname?.[0]}{t.lastname?.[0]}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-slate-100">{fullName}</p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              {t.email && (
+                                <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                                  <Mail className="h-3 w-3" />{t.email}
+                                </span>
+                              )}
+                              {t.phone && (
+                                <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
+                                  <Phone className="h-3 w-3" />{t.phone}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    {/* Specialization + Qualification */}
-                    <td className="px-4 py-3">
-                      <p className="text-slate-700 dark:text-slate-300">{t.specialization || '—'}</p>
-                      {t.qualification && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t.qualification}</p>
-                      )}
-                    </td>
-                    {/* Assigned class */}
-                    <td className="px-4 py-3">
-                      {t.classname ? (
-                        <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                          <BookOpen className="h-3.5 w-3.5 text-slate-400" />{t.classname}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 dark:text-slate-600">—</span>
-                      )}
-                    </td>
-                    {/* Hire date */}
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
-                      {t.hiredate || '—'}
-                    </td>
-                    {/* Status */}
-                    <td className="px-4 py-3">
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </td>
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
-                          <Pencil className="h-4 w-4 text-slate-400 hover:text-blue-600" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setToDelete(t.teacherid)}>
-                          <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <p className="text-slate-700 dark:text-slate-300">{t.specialization || '—'}</p>
+                        {t.qualification && (
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t.qualification}</p>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        {t.classname ? (
+                          <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                            <BookOpen className="h-3.5 w-3.5 text-slate-400" />{t.classname}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+                        {t.hiredate || '—'}
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
+                            <Pencil className="h-4 w-4 text-slate-400 hover:text-blue-600" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setToDelete(t.teacherid)}>
+                            <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="teacher" onChange={setPage} />
         </div>
       )}
 
       {/* Add / Edit modal */}
-      <Modal
-        isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setEditing(null); }}
-        title={editing ? `Edit — ${editing.firstname} ${editing.lastname}` : 'Add Teacher'}
-      >
+      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing ? `Edit — ${editing.firstname} ${editing.lastname}` : 'Add Teacher'}</DialogTitle>
+          </DialogHeader>
         <TeacherForm
           defaultValues={editing ? {
             firstname:      editing.firstname,
@@ -360,13 +368,14 @@ export default function TeachersPage() {
             employeeid:     editing.employeeid,
             hiredate:       editing.hiredate,
             dateofbirth:    editing.dateofbirth,
-            gender:         editing.gender,
+            gender:         GENDER[editing.gender] ?? 'Male',
             address:        editing.address,
           } : undefined}
           onSubmit={handleSubmit}
           onCancel={() => { setModalOpen(false); setEditing(null); }}
         />
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <ConfirmDialog

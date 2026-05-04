@@ -16,13 +16,13 @@ import {
   SelectItem,
   SelectValue,
 } from '@/components/ui/Select';
-import { parentsAPI } from '@/lib/api-client';
+import { parentsAPI, classesAPI } from '@/lib/api-client';
 
 const schema = z.object({
   firstname:        z.string().min(2, 'Required'),
   lastname:         z.string().min(2, 'Required'),
   dateofbirth:      z.string().min(1, 'Required'),
-  gender:           z.coerce.number().min(1),
+  gender:           z.string().min(1, 'Required'),
   email:            z.string().email('Invalid email').optional().or(z.literal('')),
   phone:            z.string().optional(),
   address:          z.string().optional(),
@@ -30,8 +30,8 @@ const schema = z.object({
   rollnumber:       z.string().optional(),
   classid:          z.string().optional(),
   parentid:         z.string().optional(),
-  studentstatus:    z.coerce.number().optional(),
-  enrollmentstatus: z.coerce.number().optional(),
+  studentstatus:    z.string().optional(),
+  enrollmentstatus: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -151,19 +151,29 @@ function ParentPicker({ value, initialName, onChange }: {
   );
 }
 
+const SELECT_TRIGGER = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
 export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [classes, setClasses] = useState<any[]>([]);
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    classesAPI.getAll().then((r: any) => setClasses(r.data ?? [])).catch(() => {});
+  }, []);
+
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(schema) as any,
-    defaultValues: { gender: 1, studentstatus: 1, enrollmentstatus: 1, ...defaultValues },
+    defaultValues: { gender: 'Male', studentstatus: 'Active', enrollmentstatus: 'Enrolled', ...defaultValues },
   });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
 
-      {/* ── Personal ── */}
-      <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Personal Info</p>
+      {/* ── Personal Info ── */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Personal Info</p>
         <div className="grid grid-cols-2 gap-4">
           <Field id="firstname" label="First Name *" error={errors.firstname?.message}>
             <Input id="firstname" {...register('firstname')} placeholder="John" />
@@ -178,21 +188,47 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
           </Field>
           <Field id="gender" label="Gender *" error={errors.gender?.message}>
             <Controller control={control} name="gender" render={({ field }) => (
-              <SelectRoot value={String(field.value ?? '')} onValueChange={v => field.onChange(Number(v))}>
-                <SelectTrigger id="gender" className="w-full"><SelectValue placeholder="Select gender" /></SelectTrigger>
+              <SelectRoot value={field.value ?? ''} onValueChange={v => field.onChange(v)}>
+                <SelectTrigger id="gender" className={SELECT_TRIGGER}>
+                  <SelectValue>
+                    {field.value || 'Select gender'}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Male</SelectItem>
-                  <SelectItem value="2">Female</SelectItem>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
                 </SelectContent>
               </SelectRoot>
             )} />
           </Field>
         </div>
-      </section>
+      </div>
 
-      {/* ── School ── */}
-      <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">School Info</p>
+      <div className="border-t border-slate-100 dark:border-slate-800" />
+
+      {/* ── Contact ── */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Contact</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field id="email" label="Email" error={errors.email?.message}>
+            <Input id="email" {...register('email')} type="email" placeholder="student@school.edu" />
+          </Field>
+          <Field id="phone" label="Phone" error={errors.phone?.message}>
+            <Input id="phone" {...register('phone')} type="tel" placeholder="+233 55 000 0000" />
+          </Field>
+          <div className="col-span-2">
+            <Field id="address" label="Address" error={errors.address?.message}>
+              <Input id="address" {...register('address')} placeholder="Street address" />
+            </Field>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 dark:border-slate-800" />
+
+      {/* ── School Assignment ── */}
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">School Assignment</p>
         <div className="grid grid-cols-2 gap-4">
           <Field id="enrollmentdate" label="Enrollment Date *" error={errors.enrollmentdate?.message}>
             <Controller control={control} name="enrollmentdate" render={({ field }) => (
@@ -202,41 +238,69 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
           <Field id="rollnumber" label="Roll Number" error={errors.rollnumber?.message}>
             <Input id="rollnumber" {...register('rollnumber')} placeholder="e.g. 2024-001" />
           </Field>
-          <Field id="classid" label="Class ID (GUID)" error={errors.classid?.message}>
-            <Input id="classid" {...register('classid')} placeholder="Class record GUID" />
-          </Field>
           <Field id="studentstatus" label="Student Status" error={errors.studentstatus?.message}>
             <Controller control={control} name="studentstatus" render={({ field }) => (
-              <SelectRoot value={String(field.value ?? '1')} onValueChange={v => field.onChange(Number(v))}>
-                <SelectTrigger id="studentstatus" className="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+              <SelectRoot value={field.value ?? 'Active'} onValueChange={v => field.onChange(v)}>
+                <SelectTrigger id="studentstatus" className={SELECT_TRIGGER}>
+                  <SelectValue>
+                    {field.value || 'Select status'}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Active</SelectItem>
-                  <SelectItem value="2">Graduated</SelectItem>
-                  <SelectItem value="3">Transferred</SelectItem>
-                  <SelectItem value="4">Suspended</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Graduated">Graduated</SelectItem>
+                  <SelectItem value="Transferred">Transferred</SelectItem>
+                  <SelectItem value="Suspended">Suspended</SelectItem>
                 </SelectContent>
               </SelectRoot>
             )} />
           </Field>
           <Field id="enrollmentstatus" label="Enrollment Status" error={errors.enrollmentstatus?.message}>
             <Controller control={control} name="enrollmentstatus" render={({ field }) => (
-              <SelectRoot value={String(field.value ?? '1')} onValueChange={v => field.onChange(Number(v))}>
-                <SelectTrigger id="enrollmentstatus" className="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+              <SelectRoot value={field.value ?? 'Enrolled'} onValueChange={v => field.onChange(v)}>
+                <SelectTrigger id="enrollmentstatus" className={SELECT_TRIGGER}>
+                  <SelectValue>
+                    {field.value || 'Select status'}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Enrolled</SelectItem>
-                  <SelectItem value="2">Completed</SelectItem>
-                  <SelectItem value="3">Dropped</SelectItem>
-                  <SelectItem value="4">On Hold</SelectItem>
+                  <SelectItem value="Enrolled">Enrolled</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Dropped">Dropped</SelectItem>
+                  <SelectItem value="On Hold">On Hold</SelectItem>
                 </SelectContent>
               </SelectRoot>
             )} />
           </Field>
+          <div className="col-span-2">
+            <Field id="classid" label="Class" error={errors.classid?.message}>
+              <Controller control={control} name="classid" render={({ field }) => (
+                <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                  <SelectTrigger id="classid" className={SELECT_TRIGGER}>
+                    <SelectValue>
+                      {field.value
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ? (classes.find((c: any) => c.classid === field.value)?.classname ?? '— None —')
+                        : '— None —'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">— None —</SelectItem>
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {classes.map((c: any) => (
+                      <SelectItem key={c.classid} value={c.classid}>{c.classname}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </SelectRoot>
+              )} />
+            </Field>
+          </div>
         </div>
-      </section>
+      </div>
 
       {/* ── Parent / Guardian ── */}
-      <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Parent / Guardian</p>
+      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Parent / Guardian</p>
         <Field id="parentid" label="Parent" error={errors.parentid?.message}>
           <Controller control={control} name="parentid" render={({ field }) => (
             <ParentPicker
@@ -246,25 +310,9 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
             />
           )} />
         </Field>
-      </section>
+      </div>
 
-      {/* ── Contact ── */}
-      <section className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</p>
-        <div className="grid grid-cols-2 gap-4">
-          <Field id="email" label="Email" error={errors.email?.message}>
-            <Input id="email" {...register('email')} type="email" placeholder="student@school.edu" />
-          </Field>
-          <Field id="phone" label="Phone" error={errors.phone?.message}>
-            <Input id="phone" {...register('phone')} type="tel" placeholder="+1 555 0000" />
-          </Field>
-          <Field id="address" label="Address" error={errors.address?.message}>
-            <Input id="address" {...register('address')} placeholder="Street address" />
-          </Field>
-        </div>
-      </section>
-
-      <div className="flex justify-end gap-2 pt-2 border-t">
+      <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save Student'}</Button>
       </div>

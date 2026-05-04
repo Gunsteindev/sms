@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getFeePayments, createFeePayment } from '@/lib/dataverse/fees';
+import { parseBody, serverError } from '@/lib/api-guard';
+
+const paymentSchema = z.object({
+    studentid:     z.string().min(1),
+    feeid:         z.string().min(1),
+    amount:        z.number().positive(),
+    paymentdate:   z.string().min(1),
+    paymentmethod: z.number().int().min(1),
+    paymentstatus: z.number().int().optional(),
+    transactionid: z.string().optional(),
+    receiptnumber: z.string().optional(),
+});
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,25 +23,23 @@ export async function GET(request: NextRequest) {
             pageSize:  p.get('pageSize')  ? Number(p.get('pageSize')) : undefined,
         });
         return NextResponse.json({ success: true, data: result.items, total: result.totalCount });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch fee payments';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        if (!body.studentid || !body.feeid || body.amount === undefined || !body.paymentmethod) {
-            return NextResponse.json({ success: false, error: 'studentid, feeid, amount, and paymentmethod are required' }, { status: 400 });
-        }
+        const parsed = await parseBody(request, paymentSchema);
+        if ('response' in parsed) return parsed.response;
+
+        const body = { ...parsed.data };
         if (!body.receiptnumber) {
-            body.receiptnumber = `RCP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+            body.receiptnumber = `RCP-${crypto.randomUUID()}`;
         }
         const data = await createFeePayment(body);
         return NextResponse.json({ success: true, data, message: 'Payment recorded' }, { status: 201 });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to record payment';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

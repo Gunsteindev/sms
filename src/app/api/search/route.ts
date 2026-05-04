@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchStudents } from '@/lib/dataverse/students';
 import { searchTeachers } from '@/lib/dataverse/teachers';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     const q = request.nextUrl.searchParams.get('q')?.trim();
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
         ];
 
         return NextResponse.json({ success: true, data: results });
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return serverError(error);
     }
 }

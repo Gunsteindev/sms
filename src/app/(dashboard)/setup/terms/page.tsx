@@ -1,21 +1,27 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, CalendarDays, Clock, Calendar, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, CalendarDays, Clock, Calendar, CheckCircle2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, differenceInWeeks, isAfter, isBefore, isToday } from 'date-fns';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { termsAPI, academicYearsAPI } from '@/lib/api-client';
+import { Pagination } from '@/components/ui/Pagination';
 import type { Term } from '@/lib/dataverse/terms';
 import type { AcademicYear } from '@/lib/dataverse/academicyears';
+
+const PAGE_SIZE = 10;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDate(d: string) {
@@ -50,7 +56,6 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-const SELECT_CLS = 'w-full h-9 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400';
 
 function F({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
     return (
@@ -68,7 +73,8 @@ function TermForm({ defaultValues, academicYears, onSubmit, onCancel }: {
     onSubmit: (d: FormData) => Promise<void>;
     onCancel: () => void;
 }) {
-    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+    const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
         defaultValues: defaultValues ?? {},
     });
@@ -78,19 +84,34 @@ function TermForm({ defaultValues, academicYears, onSubmit, onCancel }: {
                 <Input id="name" {...register('name')} placeholder="e.g. Term 1, First Semester" />
             </F>
             <F id="academicyearid" label="Academic Year">
-                <select id="academicyearid" {...register('academicyearid')} className={SELECT_CLS}>
-                    <option value="">— Select academic year —</option>
-                    {academicYears.map(y => (
-                        <option key={y.academicyearid} value={y.academicyearid}>{y.name}</option>
-                    ))}
-                </select>
+                <Controller name="academicyearid" control={control} render={({ field }) => (
+                    <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                        <SelectTrigger id="academicyearid" className={ST}>
+                            <SelectValue>
+                                {field.value
+                                    ? (academicYears.find(y => y.academicyearid === field.value)?.name ?? '— Select academic year —')
+                                    : '— Select academic year —'}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">— Select academic year —</SelectItem>
+                            {academicYears.map(y => (
+                                <SelectItem key={y.academicyearid} value={y.academicyearid}>{y.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </SelectRoot>
+                )} />
             </F>
             <div className="grid grid-cols-2 gap-3">
                 <F id="startdate" label="Start Date *" error={errors.startdate?.message}>
-                    <Input id="startdate" type="date" {...register('startdate')} />
+                    <Controller control={control} name="startdate" render={({ field }) => (
+                        <DatePicker id="startdate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                    )} />
                 </F>
                 <F id="enddate" label="End Date *" error={errors.enddate?.message}>
-                    <Input id="enddate" type="date" {...register('enddate')} />
+                    <Controller control={control} name="enddate" render={({ field }) => (
+                        <DatePicker id="enddate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                    )} />
                 </F>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -106,11 +127,11 @@ function TermForm({ defaultValues, academicYears, onSubmit, onCancel }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function TermsPage() {
     const [rows, setRows]               = useState<Term[]>([]);
-    const [filtered, setFiltered]       = useState<Term[]>([]);
     const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
     const [loading, setLoading]         = useState(true);
     const [search, setSearch]           = useState('');
     const [filterYear, setFilterYear]   = useState('');
+    const [page, setPage]               = useState(1);
     const [modalOpen, setModalOpen]     = useState(false);
     const [editing, setEditing]         = useState<Term | null>(null);
     const [toDelete, setToDelete]       = useState<Term | null>(null);
@@ -137,13 +158,17 @@ export default function TermsPage() {
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [search, filterYear]);
 
-    useEffect(() => {
+    const filtered = useMemo(() => {
         let list = rows;
         if (search)     list = list.filter(r => `${r.name} ${r.academicyearname}`.toLowerCase().includes(search.toLowerCase()));
         if (filterYear) list = list.filter(r => r.academicyearid === filterYear);
-        setFiltered(list);
+        return list;
     }, [search, filterYear, rows]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
@@ -178,9 +203,14 @@ export default function TermsPage() {
                         {loading ? 'Loading…' : `${rows.length} term${rows.length !== 1 ? 's' : ''}`}
                     </p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Term
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Term
+                    </Button>
+                </div>
             </div>
 
             {/* ── Stats cards ────────────────────────────────────────────── */}
@@ -216,15 +246,21 @@ export default function TermsPage() {
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
-                <select
-                    value={filterYear}
-                    onChange={e => setFilterYear(e.target.value)}
-                    className="h-9 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 min-w-48">
-                    <option value="">All academic years</option>
-                    {academicYears.map(y => (
-                        <option key={y.academicyearid} value={y.academicyearid}>{y.name}</option>
-                    ))}
-                </select>
+                <SelectRoot value={filterYear} onValueChange={v => setFilterYear(v ?? '')}>
+                    <SelectTrigger className="w-48 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700">
+                        <SelectValue>
+                            {filterYear
+                                ? (academicYears.find(y => y.academicyearid === filterYear)?.name ?? 'All academic years')
+                                : 'All academic years'}
+                        </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">All academic years</SelectItem>
+                        {academicYears.map(y => (
+                            <SelectItem key={y.academicyearid} value={y.academicyearid}>{y.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </SelectRoot>
                 {(search || filterYear) && (
                     <p className="text-sm text-slate-500 dark:text-slate-400 shrink-0">
                         {filtered.length} result{filtered.length !== 1 ? 's' : ''}
@@ -253,62 +289,62 @@ export default function TermsPage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Term', 'Academic Year', 'Start Date', 'End Date', 'Duration', 'Status', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         {h}
-                                    </th>
+                                    </TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(r => {
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(r => {
                                 const status = termStatus(r.startdate, r.enddate);
                                 return (
-                                    <tr key={r.termid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                    <TableRow key={r.termid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 
                                         {/* Term name */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex items-center gap-2.5">
                                                 <div className="h-8 w-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                                                     <CalendarDays className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                                                 </div>
                                                 <span className="font-semibold text-slate-900 dark:text-slate-100">{r.name}</span>
                                             </div>
-                                        </td>
+                                        </TableCell>
 
                                         {/* Academic year */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {r.academicyearname
                                                 ? <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">{r.academicyearname}</span>
                                                 : <span className="text-slate-300 dark:text-slate-600 text-xs italic">—</span>
                                             }
-                                        </td>
+                                        </TableCell>
 
                                         {/* Start date */}
-                                        <td className="px-4 py-3.5 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                        <TableCell className="px-4 py-3.5 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
                                             {fmtDate(r.startdate)}
-                                        </td>
+                                        </TableCell>
 
                                         {/* End date */}
-                                        <td className="px-4 py-3.5 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                        <TableCell className="px-4 py-3.5 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">
                                             {fmtDate(r.enddate)}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Duration */}
-                                        <td className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                        <TableCell className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                                             {termDuration(r.startdate, r.enddate)}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Status */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <Badge variant={status.variant}>{status.label}</Badge>
-                                        </td>
+                                        </TableCell>
 
                                         {/* Actions — visible on hover */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon"
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -321,18 +357,22 @@ export default function TermsPage() {
                                                     <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                                 </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="term" onChange={setPage} />
                 </div>
             )}
 
             {/* ── Modal ──────────────────────────────────────────────────── */}
-            <Modal isOpen={modalOpen} onClose={closeModal}
-                title={editing ? `Edit — ${editing.name}` : 'Add Term'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal(); }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? `Edit — ${editing.name}` : 'Add Term'}</DialogTitle>
+                </DialogHeader>
                 <TermForm
                     academicYears={academicYears}
                     defaultValues={editing ? {
@@ -344,7 +384,8 @@ export default function TermsPage() {
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             {/* ── Delete confirm ─────────────────────────────────────────── */}
             <ConfirmDialog

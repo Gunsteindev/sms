@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, CalendarDays, Clock, DoorOpen, User } from 'lucide-react';
+import { Plus, Pencil, Trash2, CalendarDays, Clock, DoorOpen, User, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,10 +11,13 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import { timetableAPI, classesAPI, subjectsAPI, teachersAPI } from '@/lib/api-client';
+
+const PAGE_SIZE = 10;
 import type { TimetableEntry } from '@/lib/dataverse/timetable';
 import { DAYS_OF_WEEK } from '@/lib/dataverse/timetable';
 
@@ -35,7 +39,7 @@ function subjectColor(name: string) {
 
 // ── form ──────────────────────────────────────────────────────────────────────
 const schema = z.object({
-    dayofweek:    z.coerce.number().min(1).max(7),
+    dayofweek:    z.string().min(1, 'Required'),
     starttime:    z.string().min(1, 'Required'),
     endtime:      z.string().min(1, 'Required'),
     roomnumber:   z.string().optional(),
@@ -82,70 +86,108 @@ function TimetableForm({ defaultValues, onSubmit, onCancel }: {
 
     const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
-        defaultValues: { dayofweek: 1, ...defaultValues },
+        defaultValues: { dayofweek: 'Monday', ...defaultValues },
     });
 
+    const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-4">
-                <F id="dayofweek" label="Day *" error={errors.dayofweek?.message}>
-                    <Controller name="dayofweek" control={control} render={({ field }) => (
-                        <SelectRoot value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {Object.entries(DAYS_OF_WEEK).map(([k, v]) => (
-                                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-                <F id="periodnumber" label="Period #">
-                    <Input id="periodnumber" {...register('periodnumber')} type="number" min={1} max={10} placeholder="e.g. 1" />
-                </F>
-                <F id="starttime" label="Start Time *" error={errors.starttime?.message}>
-                    <Input id="starttime" {...register('starttime')} type="time" />
-                </F>
-                <F id="endtime" label="End Time *" error={errors.endtime?.message}>
-                    <Input id="endtime" {...register('endtime')} type="time" />
-                </F>
-                <F id="roomnumber" label="Room">
-                    <Input id="roomnumber" {...register('roomnumber')} placeholder="e.g. 101" />
-                </F>
-                <F id="classid" label="Class">
-                    <Controller name="classid" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">— None —</SelectItem>
-                                {classes.map((c: any) => (
-                                    <SelectItem key={c.classid} value={c.classid}>
-                                        {c.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-                <F id="subjectid" label="Subject">
-                    <Controller name="subjectid" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">— None —</SelectItem>
-                                {subjects.map((s: any) => (
-                                    <SelectItem key={s.subjectid} value={s.subjectid}>
-                                        {s.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+
+            {/* ── Schedule ── */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Schedule</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="dayofweek" label="Day *" error={errors.dayofweek?.message}>
+                        <Controller name="dayofweek" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value} onValueChange={v => field.onChange(v)}>
+                                <SelectTrigger className={ST}>
+                                    <SelectValue>{field.value || 'Select day'}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(DAYS_OF_WEEK).map(([k, v]) => (
+                                        <SelectItem key={k} value={v}>{v}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <F id="periodnumber" label="Period #">
+                        <Input id="periodnumber" {...register('periodnumber')} type="number" min={1} max={10} placeholder="e.g. 1" />
+                    </F>
+                    <F id="starttime" label="Start Time *" error={errors.starttime?.message}>
+                        <Input id="starttime" {...register('starttime')} type="time" />
+                    </F>
+                    <F id="endtime" label="End Time *" error={errors.endtime?.message}>
+                        <Input id="endtime" {...register('endtime')} type="time" />
+                    </F>
+                    <div className="col-span-2">
+                        <F id="roomnumber" label="Room Number">
+                            <Input id="roomnumber" {...register('roomnumber')} placeholder="e.g. 101" />
+                        </F>
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800" />
+
+            {/* ── Assignment ── */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Assignment</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="classid" label="Class">
+                        <Controller name="classid" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                            ? (classes.find((c: any) => c.classid === field.value)?.classname ?? '— None —')
+                                            : '— None —'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">— None —</SelectItem>
+                                    {classes.map((c: any) => (
+                                        <SelectItem key={c.classid} value={c.classid}>{c.classname}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <F id="subjectid" label="Subject">
+                        <Controller name="subjectid" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                            ? (subjects.find((s: any) => s.subjectid === field.value)?.name ?? '— None —')
+                                            : '— None —'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">— None —</SelectItem>
+                                    {subjects.map((s: any) => (
+                                        <SelectItem key={s.subjectid} value={s.subjectid}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                </div>
                 <F id="teacherid" label="Teacher">
                     <Controller name="teacherid" control={control} render={({ field }) => (
                         <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+                            <SelectTrigger className={ST}>
+                                <SelectValue>
+                                    {field.value ? (() => {
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const t = teachers.find((t: any) => t.teacherid === field.value);
+                                        return t ? `${t.firstname} ${t.lastname}` : '— None —';
+                                    })() : '— None —'}
+                                </SelectValue>
+                            </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="">— None —</SelectItem>
                                 {teachers.map((t: any) => (
@@ -158,6 +200,7 @@ function TimetableForm({ defaultValues, onSubmit, onCancel }: {
                     )} />
                 </F>
             </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save Entry'}</Button>
@@ -219,6 +262,7 @@ export default function TimetablePage() {
     const [loading, setLoading]   = useState(true);
     const [filterDay, setFilterDay] = useState<number | 'all'>('all');
     const [view, setView]         = useState<'grid' | 'list'>('grid');
+    const [page, setPage]         = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]   = useState<TimetableEntry | null>(null);
     const [toDelete, setToDelete] = useState<string | null>(null);
@@ -234,8 +278,12 @@ export default function TimetablePage() {
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [filterDay]);
 
     const filtered = filterDay === 'all' ? rows : rows.filter(r => r.dayofweek === filterDay);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     // Group by day for grid view
     const byDay: Record<number, TimetableEntry[]> = {};
@@ -248,10 +296,10 @@ export default function TimetablePage() {
     const handleSubmit = async (data: any) => {
         try {
             if (editing) {
-                await timetableAPI.update(editing.timetableid, data);
+                await timetableAPI.update(editing.timetableid, { ...data, dayofweek: Object.entries(DAYS_OF_WEEK).find(([,v])=>v===data.dayofweek)?.[0] ? Number(Object.entries(DAYS_OF_WEEK).find(([,v])=>v===data.dayofweek)![0]) : 1 });
                 toast.success('Entry updated');
             } else {
-                await timetableAPI.create(data);
+                await timetableAPI.create({ ...data, dayofweek: Object.entries(DAYS_OF_WEEK).find(([,v])=>v===data.dayofweek)?.[0] ? Number(Object.entries(DAYS_OF_WEEK).find(([,v])=>v===data.dayofweek)![0]) : 1 });
                 toast.success('Entry added');
             }
             setModalOpen(false); setEditing(null); load();
@@ -278,6 +326,9 @@ export default function TimetablePage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
                     {/* View toggle */}
                     <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-xs">
                         {(['grid', 'list'] as const).map(v => (
@@ -367,47 +418,47 @@ export default function TimetablePage() {
             ) : (
                 /* ── LIST VIEW ── */
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Day', 'Period', 'Time', 'Subject', 'Class', 'Teacher', 'Room', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(r => (
-                                <tr key={r.timetableid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                                    <td className="px-4 py-3">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(r => (
+                                <TableRow key={r.timetableid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                    <TableCell className="px-4 py-3">
                                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             {DAYS_OF_WEEK[r.dayofweek] ?? r.dayofweekname}
                                         </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
                                         {r.periodnumber ? `P${r.periodnumber}` : '—'}
-                                    </td>
-                                    <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
                                         {r.starttime}–{r.endtime}
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
                                         {r.subjectname
                                             ? <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium border ${subjectColor(r.subjectname)}`}>{r.subjectname}</span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
                                         {r.classname || <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
                                         {r.teachername || <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
                                         {r.roomnumber
                                             ? <span className="inline-flex items-center gap-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
                                                 <DoorOpen className="h-3 w-3" />{r.roomnumber}
                                               </span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button variant="ghost" size="icon" onClick={() => openEdit(r)}
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -418,20 +469,24 @@ export default function TimetablePage() {
                                                 <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                             </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="entry" onChange={setPage} />
                 </div>
             )}
 
             {/* Modal */}
-            <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }}
-                title={editing ? 'Edit Entry' : 'Add Timetable Entry'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? 'Edit Entry' : 'Add Timetable Entry'}</DialogTitle>
+                </DialogHeader>
                 <TimetableForm
                     defaultValues={editing ? {
-                        dayofweek:    editing.dayofweek,
+                        dayofweek:    DAYS_OF_WEEK[editing.dayofweek] ?? 'Monday',
                         starttime:    editing.starttime,
                         endtime:      editing.endtime,
                         roomnumber:   editing.roomnumber   || undefined,
@@ -443,7 +498,8 @@ export default function TimetablePage() {
                     onSubmit={handleSubmit}
                     onCancel={() => { setModalOpen(false); setEditing(null); }}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             <ConfirmDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}
                 title="Delete entry?" description="This will permanently remove the timetable entry."

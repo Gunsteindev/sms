@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClassById, updateClass, deleteClass } from '@/lib/dataverse/classes';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(
     _request: NextRequest,
@@ -17,16 +18,8 @@ export async function GET(
         }
 
         return NextResponse.json({ success: true, data: classData });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        console.error('Error in GET /api/classes/[id]:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error.message || 'Failed to fetch class'
-            },
-            { status: 500 }
-        );
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -44,16 +37,8 @@ export async function PUT(
             data: updatedClass,
             message: 'Class updated successfully'
         });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        console.error('Error in PUT /api/classes/[id]:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error.message || 'Failed to update class'
-            },
-            { status: 500 }
-        );
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -69,15 +54,7 @@ export async function DELETE(
             success: true,
             message: 'Class deleted successfully'
         });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        console.error('Error in DELETE /api/classes/[id]:', error);
-        return NextResponse.json(
-            {
-                success: false,
-                error: error.message || 'Failed to delete class'
-            },
-            { status: 500 }
-        );
+    } catch (error) {
+        return serverError(error);
     }
 }

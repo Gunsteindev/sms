@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTimetable, createTimetableEntry } from '@/lib/dataverse/timetable';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
         const day = request.nextUrl.searchParams.get('dayofweek');
         const data = await getTimetable(day ? parseInt(day) : undefined);
         return NextResponse.json({ success: true, data, total: data.length });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return serverError(error);
     }
 }
 
@@ -19,8 +19,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'dayofweek, starttime, endtime are required' }, { status: 400 });
         const data = await createTimetableEntry(body);
         return NextResponse.json({ success: true, data }, { status: 201 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        return serverError(error);
     }
 }

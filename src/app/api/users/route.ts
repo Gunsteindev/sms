@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUsers, getUserByEmail, getUserStats } from '@/lib/dataverse/users';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -20,7 +21,6 @@ export async function GET(request: NextRequest) {
         const data = await getUsers(role);
         return NextResponse.json({ success: true, data, total: data.length });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch users';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }

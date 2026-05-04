@@ -1,12 +1,13 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
+import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StudentTable } from '@/components/students/StudentTable';
 import { StudentForm } from '@/components/students/StudentForm';
@@ -17,13 +18,13 @@ import type { Student } from '@/lib/dataverse/students';
 
 const STATUS_OPTIONS = [
   { value: '',  label: 'All Statuses' },
-  { value: '1', label: 'Active' },
-  { value: '2', label: 'Graduated' },
-  { value: '3', label: 'Transferred' },
-  { value: '4', label: 'Suspended' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Graduated', label: 'Graduated' },
+  { value: 'Transferred', label: 'Transferred' },
+  { value: 'Suspended', label: 'Suspended' },
 ];
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 interface ParentOption { parentid: string; fullname: string; phone: string; }
 
@@ -147,17 +148,17 @@ function AssignParentModal({ student, onClose, onSaved }: {
 }
 
 const STUDENT_STATUSES = [
-  { value: 1, label: 'Active',      color: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
-  { value: 2, label: 'Graduated',   color: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
-  { value: 3, label: 'Transferred', color: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800' },
-  { value: 4, label: 'Suspended',   color: 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' },
+  { value: 1, label: 'Active'      },
+  { value: 2, label: 'Graduated'   },
+  { value: 3, label: 'Transferred' },
+  { value: 4, label: 'Suspended'   },
 ];
 
 const ENROLLMENT_STATUSES = [
-  { value: 1, label: 'Enrolled',   color: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
-  { value: 2, label: 'Completed',  color: 'text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' },
-  { value: 3, label: 'Dropped',    color: 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' },
-  { value: 4, label: 'On Hold',    color: 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700' },
+  { value: 1, label: 'Enrolled'  },
+  { value: 2, label: 'Completed' },
+  { value: 3, label: 'Dropped'   },
+  { value: 4, label: 'On Hold'   },
 ];
 
 function UpdateStatusModal({ student, onClose, onSaved }: {
@@ -165,16 +166,20 @@ function UpdateStatusModal({ student, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [studentStatus,    setStudentStatus]    = useState(student.studentstatus    || 1);
-  const [enrollmentStatus, setEnrollmentStatus] = useState(student.enrollmentstatus || 1);
+  const [studentStatus,    setStudentStatus]    = useState(
+    STUDENT_STATUSES.find(s => s.value === (student.studentstatus || 1))?.label ?? 'Active'
+  );
+  const [enrollmentStatus, setEnrollmentStatus] = useState(
+    ENROLLMENT_STATUSES.find(s => s.value === (student.enrollmentstatus || 1))?.label ?? 'Enrolled'
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await studentsAPI.update(student.studentid, {
-        studentstatus:    studentStatus,
-        enrollmentstatus: enrollmentStatus,
+        studentstatus:    STUDENT_STATUSES.find(s => s.label === studentStatus)?.value ?? 1,
+        enrollmentstatus: ENROLLMENT_STATUSES.find(s => s.label === enrollmentStatus)?.value ?? 1,
       });
       toast.success('Status updated');
       onSaved();
@@ -193,47 +198,33 @@ function UpdateStatusModal({ student, onClose, onSaved }: {
       </p>
 
       {/* Student Status */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Student Status</p>
-        <div className="grid grid-cols-2 gap-2">
-          {STUDENT_STATUSES.map(s => (
-            <button
-              key={s.value}
-              type="button"
-              onClick={() => setStudentStatus(s.value)}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                studentStatus === s.value
-                  ? `${s.color} ring-2 ring-offset-1 ring-current`
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-              }`}
-            >
-              {s.label}
-              {studentStatus === s.value && <span className="text-xs">✓</span>}
-            </button>
-          ))}
-        </div>
+        <SelectRoot value={studentStatus} onValueChange={v => setStudentStatus(v ?? 'Active')}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {STUDENT_STATUSES.map(s => (
+              <SelectItem key={s.value} value={s.label}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </SelectRoot>
       </div>
 
       {/* Enrollment Status */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Enrollment Status</p>
-        <div className="grid grid-cols-2 gap-2">
-          {ENROLLMENT_STATUSES.map(s => (
-            <button
-              key={s.value}
-              type="button"
-              onClick={() => setEnrollmentStatus(s.value)}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                enrollmentStatus === s.value
-                  ? `${s.color} ring-2 ring-offset-1 ring-current`
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-              }`}
-            >
-              {s.label}
-              {enrollmentStatus === s.value && <span className="text-xs">✓</span>}
-            </button>
-          ))}
-        </div>
+        <SelectRoot value={enrollmentStatus} onValueChange={v => setEnrollmentStatus(v ?? 'Enrolled')}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {ENROLLMENT_STATUSES.map(s => (
+              <SelectItem key={s.value} value={s.label}>{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </SelectRoot>
       </div>
 
       <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -253,15 +244,16 @@ export default function StudentsPage() {
   const [page, setPage]               = useState(1);
   const [search, setSearch]           = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<number | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [modalOpen, setModalOpen]     = useState(false);
   const [editing, setEditing]         = useState<Student | null>(null);
   const [toDelete, setToDelete]       = useState<string | null>(null);
   const [assigningParent, setAssigningParent] = useState<Student | null>(null);
   const [updatingStatus, setUpdatingStatus]   = useState<Student | null>(null);
 
+  const _STATUS_MAP: Record<string,number> = { Active:1, Graduated:2, Transferred:3, Suspended:4 };
   const { students, loading, error, pagination, refetch } = useStudents(
-    page, PAGE_SIZE, debouncedSearch || undefined, statusFilter
+    page, PAGE_SIZE, debouncedSearch || undefined, statusFilter ? _STATUS_MAP[statusFilter] : undefined
   );
 
   const handleSearch = (v: string) => {
@@ -274,7 +266,7 @@ export default function StudentsPage() {
   };
 
   const handleStatusChange = (v: string) => {
-    setStatusFilter(v ? Number(v) : undefined);
+    setStatusFilter(v);
     setPage(1);
   };
 
@@ -316,9 +308,14 @@ export default function StudentsPage() {
             {loading ? 'Loading…' : `${pagination.totalCount} student${pagination.totalCount !== 1 ? 's' : ''} enrolled`}
           </p>
         </div>
-        <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-          <Plus className="h-4 w-4 mr-1.5" /> Add Student
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+            <Plus className="h-4 w-4 mr-1.5" /> Add Student
+          </Button>
+        </div>
       </div>
 
       <AISummary type="students" getData={() => ({ total: pagination.totalCount, students: students.slice(0, 30) })} />
@@ -334,15 +331,19 @@ export default function StudentsPage() {
             onChange={e => handleSearch(e.target.value)}
           />
         </div>
-        <select
-          value={statusFilter ?? ''}
-          onChange={e => handleStatusChange(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        <SelectRoot
+          value={statusFilter}
+          onValueChange={(v) => handleStatusChange(v ?? '')}
         >
-          {STATUS_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map(o => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </SelectRoot>
       </div>
 
       {/* Error state */}
@@ -393,14 +394,17 @@ export default function StudentsPage() {
       })()}
 
       {/* Add / Edit modal */}
-      <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }}
-        title={editing ? 'Edit Student' : 'Add New Student'}>
+      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Student' : 'Add New Student'}</DialogTitle>
+          </DialogHeader>
         <StudentForm
           defaultValues={editing ? {
             firstname:        editing.firstname,
             lastname:         editing.lastname,
             dateofbirth:      editing.dateofbirth?.slice(0, 10),
-            gender:           editing.gender,
+            gender:           (({ 1:'Male', 2:'Female' } as Record<number,string>)[editing.gender]) ?? 'Male',
             email:            editing.email || undefined,
             phone:            editing.phone || undefined,
             address:          editing.address || undefined,
@@ -409,20 +413,21 @@ export default function StudentsPage() {
             classid:          editing.classid || undefined,
             parentid:         editing.parentid || undefined,
             parentname:       editing.parentname || editing.guardianname || undefined,
-            studentstatus:    editing.studentstatus || 1,
-            enrollmentstatus: editing.enrollmentstatus || 1,
+            studentstatus:    (({ 1:'Active', 2:'Graduated', 3:'Transferred', 4:'Suspended' } as Record<number,string>)[editing.studentstatus]) ?? 'Active',
+            enrollmentstatus: (({ 1:'Enrolled', 2:'Completed', 3:'Dropped', 4:'On Hold' } as Record<number,string>)[editing.enrollmentstatus]) ?? 'Enrolled',
           } : undefined}
           onSubmit={handleSubmit}
           onCancel={() => { setModalOpen(false); setEditing(null); }}
         />
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* Update Status modal */}
-      <Modal
-        isOpen={!!updatingStatus}
-        onClose={() => setUpdatingStatus(null)}
-        title="Update Student Status"
-      >
+      <Dialog open={!!updatingStatus} onOpenChange={(o) => { if (!o) { setUpdatingStatus(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update Student Status</DialogTitle>
+          </DialogHeader>
         {updatingStatus && (
           <UpdateStatusModal
             student={updatingStatus}
@@ -430,14 +435,15 @@ export default function StudentsPage() {
             onSaved={refetch}
           />
         )}
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* Assign Parent modal */}
-      <Modal
-        isOpen={!!assigningParent}
-        onClose={() => setAssigningParent(null)}
-        title="Assign Parent / Guardian"
-      >
+      <Dialog open={!!assigningParent} onOpenChange={(o) => { if (!o) { setAssigningParent(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Parent / Guardian</DialogTitle>
+          </DialogHeader>
         {assigningParent && (
           <AssignParentModal
             student={assigningParent}
@@ -445,7 +451,8 @@ export default function StudentsPage() {
             onSaved={refetch}
           />
         )}
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <ConfirmDialog

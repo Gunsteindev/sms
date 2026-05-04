@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
-import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, Briefcase } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Plus, Search, Pencil, Trash2, Briefcase, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,13 +12,16 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import {
   SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@/components/ui/Select';
 import { employeesAPI } from '@/lib/api-client';
+import { Pagination } from '@/components/ui/Pagination';
 import type { Employee } from '@/lib/dataverse/employees';
+
+const PAGE_SIZE = 10;
 
 const schema = z.object({
   firstname:              z.string().min(2, 'Required'),
@@ -27,10 +31,10 @@ const schema = z.object({
   employeecode:           z.string().min(1, 'Required'),
   department:             z.string().min(1, 'Required'),
   designation:            z.string().min(1, 'Required'),
-  employeetype:           z.coerce.number().min(1),
+  employeetype:           z.string().min(1, 'Required'),
   hiredate:               z.string().min(1, 'Required'),
   dateofbirth:            z.string().min(1, 'Required'),
-  gender:                 z.coerce.number().min(1),
+  gender:                 z.string().min(1, 'Required'),
   address1_line1:         z.string().optional(),
   salary:                 z.coerce.number().optional(),
   emergencycontactname:   z.string().min(1, 'Required'),
@@ -63,7 +67,7 @@ function EmployeeForm({ defaultValues, onSubmit, onCancel }: {
 }) {
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
-    defaultValues: { gender: 1, employeetype: 1, ...defaultValues },
+    defaultValues: { gender: 'Male', employeetype: 'Full-time', ...defaultValues },
   });
 
   return (
@@ -84,11 +88,11 @@ function EmployeeForm({ defaultValues, onSubmit, onCancel }: {
 
         <F id="gender" label="Gender *">
           <Controller control={control} name="gender" render={({ field }) => (
-            <SelectRoot value={String(field.value ?? '')} onValueChange={(v) => field.onChange(Number(v))}>
+            <SelectRoot value={field.value ?? ''} onValueChange={(v) => field.onChange(v)}>
               <SelectTrigger id="gender" className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Male</SelectItem>
-                <SelectItem value="2">Female</SelectItem>
+                <SelectItem value="Male">Male</SelectItem>
+                <SelectItem value="Female">Female</SelectItem>
               </SelectContent>
             </SelectRoot>
           )} />
@@ -112,7 +116,7 @@ function EmployeeForm({ defaultValues, onSubmit, onCancel }: {
 
         <F id="employeetype" label="Type *">
           <Controller control={control} name="employeetype" render={({ field }) => (
-            <SelectRoot value={String(field.value ?? '')} onValueChange={(v) => field.onChange(Number(v))}>
+            <SelectRoot value={field.value ?? ''} onValueChange={(v) => field.onChange(v)}>
               <SelectTrigger id="employeetype" className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 {Object.entries(EMP_TYPE).map(([v, l]) => (
@@ -149,9 +153,9 @@ function EmployeeForm({ defaultValues, onSubmit, onCancel }: {
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [filtered, setFiltered]   = useState<Employee[]>([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
+  const [page, setPage]           = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing]     = useState<Employee | null>(null);
   const [toDelete, setToDelete]   = useState<string | null>(null);
@@ -161,22 +165,27 @@ export default function EmployeesPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res: any = await employeesAPI.getAll();
-      setEmployees(res.data ?? []); setFiltered(res.data ?? []);
+      setEmployees(res.data ?? []);
     } catch { toast.error('Failed to load employees'); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
-  useEffect(() => {
+  useEffect(() => { setPage(1); }, [search]);
+
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    setFiltered(q ? employees.filter((e) => `${e.firstname} ${e.lastname} ${e.department} ${e.designation}`.toLowerCase().includes(q)) : employees);
+    return q ? employees.filter((e) => `${e.firstname} ${e.lastname} ${e.department} ${e.designation}`.toLowerCase().includes(q)) : employees;
   }, [search, employees]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSubmit = async (data: any) => {
     try {
-      if (editing) { await employeesAPI.update(editing.employeeid, data); toast.success('Employee updated'); }
-      else          { await employeesAPI.create(data);                    toast.success('Employee added'); }
+      if (editing) { await employeesAPI.update(editing.employeeid, { ...data, gender: ({ Male:1, Female:2 } as Record<string,number>)[data.gender] ?? 1, employeetype: Object.entries(EMP_TYPE).find(([,l])=>l===data.employeetype)?.[0] ? Number(Object.entries(EMP_TYPE).find(([,l])=>l===data.employeetype)![0]) : 1 }); toast.success('Employee updated'); }
+      else          { await employeesAPI.create({ ...data, gender: ({ Male:1, Female:2 } as Record<string,number>)[data.gender] ?? 1, employeetype: Object.entries(EMP_TYPE).find(([,l])=>l===data.employeetype)?.[0] ? Number(Object.entries(EMP_TYPE).find(([,l])=>l===data.employeetype)![0]) : 1 });                    toast.success('Employee added'); }
       setModalOpen(false); setEditing(null); load();
     } catch { toast.error('Failed to save employee'); }
   };
@@ -193,9 +202,14 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
           <p className="text-sm text-gray-500 mt-0.5">{employees.length} employee{employees.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-          <Plus className="h-4 w-4" /> Add Employee
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+            <Plus className="h-4 w-4" /> Add Employee
+          </Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -210,21 +224,21 @@ export default function EmployeesPage() {
           <Briefcase className="h-10 w-10 mb-3 opacity-40" /><p className="text-sm">No employees found</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/60">
+        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-gray-100 bg-gray-50/60">
                 {['Employee','Code','Department','Designation','Type','Status',''].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</th>
+                  <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.map((e) => {
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100">
+              {paginated.map((e) => {
                 const status = STATUS[e.statuscode] ?? { label: 'Unknown', variant: 'default' as const };
                 return (
-                  <tr key={e.employeeid} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-4 py-3">
+                  <TableRow key={e.employeeid} className="hover:bg-blue-50/30 transition-colors">
+                    <TableCell className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-100 text-xs font-semibold text-pink-700">
                           {e.firstname[0]}{e.lastname[0]}
@@ -234,13 +248,13 @@ export default function EmployeesPage() {
                           <p className="text-xs text-gray-400">{e.emailaddress1}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{e.employeecode}</td>
-                    <td className="px-4 py-3 text-gray-500">{e.department}</td>
-                    <td className="px-4 py-3 text-gray-500">{e.designation}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{EMP_TYPE[e.employeetype] ?? '—'}</td>
-                    <td className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 font-mono text-xs">{e.employeecode}</TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500">{e.department}</TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500">{e.designation}</TableCell>
+                    <TableCell className="px-4 py-3 text-gray-500 text-xs">{EMP_TYPE[e.employeetype] ?? '—'}</TableCell>
+                    <TableCell className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                    <TableCell className="px-4 py-3">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(e); setModalOpen(true); }}>
                           <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
@@ -249,18 +263,24 @@ export default function EmployeesPage() {
                           <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
+          <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="employee" onChange={setPage} />
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} title={editing ? 'Edit Employee' : 'Add Employee'}>
+      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
+          </DialogHeader>
         <EmployeeForm defaultValues={editing as any ?? undefined} onSubmit={handleSubmit} onCancel={() => { setModalOpen(false); setEditing(null); }} />
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!toDelete}

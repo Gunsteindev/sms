@@ -55,6 +55,7 @@ export interface CreateStudentRequest {
 export interface StudentFilters {
     search?: string;
     status?: number;
+    classid?: string;
     page?: number;
     pageSize?: number;
 }
@@ -107,7 +108,8 @@ export const getStudents = async (filters?: StudentFilters) => {
         const q = filters.search.replace(/'/g, "''");
         conditions.push(`(contains(sms_firstname,'${q}') or contains(sms_lastname,'${q}') or contains(sms_studentnumber,'${q}'))`);
     }
-    if (filters?.status) conditions.push(`sms_studentstatus eq ${filters.status}`);
+    if (filters?.status)  conditions.push(`sms_studentstatus eq ${filters.status}`);
+    if (filters?.classid) conditions.push(`_sms_class_value eq ${filters.classid}`);
 
     const parts: string[] = [
         `$select=${SELECT}`,

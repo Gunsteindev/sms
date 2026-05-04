@@ -35,7 +35,8 @@ export const AUDIENCE: Record<number, string> = {
 };
 
 const TABLE  = 'sms_announcements';
-const SELECT = 'sms_announcementid,sms_name,sms_message,sms_audience,sms_ispinned,sms_publishdate,sms_expirydate,sms_classname,_sms_class_value,createdon';
+// _sms_class_value is a lookup — include its formatted display value via annotation
+const SELECT = 'sms_announcementid,sms_name,sms_message,sms_audience,sms_ispinned,sms_publishdate,sms_expirydate,_sms_class_value,createdon';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapAnnouncement(item: any): Announcement {
@@ -50,13 +51,14 @@ function mapAnnouncement(item: any): Announcement {
         publishdate:    item.sms_publishdate    ?? item.createdon ?? '',
         expirydate:     item.sms_expirydate     ?? '',
         classid:        item._sms_class_value   ?? '',
-        classname:      item.sms_classname      ?? '',
+        classname:      item['_sms_class_value@OData.Community.Display.V1.FormattedValue'] ?? '',
         createdon:      item.createdon          ?? '',
     };
 }
 
 export const getAnnouncements = async (opts?: { audience?: number; limit?: number; pinned?: boolean }) => {
-    const parts: string[] = [`$select=${SELECT}`, `$orderby=sms_ispinned desc,sms_publishdate desc`];
+    // Order by ispinned first, fall back to createdon (guaranteed non-null system field)
+    const parts: string[] = [`$select=${SELECT}`, `$orderby=sms_ispinned desc,createdon desc`];
     if (opts?.limit) parts.push(`$top=${opts.limit}`);
 
     const conds: string[] = [];

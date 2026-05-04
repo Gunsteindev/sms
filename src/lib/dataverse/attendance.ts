@@ -97,7 +97,6 @@ export const markAttendance = async (records: CreateAttendanceRequest[]) => {
     const results = [];
     for (const record of records) {
         const payload: Record<string, unknown> = {
-            'sms_student@odata.bind': `/sms_students(${record.studentid})`,
             sms_date:             record.date,
             sms_attendancestatus: record.attendancestatus,
         };
@@ -109,8 +108,21 @@ export const markAttendance = async (records: CreateAttendanceRequest[]) => {
         if (record.remarks)   payload.sms_remarks = record.remarks;
         if (record.classid)   payload['sms_class@odata.bind']   = `/sms_classes(${record.classid})`;
         if (record.subjectid) payload['sms_subject@odata.bind'] = `/sms_subjects(${record.subjectid})`;
+
+        // Check for existing record on same student + date to avoid duplicates
+        const filter = encodeURIComponent(`_sms_student_value eq ${record.studentid} and sms_date eq ${record.date.slice(0, 10)}`);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        results.push(await dataverseClient.post<any>(TABLE, payload));
+        const existing = await dataverseClient.get<any>(`${TABLE}?$select=sms_attendanceid&$filter=${filter}&$top=1`);
+        const existingId = existing.value?.[0]?.sms_attendanceid;
+
+        if (existingId) {
+            await dataverseClient.patch(`${TABLE}(${existingId})`, payload);
+            results.push({ sms_attendanceid: existingId, ...payload });
+        } else {
+            payload['sms_student@odata.bind'] = `/sms_students(${record.studentid})`;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            results.push(await dataverseClient.post<any>(TABLE, payload));
+        }
     }
     return results;
 };

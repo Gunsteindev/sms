@@ -1,60 +1,53 @@
-// src/app/api/attendance/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getAttendance,
-  markAttendance,
-  getAttendanceTrends,
-} from '@/lib/dataverse/attendance';
+import { z } from 'zod';
+import { getAttendance, markAttendance, getAttendanceTrends } from '@/lib/dataverse/attendance';
+import { serverError } from '@/lib/api-guard';
 
-// GET /api/attendance?date=YYYY-MM-DD
+const attendanceRecordSchema = z.object({
+    studentid: z.string().min(1),
+    date:      z.string().min(1),
+    attendancestatus: z.number().int().min(1).max(4),
+    classid:   z.string().optional(),
+    notes:     z.string().optional(),
+});
+
+const markSchema = z.object({
+    records: z.array(attendanceRecordSchema).min(1),
+});
+
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const date  = searchParams.get('date') || undefined;
-    const trends = searchParams.get('trends') === 'true';
-    const days   = parseInt(searchParams.get('days') || '30');
+    try {
+        const p      = request.nextUrl.searchParams;
+        const date   = p.get('date')   || undefined;
+        const trends = p.get('trends') === 'true';
+        const days   = Math.min(Math.max(parseInt(p.get('days') || '30'), 1), 365);
 
-    if (trends) {
-      const data = await getAttendanceTrends(days);
-      return NextResponse.json({ success: true, data });
+        if (trends) {
+            const data = await getAttendanceTrends(days);
+            return NextResponse.json({ success: true, data });
+        }
+
+        const data = await getAttendance(date);
+        return NextResponse.json({ success: true, data });
+    } catch (error) {
+        return serverError(error);
     }
-
-    const data = await getAttendance(date);
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    console.error('GET /api/attendance error:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to fetch attendance' }, { status: 500 });
-  }
 }
 
-// POST /api/attendance - Mark attendance
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { records } = body;
+    try {
+        let body: unknown;
+        try { body = await request.json(); } catch { return serverError(new Error('Invalid JSON body')); }
 
-    if (!records || !Array.isArray(records) || records.length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Records array is required' },
-        { status: 400 }
-      );
+        const parsed = markSchema.safeParse(body);
+        if (!parsed.success) {
+            const errors = parsed.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+            return NextResponse.json({ success: false, error: errors }, { status: 400 });
+        }
+
+        const result = await markAttendance(parsed.data.records);
+        return NextResponse.json({ success: true, data: result, message: `Marked ${parsed.data.records.length} attendance records successfully` }, { status: 201 });
+    } catch (error) {
+        return serverError(error);
     }
-
-    const result = await markAttendance(records);
-    
-    return NextResponse.json({
-      success: true,
-      data: result,
-      message: `Marked ${records.length} attendance records successfully`
-    }, { status: 201 });
-  } catch (error: any) {
-    console.error('Error in POST /api/attendance:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to mark attendance' 
-      },
-      { status: 500 }
-    );
-  }
 }

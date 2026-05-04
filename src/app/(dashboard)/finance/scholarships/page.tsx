@@ -1,20 +1,27 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Award, TrendingUp, Users, BookOpen } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Award, TrendingUp, Users, BookOpen, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
+import { DatePicker } from '@/components/ui/date-picker';
 import { AISummary } from '@/components/ui/AISummary';
-import { scholarshipsAPI, academicYearsAPI } from '@/lib/api-client';
+import { Pagination } from '@/components/ui/Pagination';
+import { scholarshipsAPI, academicYearsAPI, studentsAPI } from '@/lib/api-client';
+
+const PAGE_SIZE = 10;
 import type { Scholarship } from '@/lib/dataverse/scholarships';
 import type { AcademicYear } from '@/lib/dataverse/academicyears';
 import { SCHOLARSHIP_TYPES } from '@/lib/dataverse/scholarships';
@@ -42,7 +49,7 @@ const schema = z.object({
     name:            z.string().min(1, 'Required'),
     condition:       z.string().optional(),
     sponsoredby:     z.string().optional(),
-    scholarshiptype: z.coerce.number(),
+    scholarshiptype: z.string().min(1, 'Required'),
     amount:          z.coerce.number().optional(),
     percentage:      z.coerce.number().min(0).max(100).optional(),
     startdate:       z.string().min(1, 'Required'),
@@ -52,7 +59,6 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-const SELECT_CLS = 'w-full h-9 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400';
 
 function F({ id, label, error, children }: {
     id: string; label: string; error?: string; children: React.ReactNode;
@@ -66,65 +72,118 @@ function F({ id, label, error, children }: {
     );
 }
 
-function ScholarshipForm({ defaultValues, academicYears, onSubmit, onCancel }: {
+const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
+interface StudentOption { id: string; name: string; }
+
+function ScholarshipForm({ defaultValues, academicYears, students, onSubmit, onCancel }: {
     defaultValues?: Partial<FormData>;
     academicYears: AcademicYear[];
+    students: StudentOption[];
     onSubmit: (d: FormData) => Promise<void>;
     onCancel: () => void;
 }) {
-    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
-        defaultValues: defaultValues ?? { scholarshiptype: 922330000 },
+        defaultValues: defaultValues ?? { scholarshiptype: 'Full' },
     });
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-            <F id="name" label="Name *" error={errors.name?.message}>
-                <Input id="name" {...register('name')} placeholder="e.g. Presidential Merit Scholarship" />
-            </F>
-            <F id="condition" label="Terms / Conditions">
-                <textarea id="condition" {...register('condition')} rows={3}
-                    placeholder="Describe the eligibility criteria and renewal conditions…"
-                    className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 resize-none" />
-            </F>
-            <F id="sponsoredby" label="Sponsored By">
-                <Input id="sponsoredby" {...register('sponsoredby')} placeholder="e.g. Ministry of Education, Ghana" />
-            </F>
-            <F id="scholarshiptype" label="Type *" error={errors.scholarshiptype?.message}>
-                <select id="scholarshiptype" {...register('scholarshiptype')} className={SELECT_CLS}>
-                    {Object.entries(SCHOLARSHIP_TYPES).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                    ))}
-                </select>
-            </F>
-            <div className="grid grid-cols-2 gap-3">
-                <F id="amount" label="Amount (GHS)">
-                    <Input id="amount" type="number" step="0.01" {...register('amount')} placeholder="0.00" />
-                </F>
-                <F id="percentage" label="Coverage (%)">
-                    <Input id="percentage" type="number" step="0.1" min="0" max="100" {...register('percentage')} placeholder="0–100" />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+
+            {/* ── Scholarship Details ── */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Scholarship Details</p>
+                <div className="space-y-4">
+                    <F id="name" label="Name *" error={errors.name?.message}>
+                        <Input id="name" {...register('name')} placeholder="e.g. Presidential Merit Scholarship" />
+                    </F>
+                    <F id="sponsoredby" label="Sponsored By">
+                        <Input id="sponsoredby" {...register('sponsoredby')} placeholder="e.g. Ministry of Education, Ghana" />
+                    </F>
+                    <F id="condition" label="Terms / Conditions">
+                        <Textarea id="condition" {...register('condition')} rows={3}
+                            placeholder="Describe the eligibility criteria and renewal conditions…" />
+                    </F>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800" />
+
+            {/* ── Assignment ── */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Assignment</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="scholarshiptype" label="Type *" error={errors.scholarshiptype?.message}>
+                        <Controller name="scholarshiptype" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger id="scholarshiptype" className={ST}>
+                                    <SelectValue>{field.value || '— Select type —'}</SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(SCHOLARSHIP_TYPES).map(([k, v]) => (
+                                        <SelectItem key={k} value={v}>{v}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <F id="academicyearid" label="Academic Year">
+                        <Controller name="academicyearid" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger id="academicyearid" className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            ? (academicYears.find(ay => ay.academicyearid === field.value)?.name ?? '— None —')
+                                            : '— None —'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">— None —</SelectItem>
+                                    {academicYears.map(ay => (
+                                        <SelectItem key={ay.academicyearid} value={ay.academicyearid}>{ay.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <F id="amount" label="Amount (GHS)">
+                        <Input id="amount" type="number" step="0.01" {...register('amount')} placeholder="0.00" />
+                    </F>
+                    <F id="percentage" label="Coverage (%)">
+                        <Input id="percentage" type="number" step="0.1" min="0" max="100" {...register('percentage')} placeholder="0–100" />
+                    </F>
+                    <F id="startdate" label="Start Date *" error={errors.startdate?.message}>
+                        <Controller control={control} name="startdate" render={({ field }) => (
+                            <DatePicker id="startdate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                        )} />
+                    </F>
+                    <F id="enddate" label="End Date">
+                        <Controller control={control} name="enddate" render={({ field }) => (
+                            <DatePicker id="enddate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                        )} />
+                    </F>
+                </div>
+                <F id="studentid" label="Student">
+                    <Controller name="studentid" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                            <SelectTrigger id="studentid" className={ST}>
+                                <SelectValue>
+                                    {field.value
+                                        ? (students.find(s => s.id === field.value)?.name ?? '— None —')
+                                        : '— None —'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">— None —</SelectItem>
+                                {students.map(s => (
+                                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
                 </F>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                <F id="startdate" label="Start Date *" error={errors.startdate?.message}>
-                    <Input id="startdate" type="date" {...register('startdate')} />
-                </F>
-                <F id="enddate" label="End Date">
-                    <Input id="enddate" type="date" {...register('enddate')} />
-                </F>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-                <F id="studentid" label="Student ID">
-                    <Input id="studentid" {...register('studentid')} placeholder="Student GUID (optional)" />
-                </F>
-                <F id="academicyearid" label="Academic Year">
-                    <select id="academicyearid" {...register('academicyearid')} className={SELECT_CLS}>
-                        <option value="">— None —</option>
-                        {academicYears.map(ay => (
-                            <option key={ay.academicyearid} value={ay.academicyearid}>{ay.name}</option>
-                        ))}
-                    </select>
-                </F>
-            </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
@@ -138,13 +197,14 @@ function ScholarshipForm({ defaultValues, academicYears, onSubmit, onCancel }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function ScholarshipsPage() {
     const [rows, setRows]           = useState<Scholarship[]>([]);
-    const [filtered, setFiltered]   = useState<Scholarship[]>([]);
     const [loading, setLoading]     = useState(true);
     const [search, setSearch]       = useState('');
+    const [page, setPage]           = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]     = useState<Scholarship | null>(null);
     const [toDelete, setToDelete]   = useState<Scholarship | null>(null);
     const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+    const [students, setStudents]           = useState<StudentOption[]>([]);
 
     const stats = useMemo(() => {
         const full     = rows.filter(r => r.scholarshiptype === 922330000).length;
@@ -157,37 +217,42 @@ export default function ScholarshipsPage() {
         setLoading(true);
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const [schRes, ayRes]: any[] = await Promise.all([
+            const [schRes, ayRes, sRes]: any[] = await Promise.all([
                 scholarshipsAPI.getAll(),
                 academicYearsAPI.getAll(),
+                studentsAPI.getAll(),
             ]);
             setRows(schRes.data ?? []);
-            setFiltered(schRes.data ?? []);
             setAcademicYears(ayRes.data ?? []);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setStudents((sRes.data ?? []).map((s: any) => ({ id: s.studentid, name: s.fullname || `${s.firstname} ${s.lastname}`.trim() })));
         } catch { toast.error('Failed to load scholarships'); }
         finally { setLoading(false); }
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [search]);
 
-    useEffect(() => {
+    const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        setFiltered(q
+        return q
             ? rows.filter(r =>
                 `${r.name} ${r.studentname} ${r.condition} ${r.sponsoredby} ${r.academicyearname}`
                     .toLowerCase().includes(q))
-            : rows
-        );
+            : rows;
     }, [search, rows]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
         try {
             if (editing) {
-                await scholarshipsAPI.update(editing.scholarshipid, data);
+                await scholarshipsAPI.update(editing.scholarshipid, { ...data, scholarshiptype: Object.entries(SCHOLARSHIP_TYPES).find(([,v])=>v===data.scholarshiptype)?.[0] ? Number(Object.entries(SCHOLARSHIP_TYPES).find(([,v])=>v===data.scholarshiptype)![0]) : 922330000 });
                 toast.success('Scholarship updated');
             } else {
-                await scholarshipsAPI.create(data);
+                await scholarshipsAPI.create({ ...data, scholarshiptype: Object.entries(SCHOLARSHIP_TYPES).find(([,v])=>v===data.scholarshiptype)?.[0] ? Number(Object.entries(SCHOLARSHIP_TYPES).find(([,v])=>v===data.scholarshiptype)![0]) : 922330000 });
                 toast.success('Scholarship created');
             }
             setModalOpen(false); setEditing(null); load();
@@ -213,9 +278,14 @@ export default function ScholarshipsPage() {
                         {loading ? 'Loading…' : `${rows.length} scholarship${rows.length !== 1 ? 's' : ''}`}
                     </p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Scholarship
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Scholarship
+                    </Button>
+                </div>
             </div>
 
             {/* ── Stats cards ────────────────────────────────────────────── */}
@@ -282,22 +352,22 @@ export default function ScholarshipsPage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Scholarship', 'Type', 'Value', 'Sponsored By', 'Student', 'Period', 'Acad. Year', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         {h}
-                                    </th>
+                                    </TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(r => (
-                                <tr key={r.scholarshipid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(r => (
+                                <TableRow key={r.scholarshipid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 
                                     {/* Name + condition */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <div className="flex items-start gap-2.5">
                                             <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0 mt-0.5">
                                                 <Award className="h-4 w-4 text-amber-500 dark:text-amber-400" />
@@ -311,47 +381,47 @@ export default function ScholarshipsPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    </td>
+                                    </TableCell>
 
                                     {/* Type */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <Badge variant={TYPE_VARIANT[r.scholarshiptype] ?? 'outline'}>
                                             {SCHOLARSHIP_TYPES[r.scholarshiptype] ?? '—'}
                                         </Badge>
-                                    </td>
+                                    </TableCell>
 
                                     {/* Value */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         {fmtCurrency(r.amount)
                                             ? <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{fmtCurrency(r.amount)}</span>
                                             : r.percentage
                                                 ? <span className="font-mono text-slate-700 dark:text-slate-300">{r.percentage}%</span>
                                                 : <span className="text-slate-300 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Sponsored by */}
-                                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs max-w-[160px] truncate" title={r.sponsoredby || undefined}>
+                                    <TableCell className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs max-w-[160px] truncate" title={r.sponsoredby || undefined}>
                                         {r.sponsoredby || <span className="text-slate-300 dark:text-slate-600 italic">—</span>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Student */}
-                                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                                    <TableCell className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
                                         {r.studentname || <span className="text-slate-300 dark:text-slate-600 italic text-xs">Unassigned</span>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Period */}
-                                    <td className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                    <TableCell className="px-4 py-3.5 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                                         {fmtDate(r.startdate)}
                                         {r.enddate && <> <span className="text-slate-300 dark:text-slate-600">→</span> {fmtDate(r.enddate)}</>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Academic year */}
-                                    <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 text-xs">
+                                    <TableCell className="px-4 py-3.5 text-slate-500 dark:text-slate-400 text-xs">
                                         {r.academicyearname || <span className="text-slate-300 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Actions — visible on hover */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button variant="ghost" size="icon"
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -364,23 +434,27 @@ export default function ScholarshipsPage() {
                                                 <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                             </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="scholarship" onChange={setPage} />
                 </div>
             )}
 
             {/* ── Modal ──────────────────────────────────────────────────── */}
-            <Modal isOpen={modalOpen} onClose={closeModal}
-                title={editing ? `Edit — ${editing.name}` : 'Add Scholarship'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal(); }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? `Edit — ${editing.name}` : 'Add Scholarship'}</DialogTitle>
+                </DialogHeader>
                 <ScholarshipForm
                     defaultValues={editing ? {
                         name:            editing.name,
                         condition:       editing.condition   || undefined,
                         sponsoredby:     editing.sponsoredby || undefined,
-                        scholarshiptype: editing.scholarshiptype,
+                        scholarshiptype: SCHOLARSHIP_TYPES[editing.scholarshiptype] ?? 'Full',
                         amount:          editing.amount      || undefined,
                         percentage:      editing.percentage  || undefined,
                         startdate:       editing.startdate?.slice(0, 10),
@@ -389,10 +463,12 @@ export default function ScholarshipsPage() {
                         academicyearid:  editing.academicyearid || undefined,
                     } : undefined}
                     academicYears={academicYears}
+                    students={students}
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             {/* ── Delete confirm ─────────────────────────────────────────── */}
             <ConfirmDialog

@@ -72,8 +72,8 @@ function mapSubject(item: any): Subject {
     };
 }
 
-export const getSubjects = async (search?: string) => {
-    const parts = [`$select=${SELECT}`, `$orderby=sms_name asc`];
+export const getSubjects = async (search?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=sms_name asc`, `$top=${top}`];
     if (search) {
         const q = search.replace(/'/g, "''");
         parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${q}') or contains(sms_code,'${q}')`)}`);

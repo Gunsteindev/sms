@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import {
 import { format, isAfter, isBefore } from 'date-fns';
 import { AttendanceChart } from '@/components/charts/AttendanceChart';
 import { AISummary } from '@/components/ui/AISummary';
+import { Button } from '@/components/ui/Button';
 import {
     dashboardAPI, academicYearsAPI, termsAPI,
     departmentsAPI, gradeLevelsAPI, scholarshipsAPI,
@@ -243,8 +244,11 @@ export default function DashboardPage() {
                     </p>
                 </div>
 
-                {/* Academic context pills */}
+                {/* Academic context pills + refresh */}
                 <div className="flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
                     {currentYear && (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 text-xs font-medium text-indigo-700 dark:text-indigo-300">
                             <CalendarRange className="h-3 w-3" />

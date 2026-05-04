@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGradeLevelById, updateGradeLevel, deleteGradeLevel } from '@/lib/dataverse/gradelevels';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -7,8 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         const data = await getGradeLevelById(id);
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Not found';
-        return NextResponse.json({ success: false, error: msg }, { status: 404 });
+        return serverError(error);
     }
 }
 
@@ -19,8 +19,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const data = await updateGradeLevel(id, body);
         return NextResponse.json({ success: true, data, message: 'Grade level updated' });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to update';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }
 
@@ -30,7 +29,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
         await deleteGradeLevel(id);
         return NextResponse.json({ success: true, message: 'Grade level deleted' });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to delete';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEnrollments, createEnrollment } from '@/lib/dataverse/enrollments';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
         const search = request.nextUrl.searchParams.get('search') ?? undefined;
         const data = await getEnrollments(search);
         return NextResponse.json({ success: true, data, total: data.length });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -19,8 +19,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'studentid, classid, academicyearid, enrollmentdate are required' }, { status: 400 });
         const data = await createEnrollment(body);
         return NextResponse.json({ success: true, data }, { status: 201 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

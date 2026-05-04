@@ -1,6 +1,7 @@
 // src/app/api/attendance/student/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getStudentAttendanceReport } from '@/lib/dataverse/attendance';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(
   request: NextRequest,
@@ -45,15 +46,7 @@ export async function GET(
         }
       }
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    // Extract the actual Dataverse error body so we can diagnose OData 400s
-    const dvError = error.response?.data?.error ?? error.response?.data;
-    const msg = dvError?.message ?? dvError ?? error.message ?? 'Failed to fetch student attendance';
-    console.error('GET /api/attendance/student/[id] failed:', {
-      status: error.response?.status,
-      dataverse: dvError,
-    });
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+  } catch (error) {
+    return serverError(error);
   }
 }
