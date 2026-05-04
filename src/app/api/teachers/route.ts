@@ -1,78 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getTeachers, createTeacher, getTeacherStats } from '@/lib/dataverse/teachers';
+import { parseBody, serverError } from '@/lib/api-guard';
+
+const createSchema = z.object({
+    firstname:      z.string().min(1),
+    lastname:       z.string().min(1),
+    email:          z.string().email(),
+    dateofbirth:    z.string().min(1),
+    gender:         z.number().int().default(1),
+    hiredate:       z.string().min(1),
+    qualification:  z.string().min(1),
+    specialization: z.string().min(1),
+    phone:          z.string().optional(),
+    address:        z.string().optional(),
+    employeeid:     z.string().optional(),
+});
 
 export async function GET(request: NextRequest) {
     try {
-        const searchParams = request.nextUrl.searchParams;
-        const stats = searchParams.get('stats') === 'true';
-
-        if (stats) {
-            const teacherStats = await getTeacherStats();
-            return NextResponse.json({
-                success: true,
-                data: teacherStats
-            });
+        const p = request.nextUrl.searchParams;
+        if (p.get('stats') === 'true') {
+            const data = await getTeacherStats();
+            return NextResponse.json({ success: true, data });
         }
-
-        const search   = searchParams.get('search')   ?? undefined;
-        const status   = searchParams.get('status')   ? Number(searchParams.get('status'))   : undefined;
-        const pageSize = searchParams.get('pageSize') ? Number(searchParams.get('pageSize')) : undefined;
-
-        const result = await getTeachers({ search, status, pageSize });
-
-        return NextResponse.json({
-            success: true,
-            data: result.items,
-            total: result.totalCount
+        const result = await getTeachers({
+            search:   p.get('search')   ?? undefined,
+            status:   p.get('status')   ? Number(p.get('status'))   : undefined,
+            pageSize: p.get('pageSize') ? Number(p.get('pageSize')) : undefined,
         });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        console.error('Error in GET /api/teachers:', error);
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: error.message || 'Failed to fetch teachers',
-                details: error.response?.data 
-            },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: true, data: result.items, total: result.totalCount });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        
-        const requiredFields = ['firstname', 'lastname', 'emailaddress1', 'employeecode'];
-        const missingFields = requiredFields.filter(field => !body[field]);
-        
-        if (missingFields.length > 0) {
-            return NextResponse.json(
-                { 
-                    success: false, 
-                    error: `Missing required fields: ${missingFields.join(', ')}` 
-                },
-                { status: 400 }
-            );
-        }
-
-        const teacher = await createTeacher(body);
-        
-        return NextResponse.json({
-            success: true,
-            data: teacher,
-            message: 'Teacher created successfully'
-        }, { status: 201 });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        console.error('Error in POST /api/teachers:', error);
-        return NextResponse.json(
-            { 
-                success: false, 
-                error: error.message || 'Failed to create teacher',
-                details: error.response?.data 
-            },
-            { status: 500 }
-        );
+        const parsed = await parseBody(request, createSchema);
+        if ('response' in parsed) return parsed.response;
+        const teacher = await createTeacher(parsed.data);
+        return NextResponse.json({ success: true, data: teacher, message: 'Teacher created successfully' }, { status: 201 });
+    } catch (error) {
+        return serverError(error);
     }
 }

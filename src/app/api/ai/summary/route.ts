@@ -3,6 +3,13 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const VALID_TYPES = new Set([
+    'attendance', 'students', 'teachers', 'fees', 'classes',
+    'enrollments', 'exams', 'library', 'departments', 'timetable',
+    'subjects', 'dashboard',
+]);
+const MAX_DATA_CHARS = 20_000;
+
 const SYSTEM = `You are an AI assistant for a school management system.
 Analyze the provided data and give clear, actionable insights in 3-5 bullet points.
 Be concise, specific, and focus on what matters to school administrators.
@@ -36,9 +43,28 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    const { type, data } = await req.json();
+    let body: { type?: unknown; data?: unknown };
+    try { body = await req.json(); } catch {
+        return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
 
-    // Stream the response back to the client
+    const { type, data } = body;
+
+    if (typeof type !== 'string' || !VALID_TYPES.has(type)) {
+        return new Response(
+            JSON.stringify({ error: `Invalid type. Must be one of: ${[...VALID_TYPES].join(', ')}` }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+    }
+
+    const serialized = JSON.stringify(data ?? {});
+    if (serialized.length > MAX_DATA_CHARS) {
+        return new Response(
+            JSON.stringify({ error: 'Data payload too large. Maximum 20,000 characters.' }),
+            { status: 413, headers: { 'Content-Type': 'application/json' } }
+        );
+    }
+
     const stream = new ReadableStream({
         async start(controller) {
             try {
@@ -53,8 +79,9 @@ export async function POST(req: NextRequest) {
                         controller.enqueue(new TextEncoder().encode(chunk.delta.text));
                     }
                 }
-            } catch (err: any) {
-                controller.enqueue(new TextEncoder().encode(`\n[Error: ${err.message}]`));
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : 'AI summary failed';
+                controller.enqueue(new TextEncoder().encode(`\n[Error: ${msg}]`));
             } finally {
                 controller.close();
             }

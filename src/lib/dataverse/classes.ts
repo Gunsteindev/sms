@@ -73,10 +73,10 @@ function mapClass(item: any): Class {
     };
 }
 
-export const getClasses = async () => {
+export const getClasses = async (top = 200) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const response = await dataverseClient.get<any>(
-        `${TABLE}?$select=${SELECT}&$orderby=sms_name asc`
+        `${TABLE}?$select=${SELECT}&$orderby=sms_name asc&$top=${top}`
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (response.value ?? []).map((item: any) => mapClass(item));

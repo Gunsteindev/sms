@@ -1,29 +1,35 @@
 'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 import { useEffect, useState } from 'react';
 import { DollarSign, TrendingUp, CheckCircle2, Clock, Plus, Search, Pencil, Trash2, Receipt, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { feesAPI, feeStructuresAPI, feePaymentsAPI, academicYearsAPI, gradeLevelsAPI } from '@/lib/api-client';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import type { FeePayment, FeeStructure } from '@/lib/dataverse/fees';
 import type { AcademicYear } from '@/lib/dataverse/academicyears';
 import type { GradeLevel } from '@/lib/dataverse/gradelevels';
 import { FEE_TYPES } from '@/lib/dataverse/fees';
 
+const PAGE_SIZE = 10;
+
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
 const fsSchema = z.object({
   name:           z.string().min(1, 'Required'),
-  feetype:        z.coerce.number().min(1),
+  feetype:        z.string().min(1, 'Required'),
   amount:         z.coerce.number().min(0, 'Required'),
   duedate:        z.string().optional(),
   gradelevelid:   z.string().optional(),
@@ -77,9 +83,10 @@ function FeeStructureForm({ defaultValues, academicYears, gradeLevels, onSubmit,
   onSubmit: (d: FSFormData) => Promise<void>;
   onCancel: () => void;
 }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FSFormData>({
+  const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FSFormData>({
     resolver: zodResolver(fsSchema) as never,
-    defaultValues: defaultValues ?? { feetype: 1, amount: 0 },
+    defaultValues: defaultValues ?? { feetype: 'Tuition', amount: 0 },
   });
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -88,10 +95,16 @@ function FeeStructureForm({ defaultValues, academicYears, gradeLevels, onSubmit,
       </F>
       <div className="grid grid-cols-2 gap-3">
         <F id="feetype" label="Fee Type *" error={errors.feetype?.message}>
-          <select id="feetype" {...register('feetype')}
-            className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-            {Object.entries(FEE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
+          <Controller name="feetype" control={control} render={({ field }) => (
+            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+              <SelectTrigger id="feetype" className={ST}>
+                <SelectValue>{field.value || '— Select type —'}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(FEE_TYPES).map(([k, v]) => <SelectItem key={k} value={v}>{v}</SelectItem>)}
+              </SelectContent>
+            </SelectRoot>
+          )} />
         </F>
         <F id="amount" label="Amount (GHS) *" error={errors.amount?.message}>
           <Input id="amount" type="number" step="0.01" {...register('amount')} placeholder="0.00" />
@@ -99,22 +112,40 @@ function FeeStructureForm({ defaultValues, academicYears, gradeLevels, onSubmit,
       </div>
       <div className="grid grid-cols-2 gap-3">
         <F id="gradelevelid" label="Grade Level">
-          <select id="gradelevelid" {...register('gradelevelid')}
-            className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-            <option value="">— All grades —</option>
-            {gradeLevels.map(gl => <option key={gl.gradelevelid} value={gl.gradelevelid}>{gl.name}</option>)}
-          </select>
+          <Controller name="gradelevelid" control={control} render={({ field }) => (
+            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+              <SelectTrigger id="gradelevelid" className={ST}>
+                <SelectValue>
+                  {field.value ? (gradeLevels.find(gl => gl.gradelevelid === field.value)?.name ?? '— All grades —') : '— All grades —'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">— All grades —</SelectItem>
+                {gradeLevels.map(gl => <SelectItem key={gl.gradelevelid} value={gl.gradelevelid}>{gl.name}</SelectItem>)}
+              </SelectContent>
+            </SelectRoot>
+          )} />
         </F>
         <F id="duedate" label="Due Date">
-          <Input id="duedate" type="date" {...register('duedate')} />
+          <Controller control={control} name="duedate" render={({ field }) => (
+            <DatePicker id="duedate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+          )} />
         </F>
       </div>
       <F id="academicyearid" label="Academic Year">
-        <select id="academicyearid" {...register('academicyearid')}
-          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-          <option value="">— None —</option>
-          {academicYears.map(ay => <option key={ay.academicyearid} value={ay.academicyearid}>{ay.name}</option>)}
-        </select>
+        <Controller name="academicyearid" control={control} render={({ field }) => (
+          <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+            <SelectTrigger id="academicyearid" className={ST}>
+              <SelectValue>
+                {field.value ? (academicYears.find(ay => ay.academicyearid === field.value)?.name ?? '— None —') : '— None —'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">— None —</SelectItem>
+              {academicYears.map(ay => <SelectItem key={ay.academicyearid} value={ay.academicyearid}>{ay.name}</SelectItem>)}
+            </SelectContent>
+          </SelectRoot>
+        )} />
       </F>
       <div className="flex justify-end gap-2 pt-2 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
@@ -136,6 +167,8 @@ export default function FeesPage() {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
   const [payStatusFilter, setPayStatusFilter] = useState(0);
+  const [pageFS, setPageFS]           = useState(1);
+  const [pagePay, setPagePay]         = useState(1);
   const [modalOpen, setModalOpen]     = useState(false);
   const [editing, setEditing]         = useState<FeeStructure | null>(null);
   const [toDelete, setToDelete]       = useState<string | null>(null);
@@ -178,7 +211,12 @@ export default function FeesPage() {
     return matchStatus && matchSearch;
   });
 
-  const switchTab = (t: 'structures' | 'payments') => { setTab(t); setSearch(''); setPayStatusFilter(0); };
+  const switchTab = (t: 'structures' | 'payments') => { setTab(t); setSearch(''); setPayStatusFilter(0); setPageFS(1); setPagePay(1); };
+
+  const totalPagesFS  = Math.max(1, Math.ceil(filteredFS.length / PAGE_SIZE));
+  const paginatedFS   = filteredFS.slice((pageFS - 1) * PAGE_SIZE, pageFS * PAGE_SIZE);
+  const totalPagesPay = Math.max(1, Math.ceil(filteredPay.length / PAGE_SIZE));
+  const paginatedPay  = filteredPay.slice((pagePay - 1) * PAGE_SIZE, pagePay * PAGE_SIZE);
 
   const handleFSSubmit = async (data: FSFormData) => {
     try {
@@ -295,31 +333,31 @@ export default function FeesPage() {
           </div>
         ) : (
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
+            <Table className="w-full text-sm">
+              <TableHeader>
+                <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
                   {['Name', 'Type', 'Amount', 'Grade', 'Due Date', 'Academic Year', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                    <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {filteredFS.map(s => (
-                  <tr key={s.feestructureid} className="hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                {paginatedFS.map(s => (
+                  <TableRow key={s.feestructureid} className="hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors">
+                    <TableCell className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
                       <div className="flex items-center gap-2">
                         <Receipt className="h-4 w-4 text-blue-500 flex-shrink-0" />
                         <span className="truncate max-w-[280px]">{s.name}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3">
                       <Badge variant="default">{FEE_TYPES[s.feetype] ?? s.feetype}</Badge>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(s.amount)}</td>
-                    <td className="px-4 py-3 text-slate-500">{s.gradelevelname || '—'}</td>
-                    <td className="px-4 py-3 text-slate-500 font-mono text-xs">{formatDate(s.duedate)}</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">{s.academicyearname || '—'}</td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(s.amount)}</TableCell>
+                    <TableCell className="px-4 py-3 text-slate-500">{s.gradelevelname || '—'}</TableCell>
+                    <TableCell className="px-4 py-3 text-slate-500 font-mono text-xs">{formatDate(s.duedate)}</TableCell>
+                    <TableCell className="px-4 py-3 text-slate-500 text-xs">{s.academicyearname || '—'}</TableCell>
+                    <TableCell className="px-4 py-3">
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setModalOpen(true); }}>
                           <Pencil className="h-3.5 w-3.5 text-gray-400" />
@@ -328,11 +366,12 @@ export default function FeesPage() {
                           <Trash2 className="h-3.5 w-3.5 text-gray-400" />
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
+            <Pagination page={pageFS} totalPages={totalPagesFS} total={filteredFS.length} pageSize={PAGE_SIZE} label="fee structure" onChange={setPageFS} />
           </div>
         )
       )}
@@ -354,48 +393,49 @@ export default function FeesPage() {
         ) : (
           <>
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                     {['Receipt', 'Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Status'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                      <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                  {filteredPay.map(p => {
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                  {paginatedPay.map(p => {
                     const status = PAY_STATUS[p.paymentstatus] ?? { label: 'Unknown', variant: 'default' as const };
                     return (
-                      <tr key={p.feepaymentid} className="hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors">
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">{p.receiptnumber || '—'}</td>
-                        <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{p.studentname || '—'}</td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-[200px]">
+                      <TableRow key={p.feepaymentid} className="hover:bg-slate-50/80 dark:hover:bg-slate-800 transition-colors">
+                        <TableCell className="px-4 py-3 font-mono text-xs text-slate-500 dark:text-slate-400">{p.receiptnumber || '—'}</TableCell>
+                        <TableCell className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{p.studentname || '—'}</TableCell>
+                        <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 max-w-[200px]">
                           <span className="truncate block">{p.feestructurename || '—'}</span>
-                        </td>
-                        <td className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(p.amount)}</td>
-                        <td className="px-4 py-3 text-slate-600 text-xs font-mono">{formatDate(p.paymentdate)}</td>
-                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{METHODS[p.paymentmethod] ?? '—'}</td>
-                        <td className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(p.amount)}</TableCell>
+                        <TableCell className="px-4 py-3 text-slate-600 text-xs font-mono">{formatDate(p.paymentdate)}</TableCell>
+                        <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{METHODS[p.paymentmethod] ?? '—'}</TableCell>
+                        <TableCell className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
+              <Pagination page={pagePay} totalPages={totalPagesPay} total={filteredPay.length} pageSize={PAGE_SIZE} label="payment" onChange={setPagePay} />
             </div>
-            <p className="text-xs text-slate-400 text-right mt-1">
-              Showing {filteredPay.length} of {payments.length} payments
-            </p>
           </>
         )
       )}
 
       {/* Fee Structure modal */}
-      <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }}
-        title={editing ? 'Edit Fee Structure' : 'Add Fee Structure'}>
+      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Fee Structure' : 'Add Fee Structure'}</DialogTitle>
+          </DialogHeader>
         <FeeStructureForm
           defaultValues={editing ? {
             name:           editing.name,
-            feetype:        editing.feetype,
+            feetype:        FEE_TYPES[editing.feetype] ?? 'Tuition',
             amount:         editing.amount,
             duedate:        editing.duedate?.slice(0, 10),
             gradelevelid:   editing.gradelevelid || undefined,
@@ -406,7 +446,8 @@ export default function FeesPage() {
           onSubmit={handleFSSubmit}
           onCancel={() => { setModalOpen(false); setEditing(null); }}
         />
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}

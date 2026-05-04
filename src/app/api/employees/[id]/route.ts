@@ -1,6 +1,7 @@
 // src/app/api/employees/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getEmployeeById, updateEmployee, deleteEmployee } from '@/lib/dataverse/employees';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(
   request: NextRequest,
@@ -21,16 +22,8 @@ export async function GET(
       success: true,
       data: employee
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error in GET /api/employees/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to fetch employee'
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return serverError(error);
   }
 }
 
@@ -48,16 +41,8 @@ export async function PUT(
       data: employee,
       message: 'Employee updated successfully'
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error in PUT /api/employees/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to update employee'
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return serverError(error);
   }
 }
 
@@ -73,15 +58,7 @@ export async function DELETE(
       success: true,
       message: 'Employee deleted successfully'
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error in DELETE /api/employees/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to delete employee'
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return serverError(error);
   }
 }

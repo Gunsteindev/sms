@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, CheckCircle2, XCircle, Clock, AlertCircle, Users, Calendar, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle2, XCircle, Clock, AlertCircle, Users, Calendar, Search, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,11 +12,15 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { DatePicker } from '@/components/ui/date-picker';
 import type { Attendance } from '@/lib/dataverse/attendance';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import { attendanceAPI, studentsAPI, classesAPI } from '@/lib/api-client';
+
+const PAGE_SIZE = 10;
 
 function today() { return new Date().toISOString().split('T')[0]; }
 
@@ -31,7 +36,7 @@ interface Option { id: string; name: string; }
 const schema = z.object({
     studentid:        z.string().min(1, 'Required'),
     date:             z.string().min(1, 'Required'),
-    attendancestatus: z.coerce.number().min(1).max(4).default(1),
+    attendancestatus: z.string().default('Present'),
     checkintime:      z.string().optional(),
     classid:          z.string().optional(),
     subjectid:        z.string().optional(),
@@ -58,55 +63,90 @@ function AttendanceForm({ defaultValues, students, classes, onSubmit, onCancel }
 }) {
     const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
-        defaultValues: { date: today(), attendancestatus: 1, ...defaultValues },
+        defaultValues: { date: today(), attendancestatus: 'Present', ...defaultValues },
     });
+    const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+            {/* ── Student ── */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Student</p>
                 <F id="studentid" label="Student *" error={errors.studentid?.message}>
                     <Controller name="studentid" control={control} render={({ field }) => (
                         <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger id="studentid"><SelectValue placeholder="Select student" /></SelectTrigger>
+                            <SelectTrigger id="studentid" className={ST}>
+                                <SelectValue>
+                                    {field.value
+                                        ? (students.find(s => s.id === field.value)?.name ?? 'Select student')
+                                        : 'Select student'}
+                                </SelectValue>
+                            </SelectTrigger>
                             <SelectContent>
                                 {students.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                             </SelectContent>
                         </SelectRoot>
                     )} />
                 </F>
-                <F id="date" label="Date *" error={errors.date?.message}>
-                    <Input id="date" {...register('date')} type="date" />
-                </F>
-                <F id="attendancestatus" label="Status *" error={errors.attendancestatus?.message}>
-                    <Controller name="attendancestatus" control={control} render={({ field }) => (
-                        <SelectRoot value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
-                            <SelectTrigger id="attendancestatus"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {Object.entries(STATUSES).map(([k, v]) => (
-                                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-                <F id="checkintime" label="Check-in Time" error={errors.checkintime?.message}>
-                    <Input id="checkintime" {...register('checkintime')} type="time" />
-                </F>
-                <F id="classid" label="Class" error={errors.classid?.message}>
-                    <Controller name="classid" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger id="classid"><SelectValue placeholder="— None —" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">— None —</SelectItem>
-                                {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-                <F id="remarks" label="Remarks" error={errors.remarks?.message}>
-                    <Input id="remarks" {...register('remarks')} placeholder="Optional notes" />
-                </F>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+
+            <div className="border-t border-slate-100 dark:border-slate-800" />
+
+            {/* ── Attendance Details ── */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Attendance Details</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="date" label="Date *" error={errors.date?.message}>
+                        <Controller control={control} name="date" render={({ field }) => (
+                            <DatePicker id="date" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                        )} />
+                    </F>
+                    <F id="attendancestatus" label="Status *" error={errors.attendancestatus?.message}>
+                        <Controller name="attendancestatus" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value} onValueChange={v => field.onChange(v)}>
+                                <SelectTrigger id="attendancestatus" className={ST}>
+                                    <SelectValue>
+                                        {field.value || 'Select status'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(STATUSES).map(([k, v]) => (
+                                        <SelectItem key={k} value={v.label}>{v.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <F id="checkintime" label="Check-in Time" error={errors.checkintime?.message}>
+                        <Input id="checkintime" {...register('checkintime')} type="time" />
+                    </F>
+                    <F id="classid" label="Class" error={errors.classid?.message}>
+                        <Controller name="classid" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger id="classid" className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            ? (classes.find(c => c.id === field.value)?.name ?? '— None —')
+                                            : '— None —'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">— None —</SelectItem>
+                                    {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <div className="col-span-2">
+                        <F id="remarks" label="Remarks" error={errors.remarks?.message}>
+                            <Input id="remarks" {...register('remarks')} placeholder="Optional notes" />
+                        </F>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save Record'}</Button>
             </div>
@@ -133,6 +173,7 @@ export default function AttendancePage() {
     const [dateFilter, setDateFilter]     = useState(today());
     const [search, setSearch]             = useState('');
     const [statusFilter, setStatusFilter] = useState<number | 'all'>('all');
+    const [page, setPage]                 = useState(1);
     const [modalOpen, setModalOpen]       = useState(false);
     const [editing, setEditing]           = useState<Attendance | null>(null);
     const [toDelete, setToDelete]         = useState<string | null>(null);
@@ -162,12 +203,13 @@ export default function AttendancePage() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setStudents((sr.data ?? []).map((s: any) => ({ id: s.studentid, name: `${s.firstname} ${s.lastname}` })));
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setClasses((cr.data ?? []).map((c: any) => ({ id: c.classid, name: c.name })));
+            setClasses((cr.data ?? []).map((c: any) => ({ id: c.classid, name: c.classname ?? c.name })));
         } catch { /* non-fatal */ }
     };
 
     useEffect(() => { loadDropdowns(); }, []);
     useEffect(() => { load(dateFilter); }, [dateFilter]);
+    useEffect(() => { setPage(1); }, [search, statusFilter, dateFilter]);
 
     const filtered = useMemo(() => {
         let list = rows;
@@ -189,14 +231,17 @@ export default function AttendancePage() {
     const total = rows.length;
     const rate  = total > 0 ? ((counts[1] / total) * 100).toFixed(1) : null;
 
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
         try {
             if (editing) {
-                await attendanceAPI.update(editing.attendanceid, data);
+                await attendanceAPI.update(editing.attendanceid, { ...data, attendancestatus: Object.entries(STATUSES).find(([,v])=>v.label===data.attendancestatus)?.[0] ? Number(Object.entries(STATUSES).find(([,v])=>v.label===data.attendancestatus)![0]) : 1 });
                 toast.success('Record updated');
             } else {
-                await attendanceAPI.markBulk([data]);
+                await attendanceAPI.markBulk([{ ...data, attendancestatus: Object.entries(STATUSES).find(([,v])=>v.label===data.attendancestatus)?.[0] ? Number(Object.entries(STATUSES).find(([,v])=>v.label===data.attendancestatus)![0]) : 1 }]);
                 toast.success('Record added');
             }
             setModalOpen(false);
@@ -244,6 +289,9 @@ export default function AttendancePage() {
                         onChange={e => { setDateFilter(e.target.value); setStatusFilter('all'); setSearch(''); }}
                         className="w-40"
                     />
+                    <Button variant="outline" size="sm" onClick={() => load(dateFilter)} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
                     <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
                         <Plus className="h-4 w-4 mr-1" /> Add Record
                     </Button>
@@ -329,48 +377,48 @@ export default function AttendancePage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                 {['Student', 'Date', 'Status', 'Check-in', 'Class', 'Remarks', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                            {filtered.map(r => {
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            {paginated.map(r => {
                                 const st = STATUSES[r.attendancestatus] ?? STATUSES[1];
                                 const name = r.studentname || 'Student';
                                 const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
                                 const bg = avatarColor(name);
                                 return (
-                                    <tr key={r.attendanceid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                                        <td className="px-4 py-3.5">
+                                    <TableRow key={r.attendanceid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex items-center gap-2.5">
                                                 <div className={`${bg} flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white`}>
                                                     {initials}
                                                 </div>
                                                 <span className="font-semibold text-slate-900 dark:text-slate-100">{r.studentname || '—'}</span>
                                             </div>
-                                        </td>
-                                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs font-mono">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs font-mono">
                                             {r.date || '—'}
-                                        </td>
-                                        <td className="px-4 py-3.5">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3.5">
                                             <Badge variant={st.variant}>{st.label}</Badge>
-                                        </td>
-                                        <td className="px-4 py-3.5 font-mono text-slate-600 dark:text-slate-400 text-xs">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3.5 font-mono text-slate-600 dark:text-slate-400 text-xs">
                                             {formatTime(r.checkintime)}
-                                        </td>
-                                        <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3.5 text-slate-600 dark:text-slate-300 text-xs">
                                             {r.classname
                                                 ? <>{r.classname}{r.subjectname ? <span className="text-slate-400"> · {r.subjectname}</span> : null}</>
                                                 : '—'}
-                                        </td>
-                                        <td className="px-4 py-3.5 text-slate-400 dark:text-slate-500 max-w-[160px] truncate text-xs">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3.5 text-slate-400 dark:text-slate-500 max-w-[160px] truncate text-xs">
                                             {r.remarks || '—'}
-                                        </td>
-                                        <td className="px-4 py-3.5">
+                                        </TableCell>
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setModalOpen(true); }}
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700">
@@ -381,24 +429,26 @@ export default function AttendancePage() {
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                 </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
-                        </tbody>
-                    </table>
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        Showing {filtered.length} of {rows.length} record{rows.length !== 1 ? 's' : ''}
-                    </div>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="record" onChange={setPage} />
                 </div>
             )}
 
-            <Modal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Edit Record' : 'Add Attendance Record'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal(); }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? 'Edit Record' : 'Add Attendance Record'}</DialogTitle>
+                </DialogHeader>
                 <AttendanceForm
                     defaultValues={editing ? {
                         studentid:        editing.studentid,
                         date:             editing.date,
-                        attendancestatus: editing.attendancestatus,
+                        attendancestatus: STATUSES[editing.attendancestatus]?.label ?? 'Present',
                         checkintime:      editing.checkintime ? formatTime(editing.checkintime) : undefined,
                         classid:          editing.classid   || undefined,
                         subjectid:        editing.subjectid || undefined,
@@ -409,7 +459,8 @@ export default function AttendancePage() {
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             <ConfirmDialog
                 open={!!toDelete}

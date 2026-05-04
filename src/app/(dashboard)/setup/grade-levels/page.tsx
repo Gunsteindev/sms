@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Layers, Hash, AlignLeft, TrendingUp } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Layers, Hash, AlignLeft, TrendingUp, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,10 +10,13 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { gradeLevelsAPI } from '@/lib/api-client';
+import { Pagination } from '@/components/ui/Pagination';
 import type { GradeLevel } from '@/lib/dataverse/gradelevels';
+
+const PAGE_SIZE = 10;
 
 // ── Form ──────────────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -79,9 +83,9 @@ function orderColour(n: number): string {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function GradeLevelsPage() {
     const [rows, setRows]           = useState<GradeLevel[]>([]);
-    const [filtered, setFiltered]   = useState<GradeLevel[]>([]);
     const [loading, setLoading]     = useState(true);
     const [search, setSearch]       = useState('');
+    const [page, setPage]           = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]     = useState<GradeLevel | null>(null);
     const [toDelete, setToDelete]   = useState<GradeLevel | null>(null);
@@ -99,22 +103,25 @@ export default function GradeLevelsPage() {
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const res: any = await gradeLevelsAPI.getAll();
-            setRows(res.data ?? []); setFiltered(res.data ?? []);
+            setRows(res.data ?? []);
         } catch { toast.error('Failed to load grade levels'); }
         finally { setLoading(false); }
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [search]);
 
-    useEffect(() => {
+    const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        setFiltered(q
+        return q
             ? rows.filter(r =>
                 `${r.name} ${r.code} ${r.description}`
                     .toLowerCase().includes(q) || String(r.ordernumber).includes(q))
-            : rows
-        );
+            : rows;
     }, [search, rows]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
@@ -149,9 +156,14 @@ export default function GradeLevelsPage() {
                         {loading ? 'Loading…' : `${rows.length} grade level${rows.length !== 1 ? 's' : ''}`}
                     </p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Grade Level
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Grade Level
+                    </Button>
+                </div>
             </div>
 
             {/* ── Stats cards ────────────────────────────────────────────── */}
@@ -239,53 +251,53 @@ export default function GradeLevelsPage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Order', 'Grade Name', 'Code', 'Description', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         {h}
-                                    </th>
+                                    </TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(r => (
-                                <tr key={r.gradelevelid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(r => (
+                                <TableRow key={r.gradelevelid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 
                                     {/* Order badge */}
-                                    <td className="px-4 py-3.5 w-20">
+                                    <TableCell className="px-4 py-3.5 w-20">
                                         <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold ${orderColour(r.ordernumber)}`}>
                                             {r.ordernumber}
                                         </span>
-                                    </td>
+                                    </TableCell>
 
                                     {/* Name */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <div className="flex items-center gap-2.5">
                                             <div className="h-8 w-8 rounded-lg bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
                                                 <Layers className="h-4 w-4 text-violet-500 dark:text-violet-400" />
                                             </div>
                                             <span className="font-semibold text-slate-900 dark:text-slate-100">{r.name}</span>
                                         </div>
-                                    </td>
+                                    </TableCell>
 
                                     {/* Code */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         {r.code
                                             ? <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-mono font-medium text-slate-700 dark:text-slate-300">{r.code}</span>
                                             : <span className="text-slate-300 dark:text-slate-600 italic text-xs">—</span>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Description */}
-                                    <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400 max-w-xs">
+                                    <TableCell className="px-4 py-3.5 text-slate-500 dark:text-slate-400 max-w-xs">
                                         {r.description
                                             ? <span className="truncate block max-w-xs" title={r.description}>{r.description}</span>
                                             : <span className="italic text-slate-300 dark:text-slate-600 text-xs">—</span>}
-                                    </td>
+                                    </TableCell>
 
                                     {/* Actions — visible on hover */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button variant="ghost" size="icon"
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -298,17 +310,21 @@ export default function GradeLevelsPage() {
                                                 <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                             </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="grade level" onChange={setPage} />
                 </div>
             )}
 
             {/* ── Modal ──────────────────────────────────────────────────── */}
-            <Modal isOpen={modalOpen} onClose={closeModal}
-                title={editing ? `Edit — ${editing.name}` : 'Add Grade Level'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal(); }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? `Edit — ${editing.name}` : 'Add Grade Level'}</DialogTitle>
+                </DialogHeader>
                 <GradeLevelForm
                     defaultValues={editing ? {
                         name:        editing.name,
@@ -319,7 +335,8 @@ export default function GradeLevelsPage() {
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             {/* ── Delete confirm ─────────────────────────────────────────── */}
             <ConfirmDialog

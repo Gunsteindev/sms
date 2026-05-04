@@ -41,8 +41,8 @@ function mapTerm(item: any): Term {
     };
 }
 
-export const getTerms = async (search?: string, academicyearid?: string) => {
-    const parts = [`$select=${SELECT}`, `$orderby=sms_startdate asc`];
+export const getTerms = async (search?: string, academicyearid?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=sms_startdate asc`, `$top=${top}`];
     const conditions: string[] = [];
     if (search)         conditions.push(`contains(sms_name,'${search}')`);
     if (academicyearid) conditions.push(`_sms_academicyear_value eq ${academicyearid}`);

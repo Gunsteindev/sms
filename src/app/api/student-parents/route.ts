@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStudentParents, getParentStudents, linkStudentParent } from '@/lib/dataverse/studentparents';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,8 +15,7 @@ export async function GET(request: NextRequest) {
             : await getParentStudents(parentid!);
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch student-parents';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }
 
@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
         const data = await linkStudentParent(body);
         return NextResponse.json({ success: true, data, message: 'Parent linked to student' }, { status: 201 });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to link parent';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }

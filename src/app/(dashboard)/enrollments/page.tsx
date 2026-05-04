@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
     Plus, Search, Pencil, Trash2, ClipboardList,
     GraduationCap, Hash, Calendar, BookOpen, Users,
-    CheckCircle2, XCircle, Filter,
+    CheckCircle2, XCircle, RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -15,10 +16,14 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import { enrollmentsAPI, studentsAPI, classesAPI, academicYearsAPI } from '@/lib/api-client';
+
+const PAGE_SIZE = 10;
 import type { Enrollment } from '@/lib/dataverse/enrollments';
 import { ENROLLMENT_STATUS } from '@/lib/dataverse/enrollments';
 
@@ -58,7 +63,7 @@ const schema = z.object({
     academicyearid:   z.string().min(1, 'Required'),
     rollnumber:       z.string().optional(),
     enrollmentdate:   z.string().min(1, 'Required'),
-    enrollmentstatus: z.coerce.number().default(1),
+    enrollmentstatus: z.string().default('Active'),
 });
 type FormData = z.infer<typeof schema>;
 interface Option { id: string; name: string; }
@@ -83,69 +88,98 @@ function EnrollmentForm({ defaultValues, onSubmit, onCancel, students, classes, 
 }) {
     const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
-        defaultValues: { enrollmentstatus: 1, ...defaultValues },
+        defaultValues: { enrollmentstatus: 'Active', ...defaultValues },
     });
 
+    const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                    <F id="studentid" label="Student *" error={errors.studentid?.message}>
-                        <Controller name="studentid" control={control} render={({ field }) => (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+            {/* ── Student ── */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Student</p>
+                <F id="studentid" label="Student *" error={errors.studentid?.message}>
+                    <Controller name="studentid" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                            <SelectTrigger id="studentid" className={ST}>
+                                <SelectValue>
+                                    {field.value
+                                        ? (students.find(s => s.id === field.value)?.name ?? 'Select student')
+                                        : 'Select student'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {students.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
+                </F>
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800" />
+
+            {/* ── Academic Assignment ── */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Academic Assignment</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="classid" label="Class *" error={errors.classid?.message}>
+                        <Controller name="classid" control={control} render={({ field }) => (
                             <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                                <SelectTrigger id="studentid"><SelectValue placeholder="Select student" /></SelectTrigger>
+                                <SelectTrigger id="classid" className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            ? (classes.find(c => c.id === field.value)?.name ?? 'Select class')
+                                            : 'Select class'}
+                                    </SelectValue>
+                                </SelectTrigger>
                                 <SelectContent>
-                                    {students.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </SelectRoot>
                         )} />
                     </F>
-                </div>
-
-                <F id="classid" label="Class *" error={errors.classid?.message}>
-                    <Controller name="classid" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger id="classid"><SelectValue placeholder="Select class" /></SelectTrigger>
-                            <SelectContent>
-                                {classes.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-
-                <F id="academicyearid" label="Academic Year *" error={errors.academicyearid?.message}>
-                    <Controller name="academicyearid" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger id="academicyearid"><SelectValue placeholder="Select year" /></SelectTrigger>
-                            <SelectContent>
-                                {years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-
-                <F id="enrollmentdate" label="Enrollment Date *" error={errors.enrollmentdate?.message}>
-                    <Input id="enrollmentdate" {...register('enrollmentdate')} type="date" />
-                </F>
-
-                <F id="rollnumber" label="Roll Number">
-                    <Input id="rollnumber" {...register('rollnumber')} placeholder="e.g. STU-2025-001" />
-                </F>
-
-                <div className="col-span-2">
-                    <F id="enrollmentstatus" label="Status">
-                        <Controller name="enrollmentstatus" control={control} render={({ field }) => (
-                            <SelectRoot value={String(field.value)} onValueChange={v => field.onChange(Number(v))}>
-                                <SelectTrigger id="enrollmentstatus"><SelectValue /></SelectTrigger>
+                    <F id="academicyearid" label="Academic Year *" error={errors.academicyearid?.message}>
+                        <Controller name="academicyearid" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger id="academicyearid" className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            ? (years.find(y => y.id === field.value)?.name ?? 'Select year')
+                                            : 'Select year'}
+                                    </SelectValue>
+                                </SelectTrigger>
                                 <SelectContent>
-                                    {Object.entries(ENROLLMENT_STATUS).map(([k, v]) => (
-                                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                                    ))}
+                                    {years.map(y => <SelectItem key={y.id} value={y.id}>{y.name}</SelectItem>)}
                                 </SelectContent>
                             </SelectRoot>
                         )} />
                     </F>
+                    <F id="enrollmentdate" label="Enrollment Date *" error={errors.enrollmentdate?.message}>
+                        <Controller control={control} name="enrollmentdate" render={({ field }) => (
+                            <DatePicker id="enrollmentdate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                        )} />
+                    </F>
+                    <F id="rollnumber" label="Roll Number">
+                        <Input id="rollnumber" {...register('rollnumber')} placeholder="e.g. STU-2025-001" />
+                    </F>
                 </div>
+                <F id="enrollmentstatus" label="Status">
+                    <Controller name="enrollmentstatus" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value} onValueChange={v => field.onChange(v)}>
+                            <SelectTrigger id="enrollmentstatus" className={ST}>
+                                <SelectValue>
+                                    {field.value || 'Select status'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.entries(ENROLLMENT_STATUS).map(([k, v]) => (
+                                    <SelectItem key={k} value={v}>{v}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
+                </F>
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -164,6 +198,7 @@ export default function EnrollmentsPage() {
     const [loading, setLoading]     = useState(true);
     const [search, setSearch]       = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [page, setPage]           = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]     = useState<Enrollment | null>(null);
     const [toDelete, setToDelete]   = useState<string | null>(null);
@@ -199,6 +234,7 @@ export default function EnrollmentsPage() {
     };
 
     useEffect(() => { load(); loadDropdowns(); }, []);
+    useEffect(() => { setPage(1); }, [search, statusFilter]);
 
     const stats = useMemo(() => ({
         total:     rows.length,
@@ -216,13 +252,16 @@ export default function EnrollmentsPage() {
         });
     }, [rows, search, statusFilter]);
 
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
     const handleSubmit = async (data: FormData) => {
         try {
             if (editing) {
-                await enrollmentsAPI.update(editing.enrollmentid, data);
+                await enrollmentsAPI.update(editing.enrollmentid, { ...data, enrollmentstatus: Object.entries(ENROLLMENT_STATUS).find(([,v])=>v===data.enrollmentstatus)?.[0] ? Number(Object.entries(ENROLLMENT_STATUS).find(([,v])=>v===data.enrollmentstatus)![0]) : 1 });
                 toast.success('Enrollment updated');
             } else {
-                await enrollmentsAPI.create(data);
+                await enrollmentsAPI.create({ ...data, enrollmentstatus: Object.entries(ENROLLMENT_STATUS).find(([,v])=>v===data.enrollmentstatus)?.[0] ? Number(Object.entries(ENROLLMENT_STATUS).find(([,v])=>v===data.enrollmentstatus)![0]) : 1 });
                 toast.success('Student enrolled');
             }
             setModalOpen(false);
@@ -256,9 +295,14 @@ export default function EnrollmentsPage() {
                         {loading ? 'Loading…' : `${stats.total} enrollment${stats.total !== 1 ? 's' : ''} across all classes`}
                     </p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1.5" /> Enroll Student
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1.5" /> Enroll Student
+                    </Button>
+                </div>
             </div>
 
             {/* Stat cards */}
@@ -297,19 +341,21 @@ export default function EnrollmentsPage() {
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 h-9">
-                    <Filter className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                    <select
-                        value={statusFilter}
-                        onChange={e => setStatusFilter(e.target.value)}
-                        className="text-sm bg-transparent border-none outline-none text-slate-600 dark:text-slate-300 cursor-pointer"
-                    >
-                        <option value="all">All statuses</option>
+                <SelectRoot value={statusFilter} onValueChange={v => setStatusFilter(v ?? 'all')}>
+                    <SelectTrigger className="w-44 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700">
+                        <SelectValue>
+                            {statusFilter === 'all'
+                                ? 'All statuses'
+                                : (ENROLLMENT_STATUS[Number(statusFilter)] ?? 'All statuses')}
+                        </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All statuses</SelectItem>
                         {Object.entries(ENROLLMENT_STATUS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
+                            <SelectItem key={k} value={k}>{v}</SelectItem>
                         ))}
-                    </select>
-                </div>
+                    </SelectContent>
+                </SelectRoot>
             </div>
 
             {/* Table */}
@@ -331,70 +377,70 @@ export default function EnrollmentsPage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Student', 'Class', 'Academic Year', 'Roll #', 'Enrolled', 'Status', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(r => {
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(r => {
                                 const statusCfg = STATUS_CFG[r.enrollmentstatus];
                                 const bg = avatarColor(r.studentname || r.enrollmentid);
                                 return (
-                                    <tr key={r.enrollmentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                    <TableRow key={r.enrollmentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                                         {/* Student */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex items-center gap-2.5">
                                                 <div className={`${bg} h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}>
                                                     {avatarInitials(r.studentname)}
                                                 </div>
                                                 <p className="font-medium text-slate-900 dark:text-slate-100">{r.studentname || '—'}</p>
                                             </div>
-                                        </td>
+                                        </TableCell>
                                         {/* Class */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                                                 <BookOpen className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                                                 {r.classname || '—'}
                                             </div>
-                                        </td>
+                                        </TableCell>
                                         {/* Academic Year */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
                                                 <GraduationCap className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                                                 {r.academicyearname || '—'}
                                             </div>
-                                        </td>
+                                        </TableCell>
                                         {/* Roll # */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {r.rollnumber
                                                 ? <span className="inline-flex items-center gap-1 font-mono text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
                                                     <Hash className="h-2.5 w-2.5" />{r.rollnumber}
                                                   </span>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                        </td>
+                                        </TableCell>
                                         {/* Date */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {r.enrollmentdate
                                                 ? <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-xs">
                                                     <Calendar className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                                                     {fmtDate(r.enrollmentdate)}
                                                   </div>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                        </td>
+                                        </TableCell>
                                         {/* Status */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {statusCfg
                                                 ? <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCfg.cls}`}>
                                                     {statusCfg.label}
                                                   </span>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                        </td>
+                                        </TableCell>
                                         {/* Actions */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon" onClick={() => openEdit(r)}
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -405,25 +451,23 @@ export default function EnrollmentsPage() {
                                                     <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                                 </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
 
-                    {/* Footer count */}
-                    <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
-                            {filtered.length} of {rows.length} enrollment{rows.length !== 1 ? 's' : ''}
-                            {statusFilter !== 'all' && ` · filtered by ${ENROLLMENT_STATUS[Number(statusFilter)]}`}
-                        </p>
-                    </div>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="enrollment" onChange={setPage} />
                 </div>
             )}
 
             {/* Modal */}
-            <Modal isOpen={modalOpen} onClose={closeModal} title={editing ? 'Edit Enrollment' : 'Enroll Student'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal(); }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? 'Edit Enrollment' : 'Enroll Student'}</DialogTitle>
+                </DialogHeader>
                 <EnrollmentForm
                     defaultValues={editing ? {
                         studentid:        editing.studentid,
@@ -431,7 +475,7 @@ export default function EnrollmentsPage() {
                         academicyearid:   editing.academicyearid,
                         rollnumber:       editing.rollnumber || undefined,
                         enrollmentdate:   editing.enrollmentdate,
-                        enrollmentstatus: editing.enrollmentstatus,
+                        enrollmentstatus: ENROLLMENT_STATUS[editing.enrollmentstatus] ?? 'Active',
                     } : undefined}
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
@@ -439,7 +483,8 @@ export default function EnrollmentsPage() {
                     classes={classes}
                     years={years}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             {/* Delete confirm */}
             <ConfirmDialog

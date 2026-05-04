@@ -47,8 +47,8 @@ function mapAcademicYear(item: any): AcademicYear {
     };
 }
 
-export const getAcademicYears = async (search?: string) => {
-    const parts = [`$select=${SELECT}`, `$orderby=sms_startdate desc`];
+export const getAcademicYears = async (search?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=sms_startdate desc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}')`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
@@ -62,7 +62,18 @@ export const getAcademicYearById = async (id: string): Promise<AcademicYear> => 
     return mapAcademicYear(r);
 };
 
+async function clearCurrentYears(excludeId?: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_academicyearid&$filter=sms_iscurrent eq true`);
+    const others: string[] = (r.value ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((y: any) => y.sms_academicyearid as string)
+        .filter((yid: string) => yid !== excludeId);
+    await Promise.all(others.map(yid => dataverseClient.patch(`${TABLE}(${yid})`, { sms_iscurrent: false })));
+}
+
 export const createAcademicYear = async (data: CreateAcademicYearRequest) => {
+    if (data.iscurrent) await clearCurrentYears();
     const payload: Record<string, unknown> = {
         sms_name:      data.name,
         sms_startdate: data.startdate,
@@ -75,6 +86,7 @@ export const createAcademicYear = async (data: CreateAcademicYearRequest) => {
 };
 
 export const updateAcademicYear = async (id: string, data: Partial<CreateAcademicYearRequest>) => {
+    if (data.iscurrent) await clearCurrentYears(id);
     const payload: Record<string, unknown> = {};
     if (data.name        !== undefined) payload.sms_name        = data.name;
     if (data.startdate   !== undefined) payload.sms_startdate   = data.startdate;

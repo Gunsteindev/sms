@@ -57,8 +57,8 @@ function mapParent(item: any): Parent {
     };
 }
 
-export const getParents = async (search?: string) => {
-    const parts = [`$select=${SELECT}`, `$orderby=sms_lastname asc`];
+export const getParents = async (search?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=sms_lastname asc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_firstname,'${search}') or contains(sms_lastname,'${search}')`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);

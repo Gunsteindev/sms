@@ -94,8 +94,8 @@ function mapExam(item: any): Exam {
     };
 }
 
-export const getExams = async (search?: string) => {
-    const parts = [`$select=${SELECT}`, `$orderby=sms_startdate desc`];
+export const getExams = async (search?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=sms_startdate desc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}') or contains(sms_examcode,'${search}')`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);

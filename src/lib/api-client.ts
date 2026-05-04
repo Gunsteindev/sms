@@ -314,4 +314,61 @@ export const usersAPI = {
     getStats:  ()                 => apiClient.get('/users', { params: { stats: true } }),
 };
 
+// Grades / Gradebook API
+export const gradesAPI = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getAll:  (params?: any)        => apiClient.get('/grades', { params }),
+    getById: (id: string)          => apiClient.get(`/grades/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)           => apiClient.post('/grades', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/grades/${id}`, data),
+    delete:  (id: string)          => apiClient.delete(`/grades/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bulkUpsert: (entries: any[])   => apiClient.post('/grades', entries),
+};
+
+// Promotions API
+export const promotionsAPI = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getAll:  (params?: any)        => apiClient.get('/promotions', { params }),
+    getById: (id: string)          => apiClient.get(`/promotions/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)           => apiClient.post('/promotions', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/promotions/${id}`, data),
+    delete:  (id: string)          => apiClient.delete(`/promotions/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bulk:    (data: any)           => apiClient.post('/promotions/bulk', data),
+};
+
+// Disciplinary Records API
+export const disciplinaryAPI = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getAll:  (params?: any)        => apiClient.get('/disciplinary', { params }),
+    getById: (id: string)          => apiClient.get(`/disciplinary/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)           => apiClient.post('/disciplinary', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/disciplinary/${id}`, data),
+    delete:  (id: string)          => apiClient.delete(`/disciplinary/${id}`),
+};
+
+// Medical Records API
+export const medicalAPI = {
+    getByStudent: (studentid: string) => apiClient.get('/medical', { params: { studentid } }),
+    getById:      (id: string)        => apiClient.get(`/medical/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:       (data: any)         => apiClient.post('/medical', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:       (id: string, data: any) => apiClient.put(`/medical/${id}`, data),
+    delete:       (id: string)        => apiClient.delete(`/medical/${id}`),
+};
+
+// Report Cards API
+export const reportsAPI = {
+    getReportCard: (studentId: string, termId: string) =>
+        apiClient.get('/reports/report-card', { params: { studentId, termId } }),
+};
+
 export default apiClient;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnnouncements, createAnnouncement } from '@/lib/dataverse/announcements';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,9 +11,8 @@ export async function GET(request: NextRequest) {
             pinned:   p.get('pinned')   ? p.get('pinned') === 'true' : undefined,
         });
         return NextResponse.json({ success: true, data, total: data.length });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch announcements';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -24,8 +24,7 @@ export async function POST(request: NextRequest) {
         }
         const data = await createAnnouncement(body);
         return NextResponse.json({ success: true, data, message: 'Announcement created' }, { status: 201 });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to create announcement';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

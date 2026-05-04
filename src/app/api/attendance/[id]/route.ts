@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateAttendance, deleteAttendance } from '@/lib/dataverse/attendance';
+import { serverError } from '@/lib/api-guard';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -7,9 +8,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const body = await request.json();
         await updateAttendance(id, body);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('PUT /api/attendance/[id] error:', error);
-        return NextResponse.json({ success: false, error: error.message || 'Failed to update' }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -18,8 +18,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
         const { id } = await params;
         await deleteAttendance(id);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
-        console.error('DELETE /api/attendance/[id] error:', error);
-        return NextResponse.json({ success: false, error: error.message || 'Failed to delete' }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

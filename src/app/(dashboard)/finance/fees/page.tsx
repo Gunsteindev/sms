@@ -1,18 +1,24 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { DatePicker } from '@/components/ui/date-picker';
 
-import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, FileText } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Plus, Search, Pencil, Trash2, FileText, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { feeInvoicesAPI, feeStructuresAPI, academicYearsAPI, termsAPI } from '@/lib/api-client';
+import { Pagination } from '@/components/ui/Pagination';
+
+const PAGE_SIZE = 10;
 import type { FeeInvoice } from '@/lib/dataverse/feeinvoices';
 import type { FeeStructure } from '@/lib/dataverse/fees';
 import type { AcademicYear } from '@/lib/dataverse/academicyears';
@@ -24,7 +30,7 @@ const schema = z.object({
     feestructureid: z.string().min(1, 'Required'),
     amount:         z.coerce.number().min(0, 'Required'),
     duedate:        z.string().optional(),
-    feestatus:      z.coerce.number().default(1),
+    feestatus:      z.string().default('Pending'),
     academicyearid: z.string().optional(),
     termid:         z.string().optional(),
 });
@@ -52,9 +58,10 @@ function FeeInvoiceForm({ defaultValues, feeStructures, academicYears, terms, on
     onSubmit: (d: FormData) => Promise<void>;
     onCancel: () => void;
 }) {
-    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+    const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
-        defaultValues: defaultValues ?? { feestatus: 1, amount: 0 },
+        defaultValues: defaultValues ?? { feestatus: 'Pending', amount: 0 },
     });
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -62,48 +69,72 @@ function FeeInvoiceForm({ defaultValues, feeStructures, academicYears, terms, on
                 <Input id="studentid" {...register('studentid')} placeholder="Student GUID" />
             </F>
             <F id="feestructureid" label="Fee Structure *" error={errors.feestructureid?.message}>
-                <select id="feestructureid" {...register('feestructureid')}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                    <option value="">— Select —</option>
-                    {feeStructures.map(fs => (
-                        <option key={fs.feestructureid} value={fs.feestructureid}>{fs.name}</option>
-                    ))}
-                </select>
+                <Controller name="feestructureid" control={control} render={({ field }) => (
+                    <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                        <SelectTrigger id="feestructureid" className={ST}>
+                            <SelectValue>
+                                {field.value ? (feeStructures.find(fs => fs.feestructureid === field.value)?.name ?? '— Select —') : '— Select —'}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">— Select —</SelectItem>
+                            {feeStructures.map(fs => <SelectItem key={fs.feestructureid} value={fs.feestructureid}>{fs.name}</SelectItem>)}
+                        </SelectContent>
+                    </SelectRoot>
+                )} />
             </F>
             <div className="grid grid-cols-2 gap-3">
                 <F id="amount" label="Amount *" error={errors.amount?.message}>
                     <Input id="amount" type="number" step="0.01" {...register('amount')} placeholder="0.00" />
                 </F>
                 <F id="duedate" label="Due Date" error={errors.duedate?.message}>
-                    <Input id="duedate" type="date" {...register('duedate')} />
+                    <Controller control={control} name="duedate" render={({ field }) => (
+                        <DatePicker id="duedate" value={field.value} onChange={field.onChange} placeholder="Select date" />
+                    )} />
                 </F>
             </div>
             <F id="feestatus" label="Status">
-                <select id="feestatus" {...register('feestatus')}
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                    {Object.entries(FEE_INVOICE_STATUS).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                    ))}
-                </select>
+                <Controller name="feestatus" control={control} render={({ field }) => (
+                    <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                        <SelectTrigger id="feestatus" className={ST}>
+                            <SelectValue>{field.value || '— Select status —'}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Object.entries(FEE_INVOICE_STATUS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                        </SelectContent>
+                    </SelectRoot>
+                )} />
             </F>
             <div className="grid grid-cols-2 gap-3">
                 <F id="academicyearid" label="Academic Year">
-                    <select id="academicyearid" {...register('academicyearid')}
-                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                        <option value="">— None —</option>
-                        {academicYears.map(ay => (
-                            <option key={ay.academicyearid} value={ay.academicyearid}>{ay.name}</option>
-                        ))}
-                    </select>
+                    <Controller name="academicyearid" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                            <SelectTrigger id="academicyearid" className={ST}>
+                                <SelectValue>
+                                    {field.value ? (academicYears.find(ay => ay.academicyearid === field.value)?.name ?? '— None —') : '— None —'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">— None —</SelectItem>
+                                {academicYears.map(ay => <SelectItem key={ay.academicyearid} value={ay.academicyearid}>{ay.name}</SelectItem>)}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
                 </F>
                 <F id="termid" label="Term">
-                    <select id="termid" {...register('termid')}
-                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-                        <option value="">— None —</option>
-                        {terms.map(t => (
-                            <option key={t.termid} value={t.termid}>{t.name}</option>
-                        ))}
-                    </select>
+                    <Controller name="termid" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                            <SelectTrigger id="termid" className={ST}>
+                                <SelectValue>
+                                    {field.value ? (terms.find(t => t.termid === field.value)?.name ?? '— None —') : '— None —'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">— None —</SelectItem>
+                                {terms.map(t => <SelectItem key={t.termid} value={t.termid}>{t.name}</SelectItem>)}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
                 </F>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t">
@@ -116,9 +147,9 @@ function FeeInvoiceForm({ defaultValues, feeStructures, academicYears, terms, on
 
 export default function FeeInvoicesPage() {
     const [rows, setRows]           = useState<FeeInvoice[]>([]);
-    const [filtered, setFiltered]   = useState<FeeInvoice[]>([]);
     const [loading, setLoading]     = useState(true);
     const [search, setSearch]       = useState('');
+    const [page, setPage]           = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]     = useState<FeeInvoice | null>(null);
     const [toDelete, setToDelete]   = useState<string | null>(null);
@@ -137,7 +168,6 @@ export default function FeeInvoicesPage() {
                 termsAPI.getAll(),
             ]);
             setRows(fiRes.data ?? []);
-            setFiltered(fiRes.data ?? []);
             setFeeStructures(fsRes.data ?? []);
             setAcademicYears(ayRes.data ?? []);
             setTerms(tRes.data ?? []);
@@ -146,13 +176,18 @@ export default function FeeInvoicesPage() {
     };
 
     useEffect(() => { load(); }, []);
-    useEffect(() => {
+    useEffect(() => { setPage(1); }, [search]);
+
+    const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        setFiltered(q ? rows.filter(r =>
+        return q ? rows.filter(r =>
             r.studentname.toLowerCase().includes(q) ||
             r.feestructurename.toLowerCase().includes(q)
-        ) : rows);
+        ) : rows;
     }, [search, rows]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
@@ -161,7 +196,7 @@ export default function FeeInvoicesPage() {
                 await feeInvoicesAPI.update(editing.feeid, data);
                 toast.success('Fee invoice updated');
             } else {
-                await feeInvoicesAPI.create(data);
+                await feeInvoicesAPI.create({ ...data, feestatus: Object.entries(FEE_INVOICE_STATUS).find(([,v])=>v===data.feestatus)?.[0] ? Number(Object.entries(FEE_INVOICE_STATUS).find(([,v])=>v===data.feestatus)![0]) : 1 });
                 toast.success('Fee invoice created');
             }
             setModalOpen(false); setEditing(null); load();
@@ -183,9 +218,14 @@ export default function FeeInvoicesPage() {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fee Invoices</h1>
                     <p className="text-sm text-gray-500 mt-0.5">{rows.length} record{rows.length !== 1 ? 's' : ''}</p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1.5" /> Add Fee Invoice
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1.5" /> Add Fee Invoice
+                    </Button>
+                </div>
             </div>
 
             <div className="relative max-w-sm">
@@ -204,33 +244,33 @@ export default function FeeInvoicesPage() {
                 </div>
             ) : (
                 <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-left">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-left">
                                 {['Student', 'Fee Structure', 'Amount', 'Due Date', 'Term', 'Status', 'Actions'].map(h => (
-                                    <th key={h} className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{h}</th>
+                                    <TableHead key={h} className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{h}</TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {filtered.map(r => (
-                                <tr key={r.feeid} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
+                            {paginated.map(r => (
+                                <TableRow key={r.feeid} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    <TableCell className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                                         <div className="flex items-center gap-2">
                                             <FileText className="h-4 w-4 text-indigo-400 flex-shrink-0" />
                                             {r.studentname || r.studentid.slice(0, 8) + '…'}
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.feestructurename || '—'}</td>
-                                    <td className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{formatCurrency(r.amount)}</td>
-                                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{formatDate(r.duedate)}</td>
-                                    <td className="px-4 py-3 text-gray-500 text-xs">{r.termname || '—'}</td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.feestructurename || '—'}</TableCell>
+                                    <TableCell className="px-4 py-3 font-mono text-gray-700 dark:text-gray-300">{formatCurrency(r.amount)}</TableCell>
+                                    <TableCell className="px-4 py-3 text-gray-500 font-mono text-xs">{formatDate(r.duedate)}</TableCell>
+                                    <TableCell className="px-4 py-3 text-gray-500 text-xs">{r.termname || '—'}</TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <Badge variant={STATUS_VARIANT[r.feestatus] ?? 'default'}>
                                             {FEE_INVOICE_STATUS[r.feestatus] ?? 'Unknown'}
                                         </Badge>
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="px-4 py-3">
                                         <div className="flex gap-1">
                                             <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setModalOpen(true); }}>
                                                 <Pencil className="h-3.5 w-3.5 text-gray-400" />
@@ -239,23 +279,27 @@ export default function FeeInvoicesPage() {
                                                 <Trash2 className="h-3.5 w-3.5 text-gray-400" />
                                             </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="invoice" onChange={setPage} />
                 </div>
             )}
 
-            <Modal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }}
-                title={editing ? 'Edit Fee Invoice' : 'Add Fee Invoice'}>
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? 'Edit Fee Invoice' : 'Add Fee Invoice'}</DialogTitle>
+                </DialogHeader>
                 <FeeInvoiceForm
                     defaultValues={editing ? {
                         studentid:      editing.studentid,
                         feestructureid: editing.feestructureid,
                         amount:         editing.amount,
                         duedate:        editing.duedate?.slice(0, 10),
-                        feestatus:      editing.feestatus,
+                        feestatus:      FEE_INVOICE_STATUS[editing.feestatus] ?? 'Pending',
                         academicyearid: editing.academicyearid || undefined,
                         termid:         editing.termid || undefined,
                     } : undefined}
@@ -265,7 +309,8 @@ export default function FeeInvoicesPage() {
                     onSubmit={handleSubmit}
                     onCancel={() => { setModalOpen(false); setEditing(null); }}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             <ConfirmDialog
                 open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}

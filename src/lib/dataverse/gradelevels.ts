@@ -39,8 +39,8 @@ function mapGradeLevel(item: any): GradeLevel {
     };
 }
 
-export const getGradeLevels = async (search?: string) => {
-    const parts = [`$select=${SELECT}`, `$orderby=sms_ordernumber asc`];
+export const getGradeLevels = async (search?: string, top = 200) => {
+    const parts = [`$select=${SELECT}`, `$orderby=sms_ordernumber asc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}')`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);

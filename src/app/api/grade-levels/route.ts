@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGradeLevels, createGradeLevel } from '@/lib/dataverse/gradelevels';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -7,8 +8,7 @@ export async function GET(request: NextRequest) {
         const data = await getGradeLevels(search);
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch grade levels';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }
 
@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
         const data = await createGradeLevel(body);
         return NextResponse.json({ success: true, data, message: 'Grade level created' }, { status: 201 });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to create grade level';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }

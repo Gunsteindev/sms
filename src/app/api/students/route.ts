@@ -1,44 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getStudents, createStudent, getStudentStats } from '@/lib/dataverse/students';
+import { parseBody, serverError, badRequest } from '@/lib/api-guard';
+
+const createSchema = z.object({
+    firstname:        z.string().min(1),
+    lastname:         z.string().min(1),
+    dateofbirth:      z.string().min(1),
+    enrollmentdate:   z.string().min(1),
+    gender:           z.number().int().optional().default(1),
+    studentstatus:    z.number().int().optional(),
+    enrollmentstatus: z.number().int().optional(),
+    classid:          z.string().optional(),
+    gradelevelid:     z.string().optional(),
+    address:          z.string().optional(),
+    phone:            z.string().optional(),
+    email:            z.string().email().optional().or(z.literal('')),
+    rollnumber:       z.string().optional(),
+    parentid:         z.string().optional(),
+});
 
 export async function GET(request: NextRequest) {
     try {
-        const p      = request.nextUrl.searchParams;
-        const search = p.get('search') || undefined;
-        const status = p.get('status') ? parseInt(p.get('status')!) : undefined;
+        const p          = request.nextUrl.searchParams;
+        const search     = p.get('search')  || undefined;
+        const status     = p.get('status')  ? parseInt(p.get('status')!) : undefined;
+        const classid    = p.get('classid') || undefined;
 
         if (p.get('stats') === 'true') {
             const data = await getStudentStats();
             return NextResponse.json({ success: true, data });
         }
 
-        const result = await getStudents({ search, status });
-
-        return NextResponse.json({
-            success: true,
-            data:       result.items,
-            totalCount: result.totalCount,
-        });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch students';
-        console.error('GET /api/students:', msg);
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        const result = await getStudents({ search, status, classid });
+        return NextResponse.json({ success: true, data: result.items, totalCount: result.totalCount });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const missing = ['firstname', 'lastname', 'dateofbirth', 'enrollmentdate']
-            .filter(f => !body[f]);
-        if (missing.length) {
-            return NextResponse.json({ success: false, error: `Missing required fields: ${missing.join(', ')}` }, { status: 400 });
-        }
-        const data = await createStudent(body);
+        const parsed = await parseBody(request, createSchema);
+        if ('response' in parsed) return parsed.response;
+
+        const data = await createStudent(parsed.data);
         return NextResponse.json({ success: true, data, message: 'Student created successfully' }, { status: 201 });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to create student';
-        console.error('POST /api/students:', msg);
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

@@ -1,6 +1,6 @@
-// src/app/api/teachers/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getTeacherById, updateTeacher, deleteTeacher } from '@/lib/dataverse/teachers';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(
   request: NextRequest,
@@ -17,20 +17,9 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: teacher
-    });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error in GET /api/teachers/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to fetch teacher'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: true, data: teacher });
+  } catch (error: unknown) {
+    return serverError(error);
   }
 }
 
@@ -48,16 +37,8 @@ export async function PUT(
       data: teacher,
       message: 'Teacher updated successfully'
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error in PUT /api/teachers/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to update teacher'
-      },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return serverError(error);
   }
 }
 
@@ -73,15 +54,7 @@ export async function DELETE(
       success: true,
       message: 'Teacher deleted successfully'
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error('Error in DELETE /api/teachers/[id]:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message || 'Failed to delete teacher'
-      },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    return serverError(error);
   }
 }

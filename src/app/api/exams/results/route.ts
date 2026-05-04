@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getExamResults, createExamResult } from '@/lib/dataverse/examresults';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,9 +11,8 @@ export async function GET(request: NextRequest) {
             pageSize:  p.get('pageSize')  ? Number(p.get('pageSize')) : undefined,
         });
         return NextResponse.json({ success: true, data, total: data.length });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch exam results';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -24,8 +24,7 @@ export async function POST(request: NextRequest) {
         }
         const data = await createExamResult(body);
         return NextResponse.json({ success: true, data, message: 'Exam result recorded' }, { status: 201 });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to create exam result';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

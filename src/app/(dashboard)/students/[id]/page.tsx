@@ -1,10 +1,12 @@
 'use client';
+import { Select } from '@/components/ui/Select';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Pencil, AlertCircle, Plus, Trash2, Star,
   Search, UserPlus, CalendarDays, ShieldCheck, Users,
+  HeartPulse, AlertTriangle, Check, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -13,13 +15,13 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StudentCard } from '@/components/students/StudentCard';
 import { StudentForm } from '@/components/students/StudentForm';
-import { studentsAPI, attendanceAPI, parentsAPI, studentParentsAPI } from '@/lib/api-client';
+import { studentsAPI, attendanceAPI, parentsAPI, studentParentsAPI, disciplinaryAPI, medicalAPI } from '@/lib/api-client';
 import type { Student } from '@/lib/dataverse/students';
 import type { Parent } from '@/lib/dataverse/parents';
 import type { StudentParent } from '@/lib/dataverse/studentparents';
@@ -31,7 +33,7 @@ const parentSchema = z.object({
   lastname:     z.string().min(1, 'Required'),
   email:        z.string().email('Invalid email').optional().or(z.literal('')),
   phone:        z.string().optional(),
-  relationship: z.coerce.number().default(3),
+  relationship: z.string().default('Guardian'),
   address:      z.string().optional(),
 });
 type ParentFormData = z.infer<typeof parentSchema>;
@@ -75,7 +77,7 @@ function ParentForm({ defaultValues, onSubmit, onCancel }: {
 }) {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ParentFormData>({
     resolver: zodResolver(parentSchema) as never,
-    defaultValues: { relationship: 3, ...defaultValues },
+    defaultValues: { relationship: 'Guardian', ...defaultValues },
   });
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -88,12 +90,11 @@ function ParentForm({ defaultValues, onSubmit, onCancel }: {
         </F>
       </div>
       <F id="relationship" label="Relationship">
-        <select id="relationship" {...register('relationship')}
-          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+        <Select id="relationship" {...register('relationship')}>
           {Object.entries(PARENT_RELATIONSHIPS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
+            <option key={k} value={v}>{v}</option>
           ))}
-        </select>
+        </Select>
       </F>
       <div className="grid grid-cols-2 gap-3">
         <F id="email" label="Email" error={errors.email?.message}>
@@ -121,10 +122,24 @@ export default function StudentDetailPage() {
   const { id }  = useParams<{ id: string }>();
   const router  = useRouter();
 
-  const [student,       setStudent]       = useState<Student | null>(null);
-  const [attendance,    setAttendance]    = useState<AttendanceSummary | null>(null);
-  const [linkedParents, setLinkedParents] = useState<StudentParent[]>([]);
-  const [loading,       setLoading]       = useState(true);
+  const [student,          setStudent]          = useState<Student | null>(null);
+  const [attendance,       setAttendance]       = useState<AttendanceSummary | null>(null);
+  const [linkedParents,    setLinkedParents]    = useState<StudentParent[]>([]);
+  const [disciplinaryRecs, setDisciplinaryRecs] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [medicalRecord,    setMedicalRecord]    = useState<any | null>(null);
+  const [loading,          setLoading]          = useState(true);
+
+  // Disciplinary modal
+  const [discOpen,    setDiscOpen]    = useState(false);
+  const [discSaving,  setDiscSaving]  = useState(false);
+  const [discForm,    setDiscForm]    = useState({ date: new Date().toISOString().slice(0,10), incidenttype: 1, description: '', action: '', parentnotified: false });
+
+  // Medical modal
+  const [medOpen,   setMedOpen]   = useState(false);
+  const [medSaving, setMedSaving] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [medForm,   setMedForm]   = useState<any>({});
 
   // Modals
   const [editOpen,       setEditOpen]       = useState(false);
@@ -150,15 +165,30 @@ export default function StudentDetailPage() {
       const end   = new Date().toISOString().split('T')[0];
       const start = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [stuRes, attRes, parRes]: any[] = await Promise.all([
+      const [stuRes, attRes, parRes, discRes, medRes]: any[] = await Promise.allSettled([
         studentsAPI.getById(id),
         attendanceAPI.getStudentReport(id, start, end),
         studentParentsAPI.getByStudent(id),
+        disciplinaryAPI.getAll({ studentid: id }),
+        medicalAPI.getByStudent(id),
       ]);
-      const stu: Student = stuRes.data ?? null;
+
+      // Student is a hard requirement — surface the error if it failed
+      if (stuRes.status === 'rejected') throw stuRes.reason;
+
+      const stu: Student = stuRes.value?.data ?? null;
       setStudent(stu);
-      setAttendance(attRes.data?.summary ?? null);
-      setLinkedParents(parRes.data ?? []);
+      setAttendance(attRes.status === 'fulfilled' ? (attRes.value?.data?.summary ?? null) : null);
+      setLinkedParents(parRes.status === 'fulfilled' ? (parRes.value?.data ?? []) : []);
+      setDisciplinaryRecs(discRes.status === 'fulfilled' ? (discRes.value?.data ?? []) : []);
+      const med = medRes.status === 'fulfilled' ? (medRes.value?.data ?? null) : null;
+      setMedicalRecord(med);
+      setMedForm(med ? {
+        bloodtype: med.bloodtype, allergies: med.allergies,
+        chronicconditions: med.chronicconditions, currentmedications: med.currentmedications,
+        vaccinationrecords: med.vaccinationrecords, lastcheckupdate: med.lastcheckupdate,
+        emergencycontact: med.emergencycontact, emergencyphone: med.emergencyphone,
+      } : {});
       if (stu) {
         setDraftStudentStatus(stu.studentstatus || 1);
         setDraftEnrollmentStatus(stu.enrollmentstatus || 1);
@@ -468,6 +498,97 @@ export default function StudentDetailPage() {
             </CardContent>
           </Card>
 
+          {/* ── Disciplinary Records ── */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-slate-400" />
+                  <CardTitle>Disciplinary Records</CardTitle>
+                </div>
+                <Button size="sm" onClick={() => { setDiscForm({ date: new Date().toISOString().slice(0,10), incidenttype: 1, description: '', action: '', parentnotified: false }); setDiscOpen(true); }}>
+                  <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Record
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {disciplinaryRecs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                  <AlertTriangle className="h-8 w-8 mb-2 opacity-30" />
+                  <p className="text-sm">No disciplinary records</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {disciplinaryRecs.map((rec: any) => (
+                    <div key={rec.disciplinaryid} className="flex items-start justify-between rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border
+                            ${rec.incidenttype === 4 ? 'bg-red-50 text-red-700 border-red-200' :
+                              rec.incidenttype === 3 ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                              rec.incidenttype === 2 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                            {rec.incidenttypename}
+                          </span>
+                          <span className="text-xs text-slate-400">{rec.date}</span>
+                          {rec.resolved && <span className="inline-flex items-center gap-0.5 text-xs text-emerald-600"><Check className="h-3 w-3" />Resolved</span>}
+                          {rec.parentnotified && <span className="text-xs text-blue-500">Parent notified</span>}
+                        </div>
+                        <p className="text-sm text-slate-700 dark:text-slate-300">{rec.description}</p>
+                        {rec.action && <p className="text-xs text-slate-500 mt-0.5">Action: {rec.action}</p>}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 ml-2 flex-shrink-0"
+                        onClick={async () => { try { await disciplinaryAPI.delete(rec.disciplinaryid); toast.success('Record deleted'); load(); } catch { toast.error('Failed to delete'); } }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Medical Record ── */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HeartPulse className="h-4 w-4 text-slate-400" />
+                  <CardTitle>Medical Record</CardTitle>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setMedOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1.5" /> {medicalRecord ? 'Edit' : 'Add'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!medicalRecord ? (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                  <HeartPulse className="h-8 w-8 mb-2 opacity-30" />
+                  <p className="text-sm">No medical record yet</p>
+                </div>
+              ) : (
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {[
+                    ['Blood Type',          medicalRecord.bloodtype          || '—'],
+                    ['Last Checkup',        medicalRecord.lastcheckupdate    || '—'],
+                    ['Emergency Contact',   medicalRecord.emergencycontact   || '—'],
+                    ['Emergency Phone',     medicalRecord.emergencyphone     || '—'],
+                    ['Allergies',           medicalRecord.allergies          || '—'],
+                    ['Chronic Conditions',  medicalRecord.chronicconditions  || '—'],
+                    ['Current Medications', medicalRecord.currentmedications || '—'],
+                    ['Vaccination Records', medicalRecord.vaccinationrecords || '—'],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-xs font-medium text-slate-400">{label}</dt>
+                      <dd className="mt-0.5 text-slate-800 dark:text-slate-200">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Additional details */}
           <Card>
             <CardHeader>
@@ -497,13 +618,17 @@ export default function StudentDetailPage() {
       </div>
 
       {/* ── Edit student modal ── */}
-      <Modal isOpen={editOpen} onClose={() => setEditOpen(false)} title="Edit Student">
+      <Dialog open={editOpen} onOpenChange={(o) => { if (!o) { setEditOpen(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Student</DialogTitle>
+          </DialogHeader>
         <StudentForm
           defaultValues={{
             firstname:        student.firstname,
             lastname:         student.lastname,
             dateofbirth:      student.dateofbirth?.slice(0, 10),
-            gender:           student.gender,
+            gender:           (({ 1:'Male', 2:'Female' } as Record<number,string>)[student.gender]) ?? 'Male',
             email:            student.email || undefined,
             phone:            student.phone || undefined,
             address:          student.address || undefined,
@@ -512,16 +637,21 @@ export default function StudentDetailPage() {
             classid:          student.classid || undefined,
             parentid:         student.parentid || undefined,
             parentname:       student.parentname || student.guardianname || undefined,
-            studentstatus:    student.studentstatus || 1,
-            enrollmentstatus: student.enrollmentstatus || 1,
+            studentstatus:    (({ 1:'Active', 2:'Graduated', 3:'Transferred', 4:'Suspended' } as Record<number,string>)[student.studentstatus]) ?? 'Active',
+            enrollmentstatus: (({ 1:'Enrolled', 2:'Completed', 3:'Dropped', 4:'On Hold' } as Record<number,string>)[student.enrollmentstatus]) ?? 'Enrolled',
           }}
           onSubmit={handleStudentEdit}
           onCancel={() => setEditOpen(false)}
         />
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* ── Update status modal ── */}
-      <Modal isOpen={statusOpen} onClose={() => setStatusOpen(false)} title="Update Student Status">
+      <Dialog open={statusOpen} onOpenChange={(o) => { if (!o) { setStatusOpen(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update Student Status</DialogTitle>
+          </DialogHeader>
         <div className="space-y-5">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Student Status</p>
@@ -563,15 +693,25 @@ export default function StudentDetailPage() {
             </Button>
           </div>
         </div>
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* ── Add new parent modal ── */}
-      <Modal isOpen={addParentOpen} onClose={() => setAddParentOpen(false)} title="Add New Parent">
+      <Dialog open={addParentOpen} onOpenChange={(o) => { if (!o) { setAddParentOpen(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add New Parent</DialogTitle>
+          </DialogHeader>
         <ParentForm onSubmit={handleAddParent} onCancel={() => setAddParentOpen(false)} />
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* ── Edit parent modal ── */}
-      <Modal isOpen={!!editingParent} onClose={() => setEditingParent(null)} title="Edit Parent">
+      <Dialog open={!!editingParent} onOpenChange={(o) => { if (!o) { setEditingParent(null); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Parent</DialogTitle>
+          </DialogHeader>
         {editingParent && (
           <ParentForm
             defaultValues={{
@@ -579,17 +719,22 @@ export default function StudentDetailPage() {
               lastname:     editingParent.lastname,
               email:        editingParent.email        || undefined,
               phone:        editingParent.phone        || undefined,
-              relationship: editingParent.relationship,
+              relationship: PARENT_RELATIONSHIPS[editingParent.relationship] ?? 'Guardian',
               address:      editingParent.address      || undefined,
             }}
             onSubmit={handleEditParent}
             onCancel={() => setEditingParent(null)}
           />
         )}
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* ── Link existing parent modal ── */}
-      <Modal isOpen={linkOpen} onClose={() => setLinkOpen(false)} title="Link Existing Parent">
+      <Dialog open={linkOpen} onOpenChange={(o) => { if (!o) { setLinkOpen(false); } }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Link Existing Parent</DialogTitle>
+          </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -623,7 +768,8 @@ export default function StudentDetailPage() {
             <p className="text-sm text-slate-400 text-center py-4">Type a name to search</p>
           )}
         </div>
-      </Modal>
+              </DialogContent>
+      </Dialog>
 
       {/* ── Unlink confirm ── */}
       <ConfirmDialog
@@ -631,6 +777,127 @@ export default function StudentDetailPage() {
         title="Remove parent?" description="This will unlink the parent from this student. The parent record will not be deleted."
         onConfirm={() => { if (unlinkTarget) { handleUnlink(unlinkTarget); setUnlinkTarget(null); } }}
       />
+
+      {/* ── Add Disciplinary Record modal ── */}
+      <Dialog open={discOpen} onOpenChange={(o) => { if (!o) setDiscOpen(false); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Disciplinary Record</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="disc-date">Date *</Label>
+                <Input id="disc-date" type="date" value={discForm.date} onChange={e => setDiscForm((f: any) => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="disc-type">Incident Type *</Label>
+                <select id="disc-type" value={discForm.incidenttype} onChange={e => setDiscForm((f: any) => ({ ...f, incidenttype: parseInt(e.target.value) }))}
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value={1}>Warning</option>
+                  <option value={2}>Detention</option>
+                  <option value={3}>Suspension</option>
+                  <option value={4}>Expulsion</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="disc-desc">Description *</Label>
+              <textarea id="disc-desc" rows={3} value={discForm.description}
+                onChange={e => setDiscForm((f: any) => ({ ...f, description: e.target.value }))}
+                placeholder="Describe the incident…"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="disc-action">Action Taken</Label>
+              <Input id="disc-action" value={discForm.action} onChange={e => setDiscForm((f: any) => ({ ...f, action: e.target.value }))} placeholder="e.g. Sent to principal, parents called…" />
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={discForm.parentnotified} onChange={e => setDiscForm((f: any) => ({ ...f, parentnotified: e.target.checked }))} className="rounded" />
+              Parent / Guardian notified
+            </label>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => setDiscOpen(false)}>Cancel</Button>
+              <Button disabled={discSaving || !discForm.description} onClick={async () => {
+                if (!discForm.description) return;
+                setDiscSaving(true);
+                try {
+                  await disciplinaryAPI.create({ ...discForm, studentid: id });
+                  toast.success('Record added');
+                  setDiscOpen(false);
+                  load();
+                } catch { toast.error('Failed to save'); }
+                finally { setDiscSaving(false); }
+              }}>{discSaving ? 'Saving…' : 'Save Record'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Medical Record modal ── */}
+      <Dialog open={medOpen} onOpenChange={(o) => { if (!o) setMedOpen(false); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{medicalRecord ? 'Edit Medical Record' : 'Add Medical Record'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Blood Type</Label>
+                <select value={medForm.bloodtype ?? ''} onChange={e => setMedForm((f: any) => ({ ...f, bloodtype: e.target.value }))}
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select</option>
+                  {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Last Checkup Date</Label>
+                <Input type="date" value={medForm.lastcheckupdate ?? ''} onChange={e => setMedForm((f: any) => ({ ...f, lastcheckupdate: e.target.value }))} />
+              </div>
+            </div>
+            {[
+              ['allergies', 'Allergies', 'e.g. Peanuts, Penicillin…'],
+              ['chronicconditions', 'Chronic Conditions', 'e.g. Asthma, Diabetes…'],
+              ['currentmedications', 'Current Medications', 'e.g. Ventolin inhaler…'],
+              ['vaccinationrecords', 'Vaccination Records', 'e.g. COVID-19 (2023), Yellow Fever…'],
+            ].map(([field, label, ph]) => (
+              <div key={field} className="space-y-1.5">
+                <Label>{label}</Label>
+                <textarea rows={2} value={medForm[field] ?? ''} onChange={e => setMedForm((f: any) => ({ ...f, [field]: e.target.value }))}
+                  placeholder={ph}
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+            ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Emergency Contact</Label>
+                <Input value={medForm.emergencycontact ?? ''} onChange={e => setMedForm((f: any) => ({ ...f, emergencycontact: e.target.value }))} placeholder="Contact name" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Emergency Phone</Label>
+                <Input value={medForm.emergencyphone ?? ''} onChange={e => setMedForm((f: any) => ({ ...f, emergencyphone: e.target.value }))} placeholder="+233 20 000 0000" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button type="button" variant="outline" onClick={() => setMedOpen(false)}>Cancel</Button>
+              <Button disabled={medSaving} onClick={async () => {
+                setMedSaving(true);
+                try {
+                  if (medicalRecord?.medicalid) {
+                    await medicalAPI.update(medicalRecord.medicalid, medForm);
+                  } else {
+                    await medicalAPI.create({ ...medForm, studentid: id });
+                  }
+                  toast.success('Medical record saved');
+                  setMedOpen(false);
+                  load();
+                } catch { toast.error('Failed to save'); }
+                finally { setMedSaving(false); }
+              }}>{medSaving ? 'Saving…' : 'Save Record'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFeeInvoices, createFeeInvoice } from '@/lib/dataverse/feeinvoices';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(request: NextRequest) {
     try {
@@ -12,9 +13,8 @@ export async function GET(request: NextRequest) {
             pageSize:      p.get('pageSize')      ? Number(p.get('pageSize')) : undefined,
         });
         return NextResponse.json({ success: true, data });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to fetch fees';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }
 
@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
         }
         const data = await createFeeInvoice(body);
         return NextResponse.json({ success: true, data, message: 'Fee invoice created' }, { status: 201 });
-    } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to create fee invoice';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    } catch (error) {
+        return serverError(error);
     }
 }

@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
-import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, BookMarked, Hash, Clock } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Plus, Search, Pencil, Trash2, BookMarked, Hash, Clock, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,10 +11,13 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import { subjectsAPI, teachersAPI, gradeLevelsAPI } from '@/lib/api-client';
+
+const PAGE_SIZE = 10;
 import { SUBJECT_TYPES } from '@/lib/dataverse/subjects';
 import type { Subject } from '@/lib/dataverse/subjects';
 
@@ -82,53 +86,91 @@ function SubjectForm({ defaultValues, onSubmit, onCancel }: {
         defaultValues,
     });
 
+    const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-            <div className="grid grid-cols-2 gap-4">
-                <F id="name" label="Subject Name *" error={errors.name?.message}>
-                    <Input id="name" {...register('name')} placeholder="e.g. Mathematics" />
-                </F>
-                <F id="code" label="Code *" error={errors.code?.message}>
-                    <Input id="code" {...register('code')} placeholder="e.g. MATH101" />
-                </F>
-                <F id="credithours" label="Credit Hours">
-                    <Input id="credithours" {...register('credithours')} type="number" min={0} />
-                </F>
-                <F id="passscore" label="Pass Score (%)">
-                    <Input id="passscore" {...register('passscore')} type="number" min={0} max={100} placeholder="e.g. 50" />
-                </F>
-                <F id="typeLabel" label="Type">
-                    <Controller name="typeLabel" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">— None —</SelectItem>
-                                {TYPE_OPTIONS.map(o => (
-                                    <SelectItem key={o.value} value={o.label}>{o.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
-                <F id="gradelevelid" label="Grade Level">
-                    <Controller name="gradelevelid" control={control} render={({ field }) => (
-                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger><SelectValue placeholder="Select grade level" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">— None —</SelectItem>
-                                {gradeLevels.map((g: any) => (
-                                    <SelectItem key={g.gradelevelid} value={g.gradelevelid}>
-                                        {g.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </SelectRoot>
-                    )} />
-                </F>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+
+            {/* ── Subject Details ── */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Subject Details</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="name" label="Subject Name *" error={errors.name?.message}>
+                        <Input id="name" {...register('name')} placeholder="e.g. Mathematics" />
+                    </F>
+                    <F id="code" label="Code *" error={errors.code?.message}>
+                        <Input id="code" {...register('code')} placeholder="e.g. MATH101" />
+                    </F>
+                    <F id="credithours" label="Credit Hours">
+                        <Input id="credithours" {...register('credithours')} type="number" min={0} placeholder="e.g. 3" />
+                    </F>
+                    <F id="passscore" label="Pass Score (%)">
+                        <Input id="passscore" {...register('passscore')} type="number" min={0} max={100} placeholder="e.g. 50" />
+                    </F>
+                    <div className="col-span-2">
+                        <F id="description" label="Description">
+                            <Input id="description" {...register('description')} placeholder="Brief description of the subject…" />
+                        </F>
+                    </div>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800" />
+
+            {/* ── Academic Assignment ── */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Academic Assignment</p>
+                <div className="grid grid-cols-2 gap-4">
+                    <F id="typeLabel" label="Subject Type">
+                        <Controller name="typeLabel" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger className={ST}>
+                                    <SelectValue>
+                                        {field.value || '— None —'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">— None —</SelectItem>
+                                    {TYPE_OPTIONS.map(o => (
+                                        <SelectItem key={o.value} value={o.label}>{o.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                    <F id="gradelevelid" label="Grade Level">
+                        <Controller name="gradelevelid" control={control} render={({ field }) => (
+                            <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                                <SelectTrigger className={ST}>
+                                    <SelectValue>
+                                        {field.value
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                            ? (gradeLevels.find((g: any) => g.gradelevelid === field.value)?.name ?? '— None —')
+                                            : '— None —'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">— None —</SelectItem>
+                                    {gradeLevels.map((g: any) => (
+                                        <SelectItem key={g.gradelevelid} value={g.gradelevelid}>{g.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </SelectRoot>
+                        )} />
+                    </F>
+                </div>
                 <F id="teacherid" label="Assigned Teacher">
                     <Controller name="teacherid" control={control} render={({ field }) => (
                         <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                            <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
+                            <SelectTrigger className={ST}>
+                                <SelectValue>
+                                    {field.value ? (() => {
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        const t = teachers.find((t: any) => t.teacherid === field.value);
+                                        return t ? `${t.firstname} ${t.lastname}` : '— None —';
+                                    })() : '— None —'}
+                                </SelectValue>
+                            </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="">— None —</SelectItem>
                                 {teachers.map((t: any) => (
@@ -140,12 +182,8 @@ function SubjectForm({ defaultValues, onSubmit, onCancel }: {
                         </SelectRoot>
                     )} />
                 </F>
-                <div className="col-span-2">
-                    <F id="description" label="Description">
-                        <Input id="description" {...register('description')} placeholder="Brief description…" />
-                    </F>
-                </div>
             </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save Subject'}</Button>
@@ -171,9 +209,9 @@ function subjectColor(name: string) {
 
 export default function SubjectsPage() {
     const [subjects, setSubjects] = useState<Subject[]>([]);
-    const [filtered, setFiltered] = useState<Subject[]>([]);
     const [loading, setLoading]   = useState(true);
     const [search, setSearch]     = useState('');
+    const [page, setPage]         = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]   = useState<Subject | null>(null);
     const [toDelete, setToDelete] = useState<string | null>(null);
@@ -185,7 +223,6 @@ export default function SubjectsPage() {
             const res: any = await subjectsAPI.getAll();
             const items = res.data ?? [];
             setSubjects(items);
-            setFiltered(items);
         } catch {
             toast.error('Failed to load subjects');
         } finally {
@@ -194,16 +231,19 @@ export default function SubjectsPage() {
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [search]);
 
-    useEffect(() => {
+    const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        setFiltered(q
+        return q
             ? subjects.filter(s =>
                 `${s.name} ${s.code} ${s.typelabel} ${s.gradelevelname} ${s.teachername}`
                     .toLowerCase().includes(q))
-            : subjects
-        );
+            : subjects;
     }, [search, subjects]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const handleSubmit = async (data: FormData) => {
         try {
@@ -253,9 +293,14 @@ export default function SubjectsPage() {
                         {loading ? 'Loading…' : `${subjects.length} subject${subjects.length !== 1 ? 's' : ''}${coreCount ? ` · ${coreCount} core` : ''}${electiveCount ? ` · ${electiveCount} elective` : ''}`}
                     </p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Subject
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Subject
+                    </Button>
+                </div>
             </div>
 
             <AISummary type="subjects" getData={() => ({ total: subjects.length, subjects })} />
@@ -288,19 +333,19 @@ export default function SubjectsPage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Subject', 'Code', 'Type', 'Grade Level', 'Teacher', 'Hrs', 'Pass', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(s => (
-                                <tr key={s.subjectid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(s => (
+                                <TableRow key={s.subjectid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                                     {/* Subject name */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <div className="flex items-center gap-2.5">
                                             <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold ${subjectColor(s.name)}`}>
                                                 {s.name.slice(0, 2).toUpperCase()}
@@ -312,47 +357,47 @@ export default function SubjectsPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    </td>
+                                    </TableCell>
                                     {/* Code */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         {s.code
                                             ? <span className="inline-flex items-center gap-1 font-mono text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
                                                 <Hash className="h-2.5 w-2.5" />{s.code}
                                               </span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
                                     {/* Type */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         {s.type !== null && s.typelabel
                                             ? <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[s.type] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                                                 {s.typelabel}
                                               </span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
                                     {/* Grade level */}
-                                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                                    <TableCell className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
                                         {s.gradelevelname || <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
                                     {/* Teacher */}
-                                    <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
+                                    <TableCell className="px-4 py-3.5 text-slate-600 dark:text-slate-300">
                                         {s.teachername || <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
                                     {/* Credit hours */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         {s.credithours
                                             ? <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
                                                 <Clock className="h-3.5 w-3.5 text-slate-400" />{s.credithours}
                                               </span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
                                     {/* Pass score */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         {s.passscore !== null && s.passscore !== undefined
                                             ? <span className="text-slate-600 dark:text-slate-300">{s.passscore}%</span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                    </td>
+                                    </TableCell>
                                     {/* Actions */}
-                                    <td className="px-4 py-3.5">
+                                    <TableCell className="px-4 py-3.5">
                                         <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button variant="ghost" size="icon" onClick={() => openEdit(s)}
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -363,20 +408,21 @@ export default function SubjectsPage() {
                                                 <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                             </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="subject" onChange={setPage} />
                 </div>
             )}
 
             {/* Modal */}
-            <Modal
-                isOpen={modalOpen}
-                onClose={() => { setModalOpen(false); setEditing(null); }}
-                title={editing ? `Edit — ${editing.name}` : 'Add Subject'}
-            >
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? `Edit — ${editing.name}` : 'Add Subject'}</DialogTitle>
+                </DialogHeader>
                 <SubjectForm
                     defaultValues={editing ? {
                         name:         editing.name,
@@ -391,7 +437,8 @@ export default function SubjectsPage() {
                     onSubmit={handleSubmit}
                     onCancel={() => { setModalOpen(false); setEditing(null); }}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             {/* Delete confirm */}
             <ConfirmDialog

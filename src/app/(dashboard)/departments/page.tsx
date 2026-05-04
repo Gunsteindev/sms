@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Building2, UserCheck, UserX, CalendarDays } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Building2, UserCheck, UserX, CalendarDays, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,11 +13,15 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Modal } from '@/components/ui/Modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { Textarea } from '@/components/ui/Textarea';
 import type { Department } from '@/lib/dataverse/departments';
 import { AISummary } from '@/components/ui/AISummary';
+import { Pagination } from '@/components/ui/Pagination';
 import { departmentsAPI, teachersAPI } from '@/lib/api-client';
+
+const PAGE_SIZE = 10;
 
 const AVATAR_COLORS = [
     'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
@@ -66,6 +71,8 @@ function F({ id, label, hint, error, children }: {
     );
 }
 
+const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
 function DepartmentForm({ defaultValues, teachers, onSubmit, onCancel }: {
     defaultValues?: Partial<FormData>;
     teachers: TeacherOption[];
@@ -77,36 +84,56 @@ function DepartmentForm({ defaultValues, teachers, onSubmit, onCancel }: {
         defaultValues,
     });
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <F id="name" label="Department Name *" error={errors.name?.message}>
-                <Input id="name" {...register('name')} placeholder="e.g. Science Department" />
-            </F>
-            <F id="description" label="Description"
-               hint="Briefly describe the department's scope and responsibilities.">
-                <textarea
-                    id="description"
-                    {...register('description')}
-                    rows={3}
-                    placeholder="e.g. Covers physics, chemistry, and biology…"
-                    className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-400 resize-none"
-                />
-            </F>
-            <F id="hodid" label="Head of Department">
-                <Controller name="hodid" control={control} render={({ field }) => (
-                    <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                        <SelectTrigger id="hodid"><SelectValue placeholder="— None —" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="">— None —</SelectItem>
-                            {teachers.map(t => (
-                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </SelectRoot>
-                )} />
-                {teachers.length === 0 && (
-                    <p className="text-xs text-slate-400 dark:text-slate-500">No teachers loaded — HoD can be assigned later.</p>
-                )}
-            </F>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+            {/* ── Department Details ── */}
+            <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Department Details</p>
+                <div className="space-y-4">
+                    <F id="name" label="Department Name *" error={errors.name?.message}>
+                        <Input id="name" {...register('name')} placeholder="e.g. Science Department" />
+                    </F>
+                    <F id="description" label="Description"
+                       hint="Briefly describe the department's scope and responsibilities.">
+                        <Textarea
+                            id="description"
+                            {...register('description')}
+                            rows={3}
+                            placeholder="e.g. Covers physics, chemistry, and biology…"
+                        />
+                    </F>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 dark:border-slate-800" />
+
+            {/* ── Leadership ── */}
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Leadership</p>
+                <F id="hodid" label="Head of Department">
+                    <Controller name="hodid" control={control} render={({ field }) => (
+                        <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
+                            <SelectTrigger id="hodid" className={ST}>
+                                <SelectValue>
+                                    {field.value
+                                        ? (teachers.find(t => t.id === field.value)?.name ?? '— None —')
+                                        : '— None —'}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">— None —</SelectItem>
+                                {teachers.map(t => (
+                                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </SelectRoot>
+                    )} />
+                    {teachers.length === 0 && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500">No teachers loaded — HoD can be assigned later.</p>
+                    )}
+                </F>
+            </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
@@ -119,9 +146,9 @@ function DepartmentForm({ defaultValues, teachers, onSubmit, onCancel }: {
 
 export default function DepartmentsPage() {
     const [rows, setRows]           = useState<Department[]>([]);
-    const [filtered, setFiltered]   = useState<Department[]>([]);
     const [loading, setLoading]     = useState(true);
     const [search, setSearch]       = useState('');
+    const [page, setPage]           = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]     = useState<Department | null>(null);
     const [toDelete, setToDelete]   = useState<Department | null>(null);
@@ -140,7 +167,6 @@ export default function DepartmentsPage() {
             const res: any = await departmentsAPI.getAll();
             const data = res.data ?? [];
             setRows(data);
-            setFiltered(data);
         } catch {
             toast.error('Failed to load departments');
         } finally {
@@ -161,14 +187,17 @@ export default function DepartmentsPage() {
     };
 
     useEffect(() => { load(); loadTeachers(); }, []);
+    useEffect(() => { setPage(1); }, [search]);
 
-    useEffect(() => {
+    const filtered = useMemo(() => {
         const q = search.toLowerCase();
-        setFiltered(q
+        return q
             ? rows.filter(r => `${r.name} ${r.description} ${r.hodname}`.toLowerCase().includes(q))
-            : rows
-        );
+            : rows;
     }, [search, rows]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
@@ -212,9 +241,14 @@ export default function DepartmentsPage() {
                         {loading ? 'Loading…' : `${rows.length} department${rows.length !== 1 ? 's' : ''}`}
                     </p>
                 </div>
-                <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Department
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                        <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+                    </Button>
+                    <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Department
+                    </Button>
+                </div>
             </div>
 
             {/* ── Stats cards ──────────────────────────────────────────────── */}
@@ -280,25 +314,25 @@ export default function DepartmentsPage() {
                 </div>
             ) : (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+                    <Table className="w-full text-sm">
+                        <TableHeader>
+                            <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Department', 'Head of Department', 'Status', 'Created', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                         {h}
-                                    </th>
+                                    </TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {filtered.map(r => {
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {paginated.map(r => {
                                 const color    = deptColor(r.name);
                                 const initials = r.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
                                 return (
-                                    <tr key={r.departmentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                                    <TableRow key={r.departmentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 
                                         {/* Department + description subtitle */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex items-start gap-2.5">
                                                 <div className={`h-9 w-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${color}`}>
                                                     {initials}
@@ -312,10 +346,10 @@ export default function DepartmentsPage() {
                                                     )}
                                                 </div>
                                             </div>
-                                        </td>
+                                        </TableCell>
 
                                         {/* HoD with mini avatar */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {r.hodname ? (
                                                 <div className="flex items-center gap-2">
                                                     <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-semibold text-slate-600 dark:text-slate-300 shrink-0">
@@ -326,17 +360,17 @@ export default function DepartmentsPage() {
                                             ) : (
                                                 <span className="text-slate-400 dark:text-slate-600 italic text-xs">Unassigned</span>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Status badge */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {r.hodid
                                                 ? <Badge variant="success">Active</Badge>
                                                 : <Badge variant="warning">Needs HoD</Badge>}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Created date */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             {r.createdon ? (
                                                 <span className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs">
                                                     <CalendarDays className="h-3.5 w-3.5 shrink-0" />
@@ -345,10 +379,10 @@ export default function DepartmentsPage() {
                                             ) : (
                                                 <span className="text-slate-300 dark:text-slate-600">—</span>
                                             )}
-                                        </td>
+                                        </TableCell>
 
                                         {/* Actions — visible on row hover */}
-                                        <td className="px-4 py-3.5">
+                                        <TableCell className="px-4 py-3.5">
                                             <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button
                                                     variant="ghost" size="icon"
@@ -365,21 +399,22 @@ export default function DepartmentsPage() {
                                                     <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                                                 </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="department" onChange={setPage} />
                 </div>
             )}
 
             {/* ── Add / Edit Modal ─────────────────────────────────────────── */}
-            <Modal
-                isOpen={modalOpen}
-                onClose={closeModal}
-                title={editing ? `Edit — ${editing.name}` : 'Add Department'}
-            >
+            <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal(); }}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{editing ? `Edit — ${editing.name}` : 'Add Department'}</DialogTitle>
+                </DialogHeader>
                 <DepartmentForm
                     defaultValues={editing ? {
                         name:        editing.name,
@@ -390,7 +425,8 @@ export default function DepartmentsPage() {
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
                 />
-            </Modal>
+                          </DialogContent>
+            </Dialog>
 
             {/* ── Delete Confirm ───────────────────────────────────────────── */}
             <ConfirmDialog

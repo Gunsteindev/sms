@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTermById, updateTerm, deleteTerm } from '@/lib/dataverse/terms';
+import { serverError } from '@/lib/api-guard';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -7,8 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         const data = await getTermById(id);
         return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Not found';
-        return NextResponse.json({ success: false, error: msg }, { status: 404 });
+        return serverError(error);
     }
 }
 
@@ -19,8 +19,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const data = await updateTerm(id, body);
         return NextResponse.json({ success: true, data, message: 'Term updated' });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to update';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }
 
@@ -30,7 +29,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
         await deleteTerm(id);
         return NextResponse.json({ success: true, message: 'Term deleted' });
     } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Failed to delete';
-        return NextResponse.json({ success: false, error: msg }, { status: 500 });
+        return serverError(error);
     }
 }

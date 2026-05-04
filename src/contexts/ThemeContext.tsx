@@ -5,56 +5,49 @@ import { createContext, useContext, useEffect, useState } from 'react';
 type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextValue {
-  theme: Theme;
-  resolvedTheme: 'light' | 'dark';
-  setTheme: (t: Theme) => void;
+    theme: Theme;
+    resolvedTheme: 'light' | 'dark';
+    setTheme: (t: Theme) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: 'system',
-  resolvedTheme: 'light',
-  setTheme: () => {},
+    theme: 'system',
+    resolvedTheme: 'light',
+    setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+    const [theme, setThemeState] = useState<Theme>(() => {
+        if (typeof window === 'undefined') return 'system';
+        return (localStorage.getItem('sms-theme') as Theme) ?? 'system';
+    });
 
-  // Load from storage once on mount
-  useEffect(() => {
-    const stored = (localStorage.getItem('sms-theme') as Theme) ?? 'system';
-    setThemeState(stored);
-  }, []);
+    const [systemDark, setSystemDark] = useState<boolean>(() =>
+        typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    );
 
-  // Apply the theme class to <html> whenever theme changes
-  useEffect(() => {
-    const apply = (t: Theme) => {
-      const root = document.documentElement;
-      if (t === 'system') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        root.classList.toggle('dark', prefersDark);
-        setResolvedTheme(prefersDark ? 'dark' : 'light');
-      } else {
-        root.classList.toggle('dark', t === 'dark');
-        setResolvedTheme(t);
-      }
-    };
+    // Derived — no extra state needed
+    const resolvedTheme: 'light' | 'dark' = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme;
 
-    apply(theme);
-    localStorage.setItem('sms-theme', theme);
+    // Subscribe to OS preference changes — setState is in the event callback, not the effect body
+    useEffect(() => {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+        mq.addEventListener('change', handler);
+        return () => mq.removeEventListener('change', handler);
+    }, []);
 
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      mq.addEventListener('change', () => apply('system'));
-      return () => mq.removeEventListener('change', () => apply('system'));
-    }
-  }, [theme]);
+    // Apply the theme class to <html> whenever resolvedTheme changes
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+        localStorage.setItem('sms-theme', theme);
+    }, [theme, resolvedTheme]);
 
-  return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme: setThemeState }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+    return (
+        <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme: setThemeState }}>
+            {children}
+        </ThemeContext.Provider>
+    );
 }
 
 export const useTheme = () => useContext(ThemeContext);
