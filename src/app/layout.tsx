@@ -2,6 +2,7 @@ import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { I18nProvider } from '@/contexts/I18nContext';
+import { SchoolSettingsProvider } from '@/contexts/SchoolSettingsContext';
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <I18nProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <SchoolSettingsProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </SchoolSettingsProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

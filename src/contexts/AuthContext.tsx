@@ -4,9 +4,11 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { Toaster } from 'react-hot-toast';
 
 export interface SessionUser {
-    email: string;
-    name: string;
-    role: string;
+    userid:   string;
+    email:    string;
+    name:     string;
+    role:     string;
+    userrole: number;
 }
 
 interface Session {

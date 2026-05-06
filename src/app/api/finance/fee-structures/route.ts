@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        if (!body.name || body.feetype === undefined || body.amount === undefined) {
-            return NextResponse.json({ success: false, error: 'name, feetype, and amount are required' }, { status: 400 });
+        if (!body.name || body.amount === undefined) {
+            return NextResponse.json({ success: false, error: 'name and amount are required' }, { status: 400 });
         }
         const data = await createFeeStructure(body);
         return NextResponse.json({ success: true, data, message: 'Fee structure created' }, { status: 201 });

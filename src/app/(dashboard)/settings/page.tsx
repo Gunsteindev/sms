@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Sun, Moon, Monitor, Bell, BellOff, Globe, Info, Shield, Database, Palette, MapPin, Lock, Check } from 'lucide-react';
+import { Sun, Moon, Monitor, Bell, BellOff, Globe, Info, Shield, Database, Palette, MapPin, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useI18n } from '@/contexts/I18nContext';
@@ -19,11 +19,11 @@ const NOTIF_KEY = 'sms-notif-prefs';
 const DEFAULT_NOTIF: NotifPrefs = { attendanceAlerts: true, feeReminders: true, systemUpdates: false };
 
 const NAV_ITEMS = [
-  { id: 'appearance',    labelKey: 'appearance',    icon: Palette  },
-  { id: 'notifications', labelKey: 'notifications', icon: Bell     },
-  { id: 'regional',      labelKey: 'regional',      icon: MapPin   },
-  { id: 'security',      labelKey: 'security',      icon: Shield   },
-  { id: 'about',         labelKey: 'about',         icon: Info     },
+  { id: 'appearance',    labelKey: 'appearance',    icon: Palette },
+  { id: 'notifications', labelKey: 'notifications', icon: Bell    },
+  { id: 'regional',      labelKey: 'regional',      icon: MapPin  },
+  { id: 'security',      labelKey: 'security',      icon: Shield  },
+  { id: 'about',         labelKey: 'about',         icon: Info    },
 ] as const;
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -232,7 +232,6 @@ export default function SettingsPage() {
 
             <Card id="regional" title={t.settings.regional} description={t.settings.regionalDesc}>
               <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                {/* Language switcher */}
                 <div className="px-6 py-4">
                   <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">{t.settings.language}</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -253,17 +252,17 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 </div>
-                <InfoRow icon={Globe} label={t.settings.currency}    value="GHS — Ghana Cedi"        />
-                <InfoRow icon={Globe} label={t.settings.dateFormat}  value="DD / MM / YYYY"          />
-                <InfoRow icon={Globe} label={t.settings.timezone}    value="GMT+0 · Ghana"           />
+                <InfoRow icon={Globe} label={t.settings.currency}   value="GHS — Ghana Cedi" />
+                <InfoRow icon={Globe} label={t.settings.dateFormat} value="DD / MM / YYYY"   />
+                <InfoRow icon={Globe} label={t.settings.timezone}   value="GMT+0 · Ghana"    />
               </div>
             </Card>
 
             <Card id="security" title={t.settings.security} description={t.settings.securityDesc}>
               <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                <InfoRow icon={Shield} label={t.settings.authentication}  value={t.settings.localCreds}    accent />
-                <InfoRow icon={Shield} label={t.settings.sessionTimeout}  value={t.settings.hours24}               />
-                <InfoRow icon={Shield} label={t.settings.accessLevel}     value={t.settings.administrator} accent />
+                <InfoRow icon={Shield} label={t.settings.authentication} value={t.settings.localCreds}    accent />
+                <InfoRow icon={Shield} label={t.settings.sessionTimeout} value={t.settings.hours24}               />
+                <InfoRow icon={Shield} label={t.settings.accessLevel}    value={t.settings.administrator} accent />
               </div>
             </Card>
 
@@ -273,12 +272,12 @@ export default function SettingsPage() {
           <Card id="about" title={t.settings.about} description={t.settings.aboutDesc}>
             <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-50 dark:divide-slate-800">
               <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                <InfoRow icon={Info}     label={t.settings.application} value="School Management System"           />
-                <InfoRow icon={Info}     label={t.settings.version}     value="1.0.0"                              />
+                <InfoRow icon={Info}     label={t.settings.application} value="School Management System" />
+                <InfoRow icon={Info}     label={t.settings.version}     value="1.0.0"                    />
               </div>
               <div className="divide-y divide-slate-50 dark:divide-slate-800">
-                <InfoRow icon={Database} label={t.settings.dataSource}  value="Microsoft Dataverse"                />
-                <InfoRow icon={Info}     label={t.settings.framework}   value="Next.js · React · TypeScript"       />
+                <InfoRow icon={Database} label={t.settings.dataSource}  value="Microsoft Dataverse"           />
+                <InfoRow icon={Info}     label={t.settings.framework}   value="Next.js · React · TypeScript"  />
               </div>
             </div>
           </Card>

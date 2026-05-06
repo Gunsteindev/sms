@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +14,7 @@ import { StudentForm } from '@/components/students/StudentForm';
 import { useStudents } from '@/hooks/useStudents';
 import { studentsAPI, parentsAPI } from '@/lib/api-client';
 import { AISummary } from '@/components/ui/AISummary';
+import { exportToCSV } from '@/lib/csv';
 import type { Student } from '@/lib/dataverse/students';
 
 const STATUS_OPTIONS = [
@@ -311,6 +312,29 @@ export default function StudentsPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={async () => {
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const res: any = await studentsAPI.getAll({ pageSize: 10000 });
+              const all: Student[] = res.data ?? [];
+              exportToCSV(`students_${new Date().toISOString().slice(0,10)}`, [
+                'Roll No', 'First Name', 'Last Name', 'Gender', 'Date of Birth', 'Class',
+                'Email', 'Phone', 'Address', 'Student Status', 'Enrollment Status',
+                'Guardian Name', 'Guardian Phone', 'Enrollment Date',
+              ], all.map(s => [
+                s.rollnumber, s.firstname, s.lastname,
+                s.gender === 1 ? 'Male' : s.gender === 2 ? 'Female' : '',
+                s.dateofbirth?.slice(0,10),
+                s.classname,
+                s.email, s.phone, s.address,
+                ['','Active','Graduated','Transferred','Suspended'][s.studentstatus] ?? '',
+                ['','Enrolled','Completed','Dropped','On Hold'][s.enrollmentstatus] ?? '',
+                s.guardianname, s.guardianphone, s.enrollmentdate?.slice(0,10),
+              ]));
+            } catch { toast.error('Export failed'); }
+          }}>
+            <Download className="h-4 w-4 mr-1.5" /> Export CSV
           </Button>
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
             <Plus className="h-4 w-4 mr-1.5" /> Add Student

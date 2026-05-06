@@ -30,7 +30,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (!res.ok) setError('Invalid email or password. Please try again.');
-    else router.push('/dashboard');
+    else window.location.replace('/dashboard');
   };
 
   return (

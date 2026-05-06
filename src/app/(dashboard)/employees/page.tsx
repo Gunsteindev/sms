@@ -2,7 +2,7 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, Briefcase, RefreshCw } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Briefcase, RefreshCw, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/Select';
 import { employeesAPI } from '@/lib/api-client';
 import { Pagination } from '@/components/ui/Pagination';
+import { exportToCSV } from '@/lib/csv';
 import type { Employee } from '@/lib/dataverse/employees';
 
 const PAGE_SIZE = 10;
@@ -117,7 +118,7 @@ function EmployeeForm({ defaultValues, onSubmit, onCancel }: {
         <F id="employeetype" label="Type *">
           <Controller control={control} name="employeetype" render={({ field }) => (
             <SelectRoot value={field.value ?? ''} onValueChange={(v) => field.onChange(v)}>
-              <SelectTrigger id="employeetype" className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectTrigger id="employeetype" className="w-full"><SelectValue>{(v: string) => EMP_TYPE[Number(v)] ?? 'Select'}</SelectValue></SelectTrigger>
               <SelectContent>
                 {Object.entries(EMP_TYPE).map(([v, l]) => (
                   <SelectItem key={v} value={v}>{l}</SelectItem>
@@ -205,6 +206,22 @@ export default function EmployeesPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            exportToCSV(`employees_${new Date().toISOString().slice(0,10)}`, [
+              'Code', 'First Name', 'Last Name', 'Gender', 'Department', 'Designation',
+              'Type', 'Email', 'Phone', 'Hire Date', 'Status', 'Salary',
+            ], employees.map(e => [
+              e.employeecode, e.firstname, e.lastname,
+              e.gender === 1 ? 'Male' : e.gender === 2 ? 'Female' : '',
+              e.department, e.designation,
+              ['','Full-time','Part-time','Contract','Intern'][e.employeetype] ?? '',
+              e.emailaddress1, e.telephone1, e.hiredate?.slice(0,10),
+              ['','Active','On Leave','Resigned','Terminated'][e.statuscode] ?? '',
+              e.salary ?? '',
+            ]));
+          }}>
+            <Download className="h-4 w-4 mr-1.5" /> Export CSV
           </Button>
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
             <Plus className="h-4 w-4" /> Add Employee

@@ -8,9 +8,11 @@ function getSecret() {
 }
 
 export interface SessionUser {
-  email: string;
-  name: string;
-  role: string;
+  userid:   string;
+  email:    string;
+  name:     string;
+  role:     string;   // human-readable role name
+  userrole: number;   // numeric role — used for access checks
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
@@ -25,9 +27,11 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
   try {
     const { payload } = await jwtVerify(token, getSecret());
     return {
-      email: payload.email as string,
-      name:  payload.name  as string,
-      role:  payload.role  as string,
+      userid:   (payload.userid   as string) ?? '',
+      email:    payload.email     as string,
+      name:     payload.name      as string,
+      role:     payload.role      as string,
+      userrole: (payload.userrole as number) ?? 1,
     };
   } catch {
     return null;
