@@ -309,9 +309,15 @@ export const announcementsAPI = {
 
 // Users API (sms_users)
 export const usersAPI = {
-    getAll:    (role?: number)    => apiClient.get('/users', { params: { role } }),
-    getByEmail:(email: string)    => apiClient.get('/users', { params: { email } }),
-    getStats:  ()                 => apiClient.get('/users', { params: { stats: true } }),
+    getAll:     (role?: number)       => apiClient.get('/users', { params: { role } }),
+    getById:    (id: string)          => apiClient.get(`/users/${id}`),
+    getByEmail: (email: string)       => apiClient.get('/users', { params: { email } }),
+    getStats:   ()                    => apiClient.get('/users', { params: { stats: true } }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:     (data: any)           => apiClient.post('/users', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:     (id: string, data: any) => apiClient.put(`/users/${id}`, data),
+    delete:     (id: string)          => apiClient.delete(`/users/${id}`),
 };
 
 // Grades / Gradebook API
@@ -365,10 +371,124 @@ export const medicalAPI = {
     delete:       (id: string)        => apiClient.delete(`/medical/${id}`),
 };
 
+// Fee Types API (sms_feetypes)
+export const feeTypesAPI = {
+    getAll:  (category?: string) => apiClient.get('/fee-types', { params: category ? { category } : {} }),
+    getById: (id: string)        => apiClient.get(`/fee-types/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)         => apiClient.post('/fee-types', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/fee-types/${id}`, data),
+    delete:  (id: string)        => apiClient.delete(`/fee-types/${id}`),
+};
+
+// School Profile + Branches API
+export const schoolAPI = {
+    getProfile:    ()                    => apiClient.get('/school'),
+    saveProfile:   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                   (data: any)           => apiClient.put('/school', data),
+    getBranches:   (schoolid?: string)   => apiClient.get('/school/branches', { params: schoolid ? { schoolid } : {} }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    createBranch:  (data: any)           => apiClient.post('/school/branches', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    updateBranch:  (id: string, data: any) => apiClient.put(`/school/branches/${id}`, data),
+    deleteBranch:  (id: string)          => apiClient.delete(`/school/branches/${id}`),
+    setMainBranch: (id: string)          => apiClient.put(`/school/branches/${id}`, { setMain: true }),
+};
+
 // Report Cards API
 export const reportsAPI = {
     getReportCard: (studentId: string, termId: string) =>
         apiClient.get('/reports/report-card', { params: { studentId, termId } }),
+};
+
+// Inventory API
+export const inventoryAPI = {
+    getAll:  (category?: string) => apiClient.get('/inventory', { params: category ? { category } : {} }),
+    getById: (id: string)        => apiClient.get(`/inventory/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)         => apiClient.post('/inventory', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/inventory/${id}`, data),
+    delete:  (id: string)        => apiClient.delete(`/inventory/${id}`),
+};
+
+// Procurement / Expenditures API
+export const procurementAPI = {
+    getAll:  (params?: { category?: number; status?: number }) => apiClient.get('/procurement', { params }),
+    getById: (id: string)        => apiClient.get(`/procurement/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)         => apiClient.post('/procurement', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/procurement/${id}`, data),
+    delete:  (id: string)        => apiClient.delete(`/procurement/${id}`),
+};
+
+// Staff Leave API
+export const staffLeaveAPI = {
+    getAll:  (params?: { status?: number; employeeid?: string }) => apiClient.get('/staff-leave', { params }),
+    getById: (id: string)        => apiClient.get(`/staff-leave/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)         => apiClient.post('/staff-leave', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/staff-leave/${id}`, data),
+    delete:  (id: string)        => apiClient.delete(`/staff-leave/${id}`),
+};
+
+// Transport / Fleet API
+export const transportAPI = {
+    getAll:  (status?: number)   => apiClient.get('/transport', { params: status ? { status } : {} }),
+    getById: (id: string)        => apiClient.get(`/transport/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)         => apiClient.post('/transport', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/transport/${id}`, data),
+    delete:  (id: string)        => apiClient.delete(`/transport/${id}`),
+};
+
+// Extracurricular Activities API
+export const activitiesAPI = {
+    getAll:  (params?: { category?: number; status?: number }) => apiClient.get('/activities', { params }),
+    getById: (id: string)        => apiClient.get(`/activities/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)         => apiClient.post('/activities', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/activities/${id}`, data),
+    delete:  (id: string)        => apiClient.delete(`/activities/${id}`),
+};
+
+// Pool Sessions API
+export const poolSessionsAPI = {
+    getAll:  (status?: number) => apiClient.get('/pool/sessions', { params: status ? { status } : {} }),
+    getById: (id: string)      => apiClient.get(`/pool/sessions/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)       => apiClient.post('/pool/sessions', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/pool/sessions/${id}`, data),
+    delete:  (id: string)      => apiClient.delete(`/pool/sessions/${id}`),
+};
+
+// Pool Rentals API
+export const poolRentalsAPI = {
+    getAll:  ()                => apiClient.get('/pool/rentals'),
+    getById: (id: string)      => apiClient.get(`/pool/rentals/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)       => apiClient.post('/pool/rentals', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/pool/rentals/${id}`, data),
+    delete:  (id: string)      => apiClient.delete(`/pool/rentals/${id}`),
+};
+
+// Pool Transactions API
+export const poolTransactionsAPI = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getAll:  (params?: any)    => apiClient.get('/pool/transactions', { params }),
+    getById: (id: string)      => apiClient.get(`/pool/transactions/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:  (data: any)       => apiClient.post('/pool/transactions', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any) => apiClient.put(`/pool/transactions/${id}`, data),
+    delete:  (id: string)      => apiClient.delete(`/pool/transactions/${id}`),
 };
 
 export default apiClient;

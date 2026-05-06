@@ -9,24 +9,25 @@ import { dataverseClient } from "./client";
 
 export interface FeeStructure {
     feestructureid: string;
-    name: string;
-    feetype: number;
-    amount: number;
-    duedate: string;
-    gradelevelid: string;
+    name:           string;
+    feetypeid:      string;   // lookup → sms_feetype
+    feetypename:    string;
+    amount:         number;
+    duedate:        string;
+    gradelevelid:   string;
     gradelevelname: string;
-    academicyearid: string;
+    academicyearid:   string;
     academicyearname: string;
-    createdon: string;
+    createdon:  string;
     modifiedon: string;
 }
 
 export interface CreateFeeStructureRequest {
-    name: string;
-    feetype: number;
-    amount: number;
-    duedate?: string;
-    gradelevelid?: string;
+    name:           string;
+    feetypeid?:     string;   // GUID of sms_feetype record
+    amount:         number;
+    duedate?:       string;
+    gradelevelid?:  string;
     academicyearid?: string;
 }
 
@@ -66,29 +67,30 @@ export interface FeePaymentFilters {
 const FEE_STRUCTURE_TABLE = 'sms_feestructures';
 const FEE_PAYMENT_TABLE   = 'sms_feepayments';
 
-// sms_feetype picklist: valid values 1–4 only (Dataverse enforced)
-export const FEE_TYPES: Record<number, string> = {
-    1: 'Tuition', 2: 'Books', 3: 'Uniform', 4: 'Transport',
-};
-
-const FS_SELECT = 'sms_feestructureid,sms_name,sms_feetype,sms_amount,sms_duedate,_sms_gradelevel_value,_sms_academicyear_value,createdon,modifiedon';
+// Lookup to sms_feetype resolved via $expand — navigation property: sms_feetype
+// If your lookup column has a different schema name, update FEETYPE_NAV below.
+const FEETYPE_NAV = 'sms_feetype';
+const FS_SELECT   = 'sms_feestructureid,sms_name,sms_amount,sms_duedate,_sms_gradelevel_value,_sms_academicyear_value,createdon,modifiedon';
+const FS_EXPAND   = `${FEETYPE_NAV}($select=sms_feetypeid,sms_name)`;
 // sms_fee is the navigation property for the fee structure lookup (not sms_feestructure)
 const FP_SELECT = 'sms_feepaymentid,sms_amount,sms_paymentdate,sms_paymentmethod,sms_paymentstatus,sms_receiptnumber,sms_transactionid,_sms_student_value,_sms_fee_value,createdon';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapFeeStructure(item: any): FeeStructure {
+    const ft = item[FEETYPE_NAV];   // expanded sms_feetype record (or null)
     return {
         feestructureid:   item.sms_feestructureid,
-        name:             item.sms_name            ?? '',
-        feetype:          item.sms_feetype         ?? 0,
-        amount:           item.sms_amount          ?? 0,
-        duedate:          item.sms_duedate         ?? '',
-        gradelevelid:     item._sms_gradelevel_value ?? '',
-        gradelevelname:   item['_sms_gradelevel_value@OData.Community.Display.V1.FormattedValue'] ?? '',
+        name:             item.sms_name  ?? '',
+        feetypeid:        ft?.sms_feetypeid ?? '',
+        feetypename:      ft?.sms_name      ?? '',
+        amount:           item.sms_amount   ?? 0,
+        duedate:          item.sms_duedate  ?? '',
+        gradelevelid:     item._sms_gradelevel_value  ?? '',
+        gradelevelname:   item['_sms_gradelevel_value@OData.Community.Display.V1.FormattedValue']  ?? '',
         academicyearid:   item._sms_academicyear_value ?? '',
         academicyearname: item['_sms_academicyear_value@OData.Community.Display.V1.FormattedValue'] ?? '',
-        createdon:        item.createdon           ?? '',
-        modifiedon:       item.modifiedon          ?? '',
+        createdon:        item.createdon  ?? '',
+        modifiedon:       item.modifiedon ?? '',
     };
 }
 
@@ -117,12 +119,12 @@ function mapFeePayment(item: any): FeePayment {
 
 export const createFeeStructure = async (data: CreateFeeStructureRequest) => {
     const payload: Record<string, unknown> = {
-        sms_name:    data.name,
-        sms_feetype: data.feetype,
-        sms_amount:  data.amount,
+        sms_name:   data.name,
+        sms_amount: data.amount,
     };
-    if (data.duedate)       payload.sms_duedate    = data.duedate;
-    if (data.gradelevelid)  payload['sms_gradelevel@odata.bind']  = `/sms_gradelevels(${data.gradelevelid})`;
+    if (data.feetypeid)      payload['sms_feetype@odata.bind']     = `/sms_feetypes(${data.feetypeid})`;
+    if (data.duedate)        payload.sms_duedate                   = data.duedate;
+    if (data.gradelevelid)   payload['sms_gradelevel@odata.bind']  = `/sms_gradelevels(${data.gradelevelid})`;
     if (data.academicyearid) payload['sms_academicyear@odata.bind'] = `/sms_academicyears(${data.academicyearid})`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return dataverseClient.post<any>(FEE_STRUCTURE_TABLE, payload);
@@ -130,12 +132,12 @@ export const createFeeStructure = async (data: CreateFeeStructureRequest) => {
 
 export const updateFeeStructure = async (id: string, data: Partial<CreateFeeStructureRequest>) => {
     const payload: Record<string, unknown> = {};
-    if (data.name          !== undefined) payload.sms_name       = data.name;
-    if (data.feetype       !== undefined) payload.sms_feetype    = data.feetype;
-    if (data.amount        !== undefined) payload.sms_amount     = data.amount;
-    if (data.duedate       !== undefined) payload.sms_duedate    = data.duedate;
-    if (data.gradelevelid  !== undefined) payload['sms_gradelevel@odata.bind']  = data.gradelevelid ? `/sms_gradelevels(${data.gradelevelid})` : null;
-    if (data.academicyearid !== undefined) payload['sms_academicyear@odata.bind'] = `/sms_academicyears(${data.academicyearid})`;
+    if (data.name           !== undefined) payload.sms_name    = data.name;
+    if (data.amount         !== undefined) payload.sms_amount  = data.amount;
+    if (data.duedate        !== undefined) payload.sms_duedate = data.duedate;
+    if (data.feetypeid      !== undefined) payload['sms_feetype@odata.bind']      = data.feetypeid      ? `/sms_feetypes(${data.feetypeid})`          : null;
+    if (data.gradelevelid   !== undefined) payload['sms_gradelevel@odata.bind']   = data.gradelevelid   ? `/sms_gradelevels(${data.gradelevelid})`     : null;
+    if (data.academicyearid !== undefined) payload['sms_academicyear@odata.bind'] = data.academicyearid ? `/sms_academicyears(${data.academicyearid})` : null;
     await dataverseClient.patch(`${FEE_STRUCTURE_TABLE}(${id})`, payload);
     return getFeeStructureById(id);
 };
@@ -150,14 +152,14 @@ export const getFeeStructures = async (gradelevelid?: string) => {
     if (gradelevelid) conditions.push(`_sms_gradelevel_value eq ${gradelevelid}`);
     const filter = conditions.length ? `&$filter=${encodeURIComponent(conditions.join(' and '))}` : '';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_STRUCTURE_TABLE}?$select=${FS_SELECT}${filter}&$orderby=sms_feetype asc`);
+    const r = await dataverseClient.get<any>(`${FEE_STRUCTURE_TABLE}?$select=${FS_SELECT}&$expand=${FS_EXPAND}&$orderby=sms_name asc${filter}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapFeeStructure(item));
 };
 
 export const getFeeStructureById = async (id: string): Promise<FeeStructure> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_STRUCTURE_TABLE}(${id})?$select=${FS_SELECT}`);
+    const r = await dataverseClient.get<any>(`${FEE_STRUCTURE_TABLE}(${id})?$select=${FS_SELECT}&$expand=${FS_EXPAND}`);
     return mapFeeStructure(r);
 };
 

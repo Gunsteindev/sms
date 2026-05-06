@@ -1,9 +1,12 @@
+import bcrypt from 'bcryptjs';
 import { dataverseClient } from './client';
 
-// sms_user fields: sms_userid, sms_name, sms_email, sms_userrole, sms_isactive,
-//   sms_password, sms_relatedrecord, createdon
-// userrole: 1=Admin  2=Teacher  3=Parent  4=Student
-// relatedrecord: 1=Student  2=Teacher  3=Parent
+// sms_users fields: sms_userid, sms_name, sms_email, sms_userrole (choice),
+//   sms_password, sms_isactive, sms_relatedrecord, createdon
+//
+// userrole option set values (must match Dataverse picklist):
+//   1=Admin  2=Teacher  3=Finance  4=Inventory Manager
+//   5=Transport Manager  6=Pool Attendant  7=Parent
 
 export interface SmsUser {
     userid:        string;
@@ -12,16 +15,41 @@ export interface SmsUser {
     userrole:      number;
     userrolename:  string;
     isactive:      boolean;
-    relatedrecord: number | null;
+    relatedrecord: string | null;
     createdon:     string;
 }
 
 export const USER_ROLES: Record<number, string> = {
-    1: 'Admin', 2: 'Teacher', 3: 'Parent', 4: 'Student',
+    1: 'Admin',
+    2: 'Teacher',
+    3: 'Finance',
+    4: 'Inventory Manager',
+    5: 'Transport Manager',
+    6: 'Pool Attendant',
+    7: 'Parent',
+    8: 'Kitchen Attendant',
 };
 
-const TABLE  = 'sms_users';
-const SELECT = 'sms_userid,sms_name,sms_email,sms_userrole,sms_isactive,sms_relatedrecord,createdon';
+export interface CreateUserRequest {
+    name:          string;
+    email:         string;
+    password:      string;
+    userrole:      number;
+    relatedrecord?: string;
+}
+
+export interface UpdateUserRequest {
+    name?:          string;
+    email?:         string;
+    password?:      string;
+    userrole?:      number;
+    isactive?:      boolean;
+    relatedrecord?: string;
+}
+
+const TABLE           = 'sms_users';
+const SELECT          = 'sms_userid,sms_name,sms_email,sms_userrole,sms_isactive,sms_relatedrecord,createdon';
+const SELECT_WITH_PWD = SELECT + ',sms_password';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapUser(item: any): SmsUser {
@@ -38,13 +66,19 @@ function mapUser(item: any): SmsUser {
     };
 }
 
-export const getUsers = async (role?: number) => {
+export const getUsers = async (role?: number): Promise<SmsUser[]> => {
     const parts: string[] = [`$select=${SELECT}`, `$orderby=sms_name asc`];
     if (role !== undefined) parts.push(`$filter=${encodeURIComponent(`sms_userrole eq ${role}`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((u: any) => mapUser(u));
+};
+
+export const getUserById = async (id: string): Promise<SmsUser> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    return mapUser(r);
 };
 
 export const getUserByEmail = async (email: string): Promise<SmsUser | null> => {
@@ -55,16 +89,63 @@ export const getUserByEmail = async (email: string): Promise<SmsUser | null> => 
     return items.length ? mapUser(items[0]) : null;
 };
 
+// For login only — fetches password hash alongside user record
+export const getUserForAuth = async (email: string): Promise<(SmsUser & { passwordhash: string }) | null> => {
+    const filter = encodeURIComponent(`sms_email eq '${email}' and sms_isactive eq true`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT_WITH_PWD}&$filter=${filter}&$top=1`);
+    const items = r.value ?? [];
+    if (!items.length) return null;
+    return { ...mapUser(items[0]), passwordhash: items[0].sms_password ?? '' };
+};
+
+export const createUser = async (data: CreateUserRequest): Promise<SmsUser> => {
+    const hash = await bcrypt.hash(data.password, 12);
+    const payload: Record<string, unknown> = {
+        sms_name:     data.name,
+        sms_email:    data.email,
+        sms_password: hash,
+        sms_userrole: data.userrole,
+        sms_isactive: true,
+    };
+    if (data.relatedrecord) payload.sms_relatedrecord = data.relatedrecord;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await dataverseClient.post<any>(TABLE, payload);
+    return mapUser(result);
+};
+
+export const updateUser = async (id: string, data: UpdateUserRequest): Promise<SmsUser> => {
+    const payload: Record<string, unknown> = {};
+    if (data.name          !== undefined) payload.sms_name          = data.name;
+    if (data.email         !== undefined) payload.sms_email         = data.email;
+    if (data.userrole      !== undefined) payload.sms_userrole      = data.userrole;
+    if (data.isactive      !== undefined) payload.sms_isactive      = data.isactive;
+    if (data.relatedrecord !== undefined) payload.sms_relatedrecord = data.relatedrecord;
+    if (data.password) payload.sms_password = await bcrypt.hash(data.password, 12);
+    await dataverseClient.patch(`${TABLE}(${id})`, payload);
+    return getUserById(id);
+};
+
+export const deleteUser = async (id: string): Promise<void> => {
+    await dataverseClient.delete(`${TABLE}(${id})`);
+};
+
 export const getUserStats = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_userrole,sms_isactive`);
-    const users: SmsUser[] = (r.value ?? []).map(mapUser);
+    const r   = await dataverseClient.get<any>(`${TABLE}?$select=sms_userrole,sms_isactive`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all: SmsUser[] = (r.value ?? []).map((u: any) => mapUser(u));
     return {
-        total:    users.length,
-        admins:   users.filter(u => u.userrole === 1).length,
-        teachers: users.filter(u => u.userrole === 2).length,
-        parents:  users.filter(u => u.userrole === 3).length,
-        students: users.filter(u => u.userrole === 4).length,
-        active:   users.filter(u => u.isactive).length,
+        total:  all.length,
+        active: all.filter(u => u.isactive).length,
+        byRole: Object.fromEntries(
+            Object.entries(USER_ROLES).map(([k]) => [
+                USER_ROLES[Number(k)],
+                all.filter(u => u.userrole === Number(k)).length,
+            ])
+        ),
     };
 };
+
+export const verifyPassword = async (plain: string, hash: string): Promise<boolean> =>
+    bcrypt.compare(plain, hash);

@@ -334,7 +334,7 @@ export function Header() {
                         </div>
                         <div className="hidden text-left md:block">
                             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-none">{user?.name ?? 'Admin User'}</p>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 leading-none">{user?.email ?? 'Administrator'}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 leading-none">{user?.role ?? 'Administrator'}</p>
                         </div>
                         <ChevronDown className={`h-3.5 w-3.5 text-slate-400 hidden md:block transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -343,7 +343,12 @@ export function Header() {
                         <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl shadow-slate-900/10 dark:shadow-slate-900/50 z-[100] overflow-hidden">
                             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{user?.name ?? 'Admin User'}</p>
-                                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{user?.email ?? 'Administrator'}</p>
+                                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{user?.email}</p>
+                                {user?.role && (
+                                    <span className="mt-1.5 inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                                        {user.role}
+                                    </span>
+                                )}
                             </div>
                             <div className="p-1.5 space-y-0.5">
                                 <Link href="/profile" onClick={() => setUserMenuOpen(false)}

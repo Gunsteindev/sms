@@ -2,7 +2,7 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, GraduationCap, Phone, Mail, BookOpen, RefreshCw } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, GraduationCap, Phone, Mail, BookOpen, RefreshCw, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/Select';
 import { teachersAPI } from '@/lib/api-client';
 import { AISummary } from '@/components/ui/AISummary';
+import { exportToCSV } from '@/lib/csv';
 import { Pagination } from '@/components/ui/Pagination';
 import type { Teacher } from '@/lib/dataverse/teachers';
 
@@ -235,6 +236,20 @@ export default function TeachersPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            exportToCSV(`teachers_${new Date().toISOString().slice(0,10)}`, [
+              'First Name', 'Last Name', 'Gender', 'Email', 'Phone', 'Qualification',
+              'Specialization', 'Class', 'Hire Date', 'Status',
+            ], teachers.map(t => [
+              t.firstname, t.lastname,
+              t.gender === 1 ? 'Male' : t.gender === 2 ? 'Female' : '',
+              t.email, t.phone, t.qualification, t.specialization,
+              t.classname, t.hiredate?.slice(0,10),
+              ['','Active','On Leave','Resigned','Terminated'][t.statuscode] ?? '',
+            ]));
+          }}>
+            <Download className="h-4 w-4 mr-1.5" /> Export CSV
           </Button>
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
             <Plus className="h-4 w-4 mr-1" /> Add Teacher

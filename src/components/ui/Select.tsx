@@ -124,10 +124,14 @@ function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) 
   )
 }
 
-function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
+function SelectItem({ className, children, label, ...props }: SelectPrimitive.Item.Props) {
+  // Pass label explicitly so Select.Value can resolve the display text without
+  // requiring items to be mounted (they live in a Portal when closed).
+  const resolvedLabel = label ?? (typeof children === 'string' ? children : undefined);
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
+      label={resolvedLabel}
       className={cn(
         "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
         className

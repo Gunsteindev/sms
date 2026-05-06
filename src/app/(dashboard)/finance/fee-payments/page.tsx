@@ -4,7 +4,7 @@ import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } fro
 import { DatePicker } from '@/components/ui/date-picker';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Pencil, Trash2, CreditCard, RefreshCw } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, CreditCard, RefreshCw, Download, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { feePaymentsAPI, feeStructuresAPI } from '@/lib/api-client';
+import { exportToCSV } from '@/lib/csv';
+import { ReceiptDialog } from '@/components/ui/ReceiptDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import type { FeePayment } from '@/lib/dataverse/fees';
 import type { FeeStructure } from '@/lib/dataverse/fees';
@@ -144,6 +146,7 @@ export default function FeePaymentsPage() {
     const [page, setPage]           = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing]     = useState<FeePayment | null>(null);
+    const [receiptData, setReceiptData] = useState<FeePayment | null>(null);
     const [toDelete, setToDelete]   = useState<string | null>(null);
     const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
 
@@ -209,6 +212,19 @@ export default function FeePaymentsPage() {
                     <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                         <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => {
+                        exportToCSV(`fee_payments_${new Date().toISOString().slice(0, 10)}`, [
+                            'Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Receipt', 'Status',
+                        ], filtered.map(r => [
+                            r.studentname, r.feestructurename, r.amount,
+                            r.paymentdate?.slice(0, 10),
+                            PAYMENT_METHODS[r.paymentmethod] ?? '',
+                            r.receiptnumber,
+                            PAYMENT_STATUS[r.paymentstatus] ?? '',
+                        ]));
+                    }}>
+                        <Download className="h-4 w-4 mr-1.5" /> Export CSV
+                    </Button>
                     <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
                         <Plus className="h-4 w-4 mr-1.5" /> Record Payment
                     </Button>
@@ -260,6 +276,9 @@ export default function FeePaymentsPage() {
                                     </TableCell>
                                     <TableCell className="px-4 py-3">
                                         <div className="flex gap-1">
+                                            <Button variant="ghost" size="icon" title="Print receipt" onClick={() => setReceiptData(r)}>
+                                                <Printer className="h-3.5 w-3.5 text-gray-400" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setModalOpen(true); }}>
                                                 <Pencil className="h-3.5 w-3.5 text-gray-400" />
                                             </Button>
@@ -303,6 +322,21 @@ export default function FeePaymentsPage() {
                 open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}
                 title="Delete payment?" description="This will permanently remove the fee payment record."
                 onConfirm={() => { if (toDelete) { handleDelete(toDelete); setToDelete(null); } }}
+            />
+
+            <ReceiptDialog
+                open={!!receiptData}
+                onClose={() => setReceiptData(null)}
+                data={receiptData ? {
+                    receiptnumber:  receiptData.receiptnumber,
+                    studentname:    receiptData.studentname,
+                    feestructure:   receiptData.feestructurename,
+                    amount:         receiptData.amount,
+                    paymentdate:    receiptData.paymentdate?.slice(0, 10) ?? '',
+                    paymentmethod:  PAYMENT_METHODS[receiptData.paymentmethod] ?? '',
+                    paymentstatus:  PAYMENT_STATUS[receiptData.paymentstatus] ?? '',
+                    transactionid:  receiptData.transactionid,
+                } : null}
             />
         </div>
     );

@@ -21,7 +21,17 @@
         "seed:employees": "tsx scripts/seed-employees.ts",
         "seed:announcements": "tsx scripts/seed-announcements.ts",
         "seed:enrollments": "tsx scripts/seed-enrollments.ts",
-        "seed:fees": "tsx scripts/seed-fees.ts"
+        "seed:fees": "tsx scripts/seed-fees.ts",
+        "seed:fee-types": "tsx scripts/seed-fee-types.ts",
+        "create:phase2-tables": "tsx scripts/create-phase2-tables.ts",
+        "verify:phase2-tables": "tsx scripts/verify-phase2-tables.ts",
+        "seed:inventory": "tsx scripts/seed-inventory.ts",
+        "seed:procurement": "tsx scripts/seed-procurement.ts",
+        "seed:staff-leave": "tsx scripts/seed-staffleave.ts",
+        "create:phase3-tables": "tsx scripts/create-phase3-tables.ts",
+        "seed:vehicles": "tsx scripts/seed-vehicles.ts",
+        "seed:activities": "tsx scripts/seed-activities.ts",
+        "create:pool-tables": "tsx scripts/create-pool-tables.ts"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.88.0",
@@ -29,6 +39,7 @@
         "@hookform/resolvers": "^5.2.2",
         "autoprefixer": "^10.4.27",
         "axios": "^1.14.0",
+        "bcryptjs": "^3.0.3",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
@@ -50,6 +61,7 @@
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4",
+        "@types/bcryptjs": "^2.4.6",
         "@types/node": "^20.19.37",
         "@types/react": "^19",
         "@types/react-dom": "^19",

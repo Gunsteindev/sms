@@ -4,7 +4,7 @@ import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } fro
 import { DatePicker } from '@/components/ui/date-picker';
 
 import { useEffect, useState } from 'react';
-import { DollarSign, TrendingUp, CheckCircle2, Clock, Plus, Search, Pencil, Trash2, Receipt, RefreshCw } from 'lucide-react';
+import { DollarSign, TrendingUp, CheckCircle2, Clock, Plus, Search, Pencil, Trash2, Receipt, RefreshCw, Download, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,13 +15,16 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { feesAPI, feeStructuresAPI, feePaymentsAPI, academicYearsAPI, gradeLevelsAPI } from '@/lib/api-client';
+import { feesAPI, feeStructuresAPI, feePaymentsAPI, academicYearsAPI, gradeLevelsAPI, feeTypesAPI } from '@/lib/api-client';
 import { AISummary } from '@/components/ui/AISummary';
 import { Pagination } from '@/components/ui/Pagination';
+import { exportToCSV } from '@/lib/csv';
+import { ReceiptDialog } from '@/components/ui/ReceiptDialog';
 import type { FeePayment, FeeStructure } from '@/lib/dataverse/fees';
 import type { AcademicYear } from '@/lib/dataverse/academicyears';
 import type { GradeLevel } from '@/lib/dataverse/gradelevels';
-import { FEE_TYPES } from '@/lib/dataverse/fees';
+
+interface FeeTypeOption { feetypeid: string; name: string; }
 
 const PAGE_SIZE = 10;
 
@@ -29,7 +32,7 @@ const PAGE_SIZE = 10;
 
 const fsSchema = z.object({
   name:           z.string().min(1, 'Required'),
-  feetype:        z.string().min(1, 'Required'),
+  feetypeid:      z.string().optional(),
   amount:         z.coerce.number().min(0, 'Required'),
   duedate:        z.string().optional(),
   gradelevelid:   z.string().optional(),
@@ -76,17 +79,18 @@ function F({ id, label, error, children }: { id: string; label: string; error?: 
   );
 }
 
-function FeeStructureForm({ defaultValues, academicYears, gradeLevels, onSubmit, onCancel }: {
+function FeeStructureForm({ defaultValues, academicYears, gradeLevels, feeTypes, onSubmit, onCancel }: {
   defaultValues?: Partial<FSFormData>;
   academicYears: AcademicYear[];
   gradeLevels: GradeLevel[];
+  feeTypes: FeeTypeOption[];
   onSubmit: (d: FSFormData) => Promise<void>;
   onCancel: () => void;
 }) {
   const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FSFormData>({
     resolver: zodResolver(fsSchema) as never,
-    defaultValues: defaultValues ?? { feetype: 'Tuition', amount: 0 },
+    defaultValues: defaultValues ?? { amount: 0 },
   });
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -94,14 +98,17 @@ function FeeStructureForm({ defaultValues, academicYears, gradeLevels, onSubmit,
         <Input id="name" {...register('name')} placeholder="e.g. Tuition Fee Term 1" />
       </F>
       <div className="grid grid-cols-2 gap-3">
-        <F id="feetype" label="Fee Type *" error={errors.feetype?.message}>
-          <Controller name="feetype" control={control} render={({ field }) => (
+        <F id="feetypeid" label="Fee Type" error={errors.feetypeid?.message}>
+          <Controller name="feetypeid" control={control} render={({ field }) => (
             <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-              <SelectTrigger id="feetype" className={ST}>
-                <SelectValue>{field.value || '— Select type —'}</SelectValue>
+              <SelectTrigger id="feetypeid" className={ST}>
+                <SelectValue>
+                  {field.value ? (feeTypes.find(ft => ft.feetypeid === field.value)?.name ?? '— Select type —') : '— Select type —'}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(FEE_TYPES).map(([k, v]) => <SelectItem key={k} value={v}>{v}</SelectItem>)}
+                <SelectItem value="">— Select type —</SelectItem>
+                {feeTypes.map(ft => <SelectItem key={ft.feetypeid} value={ft.feetypeid}>{ft.name}</SelectItem>)}
               </SelectContent>
             </SelectRoot>
           )} />
@@ -164,7 +171,9 @@ export default function FeesPage() {
   const [revenue, setRevenue]         = useState<{ totalRevenue: number; totalPayments: number } | null>(null);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [gradeLevels, setGradeLevels]     = useState<GradeLevel[]>([]);
+  const [feeTypes, setFeeTypes]           = useState<FeeTypeOption[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [receiptData, setReceiptData] = useState<FeePayment | null>(null);
   const [search, setSearch]           = useState('');
   const [payStatusFilter, setPayStatusFilter] = useState(0);
   const [pageFS, setPageFS]           = useState(1);
@@ -177,18 +186,20 @@ export default function FeesPage() {
     setLoading(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [fsRes, revRes, payRes, ayRes, glRes]: any[] = await Promise.all([
+      const [fsRes, revRes, payRes, ayRes, glRes, ftRes]: any[] = await Promise.all([
         feeStructuresAPI.getAll(),
         feesAPI.getRevenue(),
         feePaymentsAPI.getAll({ pageSize: 500 }),
         academicYearsAPI.getAll(),
         gradeLevelsAPI.getAll(),
+        feeTypesAPI.getAll(),
       ]);
       setStructures(fsRes.data ?? []);
       setRevenue(revRes.data ?? null);
       setPayments(payRes.data ?? []);
       setAcademicYears(ayRes.data ?? []);
       setGradeLevels(glRes.data ?? []);
+      setFeeTypes(ftRes.data ?? []);
     } catch { toast.error('Failed to load fees data'); }
     finally { setLoading(false); }
   };
@@ -202,7 +213,7 @@ export default function FeesPage() {
   // ── Filtered lists ─────────────────────────────────────────────────────────
   const q = search.toLowerCase();
   const filteredFS = q
-    ? structures.filter(s => s.name.toLowerCase().includes(q) || (FEE_TYPES[s.feetype] ?? '').toLowerCase().includes(q))
+    ? structures.filter(s => s.name.toLowerCase().includes(q) || s.feetypename.toLowerCase().includes(q))
     : structures;
 
   const filteredPay = payments.filter(p => {
@@ -351,7 +362,7 @@ export default function FeesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="px-4 py-3">
-                      <Badge variant="default">{FEE_TYPES[s.feetype] ?? s.feetype}</Badge>
+                      <Badge variant="default">{s.feetypename || '—'}</Badge>
                     </TableCell>
                     <TableCell className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(s.amount)}</TableCell>
                     <TableCell className="px-4 py-3 text-slate-500">{s.gradelevelname || '—'}</TableCell>
@@ -392,11 +403,24 @@ export default function FeesPage() {
           </div>
         ) : (
           <>
+            <div className="flex justify-end mb-3">
+              <Button variant="outline" size="sm" onClick={() => {
+                exportToCSV(`fee_payments_${new Date().toISOString().slice(0,10)}`, [
+                  'Receipt No', 'Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Status',
+                ], filteredPay.map(p => [
+                  p.receiptnumber, p.studentname, p.feestructurename,
+                  p.amount, p.paymentdate?.slice(0,10),
+                  METHODS[p.paymentmethod] ?? '', PAY_STATUS[p.paymentstatus]?.label ?? '',
+                ]));
+              }}>
+                <Download className="h-4 w-4 mr-1.5" /> Export CSV
+              </Button>
+            </div>
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
               <Table className="w-full text-sm">
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                    {['Receipt', 'Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Status'].map(h => (
+                    {['Receipt', 'Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Status', ''].map(h => (
                       <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
                     ))}
                   </TableRow>
@@ -415,6 +439,12 @@ export default function FeesPage() {
                         <TableCell className="px-4 py-3 text-slate-600 text-xs font-mono">{formatDate(p.paymentdate)}</TableCell>
                         <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{METHODS[p.paymentmethod] ?? '—'}</TableCell>
                         <TableCell className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                        <TableCell className="px-2 py-3">
+                          <button onClick={() => setReceiptData(p)} title="Print receipt"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                            <Printer className="h-3.5 w-3.5" />
+                          </button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -435,7 +465,7 @@ export default function FeesPage() {
         <FeeStructureForm
           defaultValues={editing ? {
             name:           editing.name,
-            feetype:        FEE_TYPES[editing.feetype] ?? 'Tuition',
+            feetypeid:      editing.feetypeid || undefined,
             amount:         editing.amount,
             duedate:        editing.duedate?.slice(0, 10),
             gradelevelid:   editing.gradelevelid || undefined,
@@ -443,6 +473,7 @@ export default function FeesPage() {
           } : undefined}
           academicYears={academicYears}
           gradeLevels={gradeLevels}
+          feeTypes={feeTypes}
           onSubmit={handleFSSubmit}
           onCancel={() => { setModalOpen(false); setEditing(null); }}
         />
@@ -453,6 +484,21 @@ export default function FeesPage() {
         open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}
         title="Delete fee structure?" description="This will permanently remove the fee structure."
         onConfirm={() => { if (toDelete) { handleDelete(toDelete); setToDelete(null); } }}
+      />
+
+      <ReceiptDialog
+        open={!!receiptData}
+        onClose={() => setReceiptData(null)}
+        data={receiptData ? {
+          receiptnumber: receiptData.receiptnumber,
+          studentname:   receiptData.studentname,
+          feestructure:  receiptData.feestructurename,
+          amount:        receiptData.amount,
+          paymentdate:   receiptData.paymentdate,
+          paymentmethod: METHODS[receiptData.paymentmethod] ?? '—',
+          paymentstatus: PAY_STATUS[receiptData.paymentstatus]?.label ?? 'Unknown',
+          transactionid: receiptData.transactionid,
+        } : null}
       />
     </div>
   );
