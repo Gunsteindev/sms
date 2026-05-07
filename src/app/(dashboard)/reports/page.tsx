@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   Users, GraduationCap, BookOpen, TrendingUp, DollarSign,
   CalendarDays, RefreshCw, AlertCircle, UserCheck,
+  Waves, Bus, Trophy, Wrench,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -12,8 +13,15 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { dashboardAPI, attendanceAPI, studentsAPI, classesAPI } from '@/lib/api-client';
+import {
+  dashboardAPI, attendanceAPI, studentsAPI, classesAPI,
+  feePaymentsAPI, poolSessionsAPI, transportAPI, activitiesAPI,
+} from '@/lib/api-client';
 import type { Student } from '@/lib/dataverse/students';
+import type { FeePayment } from '@/lib/dataverse/fees';
+import type { PoolSession } from '@/lib/dataverse/poolsessions';
+import type { Vehicle } from '@/lib/dataverse/transport';
+import type { Activity } from '@/lib/dataverse/activities';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface DashboardStats {
@@ -22,6 +30,7 @@ interface DashboardStats {
 }
 interface TrendPoint { date: string; percentage: number; present: number; total: number; }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const TREND_OPTIONS = [
   { label: '7 days',  value: 7  },
   { label: '30 days', value: 30 },
@@ -35,8 +44,16 @@ const STATUS_CFG: Record<number, { label: string; color: string; bar: string }> 
   4: { label: 'Suspended',   color: 'text-red-500',     bar: 'bg-red-400'     },
 };
 
-const CLASS_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6','#f97316'];
+const ACT_CATS: Record<number, string> = {
+  1: 'Sports', 2: 'Arts', 3: 'Music', 4: 'Drama',
+  5: 'Science', 6: 'Academic', 7: 'Cultural', 8: 'Other',
+};
 
+const ACT_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6'];
+const CLASS_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6','#f97316'];
+const FEE_COLOR = '#10b981';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(d: string) {
   try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
   catch { return d; }
@@ -70,16 +87,35 @@ function KpiCard({ label, value, sub, icon: Icon, iconBg }: {
   );
 }
 
+// ─── Stat Chip ────────────────────────────────────────────────────────────────
+function StatChip({ label, value, icon: Icon, color }: {
+  label: string; value: string | number; icon: React.ElementType; color: string;
+}) {
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${color}`}>
+      <Icon className="h-5 w-5 flex-shrink-0 opacity-80" />
+      <div>
+        <p className="text-xs font-medium opacity-70 uppercase tracking-wide">{label}</p>
+        <p className="text-lg font-bold leading-tight">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [stats,    setStats]    = useState<DashboardStats | null>(null);
-  const [trends,   setTrends]   = useState<TrendPoint[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [stats,       setStats]       = useState<DashboardStats | null>(null);
+  const [trends,      setTrends]      = useState<TrendPoint[]>([]);
+  const [students,    setStudents]    = useState<Student[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [classes,  setClasses]  = useState<any[]>([]);
-  const [days,     setDays]     = useState(30);
-  const [loading,  setLoading]  = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [classes,     setClasses]     = useState<any[]>([]);
+  const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
+  const [poolSessions,setPoolSessions]= useState<PoolSession[]>([]);
+  const [vehicles,    setVehicles]    = useState<Vehicle[]>([]);
+  const [activities,  setActivities]  = useState<Activity[]>([]);
+  const [days,        setDays]        = useState(30);
+  const [loading,     setLoading]     = useState(true);
+  const [refreshing,  setRefreshing]  = useState(false);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -96,12 +132,30 @@ export default function ReportsPage() {
       setStudents(stuRes.data ?? []);
       setClasses(clsRes.data ?? []);
     } catch { toast.error('Failed to load report data'); }
-    finally { setLoading(false); setRefreshing(false); }
+
+    // Secondary data — failures don't crash the page
+    const [fpRes, psRes, vRes, actRes] = await Promise.allSettled([
+      feePaymentsAPI.getAll(),
+      poolSessionsAPI.getAll(),
+      transportAPI.getAll(),
+      activitiesAPI.getAll(),
+    ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (fpRes.status  === 'fulfilled') setFeePayments((fpRes.value  as any).data ?? []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (psRes.status  === 'fulfilled') setPoolSessions((psRes.value as any).data ?? []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (vRes.status   === 'fulfilled') setVehicles((vRes.value      as any).data ?? []);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (actRes.status === 'fulfilled') setActivities((actRes.value  as any).data ?? []);
+
+    setLoading(false);
+    setRefreshing(false);
   };
 
   useEffect(() => { load(); }, [days]);
 
-  // ── Derived breakdowns ─────────────────────────────────────────────────────
+  // ── Derived: students ──────────────────────────────────────────────────────
   const statusBreakdown = useMemo(() => {
     const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
     students.forEach(s => { const k = s.studentstatus || 1; counts[k] = (counts[k] || 0) + 1; });
@@ -131,6 +185,59 @@ export default function ReportsPage() {
     if (!trends.length) return 0;
     return trends.reduce((s, t) => s + t.percentage, 0) / trends.length;
   }, [trends]);
+
+  // ── Derived: fee payments by month ────────────────────────────────────────
+  const feeMonthly = useMemo(() => {
+    const map: Record<string, number> = {};
+    feePayments.forEach(p => {
+      if (!p.paymentdate) return;
+      const month = p.paymentdate.slice(0, 7);
+      map[month] = (map[month] || 0) + (p.amount || 0);
+    });
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([month, total]) => ({
+        label: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        total,
+      }));
+  }, [feePayments]);
+
+  const feeTotalAll = useMemo(
+    () => feePayments.reduce((s, p) => s + (p.amount || 0), 0),
+    [feePayments],
+  );
+
+  // ── Derived: pool revenue ──────────────────────────────────────────────────
+  const poolRevenue = useMemo(() => {
+    let school = 0, pub = 0;
+    poolSessions.forEach(s => {
+      if (s.mode === 1) school += s.totalrevenue || 0;
+      else if (s.mode === 2) pub += s.totalrevenue || 0;
+    });
+    return { school, pub, total: school + pub, sessions: poolSessions.length };
+  }, [poolSessions]);
+
+  // ── Derived: transport fleet ───────────────────────────────────────────────
+  const fleetStatus = useMemo(() => {
+    const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0 };
+    vehicles.forEach(v => { counts[v.status] = (counts[v.status] || 0) + 1; });
+    return counts;
+  }, [vehicles]);
+
+  // ── Derived: activities by category ───────────────────────────────────────
+  const activitiesByCat = useMemo(() => {
+    const map: Record<number, number> = {};
+    activities.forEach(a => { map[a.category] = (map[a.category] || 0) + 1; });
+    return Object.entries(map)
+      .map(([k, v]) => ({ name: ACT_CATS[Number(k)] || 'Other', count: v }))
+      .sort((a, b) => b.count - a.count);
+  }, [activities]);
+
+  const activeActivities = useMemo(
+    () => activities.filter(a => a.status === 1).length,
+    [activities],
+  );
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -192,15 +299,42 @@ export default function ReportsPage() {
         <KpiCard label="Avg Attendance"    value={`${avgAttendance.toFixed(1)}%`}
           sub={`Over last ${days} days`}
           icon={TrendingUp}    iconBg="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" />
-        <KpiCard label="Total Collected"   value={formatCurrency(stats?.monthlyRevenue ?? 0)}
+        <KpiCard label="Total Collected"   value={formatCurrency(feeTotalAll || stats?.monthlyRevenue || 0)}
           sub="All fee collections"
           icon={DollarSign}    iconBg="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" />
       </div>
 
-      {/* Charts row — Attendance + Status */}
+      {/* Secondary stat chips */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatChip
+          label="Pool Revenue (Total)"
+          value={formatCurrency(poolRevenue.total)}
+          icon={Waves}
+          color="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300"
+        />
+        <StatChip
+          label="Pool Sessions"
+          value={`${poolRevenue.sessions} sessions`}
+          icon={Waves}
+          color="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300"
+        />
+        <StatChip
+          label="Active Vehicles"
+          value={`${fleetStatus[1] ?? 0} of ${vehicles.length}`}
+          icon={Bus}
+          color="bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300"
+        />
+        <StatChip
+          label="Active Activities"
+          value={`${activeActivities} of ${activities.length}`}
+          icon={Trophy}
+          color="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+        />
+      </div>
+
+      {/* Attendance trend + Student status */}
       <div className="grid gap-5 lg:grid-cols-5">
 
-        {/* Attendance trend */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Attendance Trend</CardTitle>
@@ -236,7 +370,6 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
-        {/* Student status breakdown */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Student Status</CardTitle>
@@ -261,8 +394,6 @@ export default function ReportsPage() {
                     </div>
                   );
                 })}
-
-                {/* Gender split */}
                 {genderBreakdown.total > 0 && (
                   <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-700">
                     <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2">Gender</p>
@@ -284,7 +415,161 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* Enrollment by class */}
+      {/* Fee Collection by Month */}
+      {feeMonthly.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Fee Collection by Month</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              Monthly fee payments — {formatCurrency(feeTotalAll)} collected across {feePayments.length} payments
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={feeMonthly} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
+                  tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  formatter={(v: unknown) => [formatCurrency(v as number), 'Collected']}
+                  cursor={{ fill: '#f0fdf4' }}
+                />
+                <Bar dataKey="total" fill={FEE_COLOR} radius={[4, 4, 0, 0]} maxBarSize={52} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pool Revenue + Transport Fleet */}
+      <div className="grid gap-5 lg:grid-cols-5">
+
+        {/* Pool Revenue breakdown */}
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Swimming Pool Revenue</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              {poolRevenue.sessions} sessions · {formatCurrency(poolRevenue.total)} total revenue
+            </p>
+          </CardHeader>
+          <CardContent>
+            {poolRevenue.sessions > 0 ? (
+              <div className="space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'School Sessions', value: poolRevenue.school, color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400' },
+                    { label: 'Public Sessions', value: poolRevenue.pub,    color: 'bg-cyan-500',  textColor: 'text-cyan-600 dark:text-cyan-400' },
+                  ].map(({ label, value, color, textColor }) => (
+                    <div key={label} className="rounded-lg bg-slate-50 dark:bg-slate-800/40 p-4 text-center">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</p>
+                      <p className={`text-2xl font-bold mt-1 ${textColor}`}>{formatCurrency(value)}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {poolRevenue.total > 0 ? `${((value / poolRevenue.total) * 100).toFixed(0)}% of total` : '—'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wide">Revenue Split</p>
+                  {poolRevenue.total > 0 && (
+                    <>
+                      <div className="flex rounded-full overflow-hidden h-4">
+                        <div className="bg-blue-500 transition-all" style={{ width: `${(poolRevenue.school / poolRevenue.total) * 100}%` }} />
+                        <div className="bg-cyan-400 flex-1" />
+                      </div>
+                      <div className="flex justify-between mt-1.5 text-xs text-slate-500">
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> School</span>
+                        <span className="flex items-center gap-1.5">Public <span className="h-2 w-2 rounded-full bg-cyan-400 inline-block" /></span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="h-40 flex items-center justify-center text-slate-400 text-sm">No pool data</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Transport Fleet Status */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Transport Fleet</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{vehicles.length} vehicles registered</p>
+          </CardHeader>
+          <CardContent>
+            {vehicles.length > 0 ? (
+              <div className="space-y-4">
+                {[
+                  { label: 'Active',      key: 1, color: 'text-emerald-600', bar: 'bg-emerald-500', icon: Bus   },
+                  { label: 'Maintenance', key: 2, color: 'text-amber-600',   bar: 'bg-amber-500',   icon: Wrench },
+                  { label: 'Retired',     key: 3, color: 'text-slate-500',   bar: 'bg-slate-400',   icon: Bus   },
+                ].map(({ label, key, color, bar }) => {
+                  const count = fleetStatus[key] ?? 0;
+                  const pct   = vehicles.length > 0 ? (count / vehicles.length) * 100 : 0;
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className={`text-sm font-medium ${color}`}>{label}</span>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          {count} <span className="text-xs text-slate-400 font-normal">({pct.toFixed(0)}%)</span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
+                        <div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="pt-3 mt-1 border-t border-slate-100 dark:border-slate-700">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    Fleet utilisation: <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {vehicles.length > 0 ? `${(((fleetStatus[1] ?? 0) / vehicles.length) * 100).toFixed(0)}%` : '—'}
+                    </span> active
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-48 flex items-center justify-center text-slate-400 text-sm">No vehicle data</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Activities by Category */}
+      {activitiesByCat.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Activities by Category</CardTitle>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              {activities.length} total activities · {activeActivities} active
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={activitiesByCat} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  formatter={(v: unknown) => [v as React.ReactNode, 'Activities']}
+                  cursor={{ fill: '#fefce8' }}
+                />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                  {activitiesByCat.map((_, i) => (
+                    <Cell key={i} fill={ACT_COLORS[i % ACT_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Enrollment by Class */}
       {classBreakdown.length > 0 && (
         <Card>
           <CardHeader>
@@ -313,7 +598,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* Daily attendance log */}
+      {/* Daily Attendance Log */}
       {trends.length > 0 && (
         <Card>
           <CardHeader>
@@ -348,8 +633,10 @@ export default function ReportsPage() {
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2.5">
                             <div className="h-1.5 w-24 rounded-full bg-slate-100 dark:bg-slate-700 flex-shrink-0">
-                              <div className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-emerald-500' : pct >= 75 ? 'bg-amber-500' : 'bg-red-400'}`}
-                                style={{ width: `${pct}%` }} />
+                              <div
+                                className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-emerald-500' : pct >= 75 ? 'bg-amber-500' : 'bg-red-400'}`}
+                                style={{ width: `${pct}%` }}
+                              />
                             </div>
                             <span className={`text-xs font-semibold tabular-nums ${pct >= 90 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}`}>
                               {pct.toFixed(1)}%
