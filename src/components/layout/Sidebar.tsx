@@ -131,7 +131,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
     !item.roles || item.roles.includes(role);
 
   return (
-    <aside className={`fixed left-0 top-0 z-40 h-screen flex flex-col bg-slate-900 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
+    <aside className={`fixed left-0 top-0 z-40 h-screen flex flex-col bg-slate-900 dark:bg-slate-950 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
 
       {/* Logo + toggle */}
       <div className={`flex items-center h-16 border-b border-slate-800 flex-shrink-0 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
@@ -153,7 +153,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
         )}
         <button
           onClick={onToggle}
-          className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors ${collapsed ? 'absolute right-0 translate-x-1/2 top-4 bg-slate-800 border border-slate-700 shadow-md' : ''}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-900 hover:text-slate-100 transition-colors ${collapsed ? 'absolute right-0 translate-x-1/2 top-4 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 shadow-md' : ''}`}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -174,7 +174,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                   {section.label}
                 </p>
               )}
-              {section.label && collapsed && <div className="mx-2 mb-1.5 h-px bg-slate-800" />}
+              {section.label && collapsed && <div className="mx-2 mb-1.5 h-px bg-slate-800 dark:bg-slate-800/60" />}
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
