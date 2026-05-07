@@ -31,7 +31,8 @@
         "create:phase3-tables": "tsx scripts/create-phase3-tables.ts",
         "seed:vehicles": "tsx scripts/seed-vehicles.ts",
         "seed:activities": "tsx scripts/seed-activities.ts",
-        "create:pool-tables": "tsx scripts/create-pool-tables.ts"
+        "create:pool-tables": "tsx scripts/create-pool-tables.ts",
+        "seed:pool": "tsx scripts/seed-pool.ts"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.88.0",
