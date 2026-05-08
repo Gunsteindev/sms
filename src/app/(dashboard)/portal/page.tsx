@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { Megaphone, Pin, Users, GraduationCap, UserCircle, UserPlus, RefreshCw, Bell } from 'lucide-react';
@@ -21,23 +21,23 @@ function AnnouncementCard({ a }: { a: Announcement }) {
     const AudIcon = AUDIENCE_ICON[a.audience] ?? Users;
     const isExpired = a.expirydate && new Date(a.expirydate) < new Date();
     return (
-        <div className={`relative rounded-xl border bg-white dark:bg-slate-900 p-5 shadow-sm ${a.ispinned ? 'border-amber-200 dark:border-amber-800' : 'border-gray-200 dark:border-gray-700'}`}>
+        <div className={`relative rounded-xl border bg-white dark:bg-slate-900 p-5 shadow-sm ${a.ispinned ? 'border-amber-200 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}`}>
             {a.ispinned && <div className="absolute inset-x-0 top-0 h-1 rounded-t-xl bg-amber-400" />}
             <div className="flex items-start gap-3">
-                <div className={`rounded-lg p-2.5 mt-0.5 flex-shrink-0 ${a.ispinned ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
-                    <Megaphone className={`h-4 w-4 ${a.ispinned ? 'text-amber-500' : 'text-gray-400'}`} />
+                <div className={`rounded-lg p-2.5 mt-0.5 flex-shrink-0 ${a.ispinned ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                    <Megaphone className={`h-4 w-4 ${a.ispinned ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         {a.ispinned && <Pin className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{a.name}</h3>
+                        <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-snug">{a.name}</h3>
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${AUDIENCE_COLOR[a.audience]}`}>
                             <AudIcon className="h-3 w-3" />{AUDIENCE_LABEL[a.audience]}
                         </span>
                         {isExpired && <Badge variant="destructive">Expired</Badge>}
                     </div>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{a.message}</p>
-                    <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{a.message}</p>
+                    <div className="mt-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
                         <span>Posted {a.publishdate ? new Date(a.publishdate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
                         {a.expirydate && <span>· Expires {new Date(a.expirydate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                     </div>
@@ -97,10 +97,10 @@ export default function PortalPage() {
             {loading ? (
                 <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" /></div>
             ) : !items.length ? (
-                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
                     <Megaphone className="h-10 w-10 mb-3 opacity-40" />
                     <p className="text-sm">No announcements at the moment</p>
-                    <p className="text-xs mt-1 text-gray-300">Check back later for updates from the school</p>
+                    <p className="text-xs mt-1 text-slate-300">Check back later for updates from the school</p>
                 </div>
             ) : (
                 <div className="space-y-6">
@@ -115,14 +115,14 @@ export default function PortalPage() {
                     {regular.length > 0 && (
                         <div className="space-y-3">
                             {pinned.length > 0 && (
-                                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">General Announcements</p>
+                                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">General Announcements</p>
                             )}
                             {regular.map(a => <AnnouncementCard key={a.announcementid} a={a} />)}
                         </div>
                     )}
                     {expired.length > 0 && (
                         <div className="space-y-3">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-gray-300">Past Notices</p>
+                            <p className="text-xs font-semibold uppercase tracking-widest text-slate-300">Past Notices</p>
                             {expired.map(a => <AnnouncementCard key={a.announcementid} a={a} />)}
                         </div>
                     )}

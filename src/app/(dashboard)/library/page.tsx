@@ -18,11 +18,11 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { AISummary } from '@/components/ui/AISummary';
 import { Pagination } from '@/components/ui/Pagination';
 import { libraryAPI, libraryLoansAPI, studentsAPI, teachersAPI } from '@/lib/api-client';
-
-const PAGE_SIZE = 10;
 import type { LibraryBook } from '@/lib/dataverse/library';
 import type { LibraryLoan } from '@/lib/dataverse/libraryloans';
 import { LOAN_STATUS, BORROWER_TYPE } from '@/lib/dataverse/libraryloans';
+
+const PAGE_SIZE = 10;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -575,19 +575,19 @@ export default function LibraryPage() {
                             <p className="text-sm">{bookSearch || genreFilter ? 'No books match your filter' : 'No books yet'}</p>
                         </div>
                     ) : (
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                            <Table className="w-full text-sm">
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                            <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
+                                    <TableRow>
                                         {['Title / Author', 'Genre / Subject', 'ISBN', 'Shelf', 'Copies', 'Available', 'Actions'].map(h => (
-                                            <TableHead key={h} className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">{h}</TableHead>
+                                            <TableHead key={h}>{h}</TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <TableBody>
                                     {paginatedBooks.map(b => (
-                                        <TableRow key={b.bookid} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <TableCell className="px-4 py-3">
+                                        <TableRow key={b.bookid}>
+                                            <TableCell>
                                                 <div className="flex items-center gap-2.5">
                                                     <div className={`${avatarColor(b.name)} h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                                                         {initials(b.name)}
@@ -598,27 +598,27 @@ export default function LibraryPage() {
                                                     </div>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="px-4 py-3">
+                                            <TableCell>
                                                 {b.genre ? <Badge variant="default">{b.genre}</Badge> : <span className="text-slate-400">—</span>}
                                                 {b.subject && <div className="text-xs text-slate-500 mt-0.5">{b.subject}</div>}
                                             </TableCell>
-                                            <TableCell className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{b.isbn || '—'}</TableCell>
-                                            <TableCell className="px-4 py-3">
+                                            <TableCell className="font-mono text-xs text-slate-600 dark:text-slate-400">{b.isbn || '—'}</TableCell>
+                                            <TableCell>
                                                 {b.shelfnumber ? (
                                                     <span className="inline-flex items-center gap-1 text-xs font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
                                                         <Hash className="h-3 w-3" />{b.shelfnumber}
                                                     </span>
                                                 ) : <span className="text-slate-400">—</span>}
                                             </TableCell>
-                                            <TableCell className="px-4 py-3 text-center text-slate-700 dark:text-slate-300 font-medium">
+                                            <TableCell className="text-center text-slate-700 dark:text-slate-300 font-medium">
                                                 {b.totalcopies ?? '—'}
                                             </TableCell>
-                                            <TableCell className="px-4 py-3 text-center">
+                                            <TableCell className="text-center">
                                                 <span className={(b.availablecopies ?? 0) > 0 ? 'text-emerald-600 font-semibold' : 'text-red-500 font-semibold'}>
                                                     {b.availablecopies ?? '—'}
                                                 </span>
                                             </TableCell>
-                                            <TableCell className="px-4 py-3">
+                                            <TableCell>
                                                 <div className="flex gap-1">
                                                     <Button variant="ghost" size="icon" onClick={() => { setEditingBook(b); setBookModal(true); }}>
                                                         <Pencil className="h-3.5 w-3.5 text-slate-400" />
@@ -673,30 +673,30 @@ export default function LibraryPage() {
                             <p className="text-sm">{loanSearch || statusFilter !== 'all' ? 'No loans match your filter' : 'No loans yet'}</p>
                         </div>
                     ) : (
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                            <Table className="w-full text-sm">
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                            <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
+                                    <TableRow>
                                         {['Loan Ref', 'Book', 'Borrower', 'Issue Date', 'Due Date', 'Return Date', 'Status', 'Fine', 'Actions'].map(h => (
-                                            <TableHead key={h} className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">{h}</TableHead>
+                                            <TableHead key={h}>{h}</TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <TableBody>
                                     {paginatedLoans.map(l => {
                                         const cfg = LOAN_STATUS_CONFIG[l.loanstatus] ?? LOAN_STATUS_CONFIG[1];
                                         const StatusIcon = cfg.icon;
                                         const overdue = isOverdue(l.duedate, l.returndate, l.loanstatus);
                                         const borrowerName = l.studentname || l.teachername || (l.note?.match(/^(?:Student|Teacher): ([^|]+)/)?.[1]?.trim()) || l.name;
                                         return (
-                                            <TableRow key={l.loanid} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                <TableCell className="px-4 py-3 font-mono text-xs text-slate-500">{l.name}</TableCell>
-                                                <TableCell className="px-4 py-3">
+                                            <TableRow key={l.loanid}>
+                                                <TableCell className="font-mono text-xs text-slate-500">{l.name}</TableCell>
+                                                <TableCell>
                                                     {l.bookname ? (
                                                         <span className="font-medium text-slate-800 dark:text-slate-200">{l.bookname}</span>
                                                     ) : <span className="text-slate-400">—</span>}
                                                 </TableCell>
-                                                <TableCell className="px-4 py-3">
+                                                <TableCell>
                                                     <div className="flex items-center gap-1.5">
                                                         <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                                         <div>
@@ -705,16 +705,16 @@ export default function LibraryPage() {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                                <TableCell className="text-slate-500">
                                                     <div className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5 text-slate-400" />{formatDate(l.issuedate)}</div>
                                                 </TableCell>
-                                                <TableCell className={`px-4 py-3 whitespace-nowrap font-medium ${overdue ? 'text-red-500' : 'text-slate-500'}`}>
+                                                <TableCell className={`font-medium ${overdue ? 'text-red-500' : 'text-slate-500'}`}>
                                                     {formatDate(l.duedate)}
                                                 </TableCell>
-                                                <TableCell className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                                <TableCell className="text-slate-500">
                                                     {l.returndate ? formatDate(l.returndate) : '—'}
                                                 </TableCell>
-                                                <TableCell className="px-4 py-3">
+                                                <TableCell>
                                                     <div className="flex items-center gap-1.5">
                                                         <StatusIcon className={`h-3.5 w-3.5 shrink-0 ${
                                                             l.loanstatus === 2 ? 'text-emerald-500' :
@@ -723,10 +723,10 @@ export default function LibraryPage() {
                                                         <Badge variant={cfg.variant}>{cfg.label}</Badge>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-400">
+                                                <TableCell className="text-slate-600 dark:text-slate-400">
                                                     {l.fineamount != null ? `$${Number(l.fineamount).toFixed(2)}` : '—'}
                                                 </TableCell>
-                                                <TableCell className="px-4 py-3">
+                                                <TableCell>
                                                     <div className="flex gap-1">
                                                         {l.loanstatus === 1 && (
                                                             <Button variant="ghost" size="icon" title="Mark returned"

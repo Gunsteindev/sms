@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken, SESSION_COOKIE, SessionUser } from '@/lib/session';
 import { ZodSchema } from 'zod';
+import { withTenant } from '@/lib/dataverse/tenant';
 
 export async function getSession(req: NextRequest): Promise<SessionUser | null> {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -23,6 +24,15 @@ export function serverError(error: unknown) {
     { success: false, error: isDev ? msg : 'Internal server error' },
     { status: 500 }
   );
+}
+
+export function getSchoolId(req: NextRequest): string | null {
+  return req.headers.get('x-school-id');
+}
+
+export async function withSchool<T>(req: NextRequest, fn: () => Promise<T>): Promise<T> {
+  const schoolId = req.headers.get('x-school-id') ?? '';
+  return withTenant(schoolId, fn);
 }
 
 export async function parseBody<T>(req: NextRequest, schema: ZodSchema<T>): Promise<{ data: T } | { response: NextResponse }> {

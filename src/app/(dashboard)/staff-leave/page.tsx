@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -200,8 +200,8 @@ export default function StaffLeavePage() {
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Staff Leave</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Staff Leave</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                         {rows.length} record{rows.length !== 1 ? 's' : ''}
                         {pending > 0 && <span className="ml-2 text-amber-600 font-medium">· {pending} pending</span>}
                     </p>
@@ -230,7 +230,7 @@ export default function StaffLeavePage() {
 
             <div className="flex gap-3">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                     <Input placeholder="Search by employee…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
                 </div>
                 <SelectRoot value={statusFilter} onValueChange={v => setStatusFilter(v ?? '')}>
@@ -245,39 +245,39 @@ export default function StaffLeavePage() {
             {loading ? (
                 <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
             ) : !filtered.length ? (
-                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
                     <CalendarOff className="h-10 w-10 mb-3 opacity-40" /><p className="text-sm">No leave records found</p>
                 </div>
             ) : (
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                     <Table className="w-full text-sm">
                         <TableHeader>
-                            <TableRow className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800">
+                            <TableRow>
                                 {['Employee', 'Leave Type', 'Period', 'Days', 'Reason', 'Status', ''].map(h => (
-                                    <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
+                                    <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        <TableBody>
                             {paginated.map(r => {
                                 const days = r.days || daysBetween(r.startdate, r.enddate);
                                 return (
-                                    <TableRow key={r.leaveid} className="hover:bg-blue-50/30 dark:hover:bg-gray-800/50 transition-colors">
-                                        <TableCell className="px-4 py-3">
-                                            <p className="font-medium text-gray-900 dark:text-gray-100">{r.employeename || '—'}</p>
-                                            {r.approvedby && <p className="text-xs text-gray-400">Approved by: {r.approvedby}</p>}
+                                    <TableRow key={r.leaveid}>
+                                        <TableCell>
+                                            <p className="font-medium text-slate-900 dark:text-slate-100">{r.employeename || '—'}</p>
+                                            {r.approvedby && <p className="text-xs text-slate-400 dark:text-slate-500">Approved by: {r.approvedby}</p>}
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500">{LEAVE_TYPES[r.leavetype] ?? '—'}</TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 font-mono text-xs">
+                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400">{LEAVE_TYPES[r.leavetype] ?? '—'}</TableCell>
+                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">
                                             <div>{r.startdate?.slice(0, 10)}</div>
-                                            <div className="text-gray-400">→ {r.enddate?.slice(0, 10)}</div>
+                                            <div className="text-slate-400 dark:text-slate-500">→ {r.enddate?.slice(0, 10)}</div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-900 dark:text-gray-100 font-semibold">{days}</TableCell>
-                                        <TableCell className="px-4 py-3 text-gray-500 text-xs max-w-[160px] truncate">{r.reason || '—'}</TableCell>
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell className="px-4 py-3 text-slate-900 dark:text-slate-100 font-semibold">{days}</TableCell>
+                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-[160px] truncate">{r.reason || '—'}</TableCell>
+                                        <TableCell>
                                             <Badge variant={STATUS_VARIANT[r.status] ?? 'default'}>{STATUSES[r.status] ?? 'Unknown'}</Badge>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell>
                                             <div className="flex justify-end gap-1">
                                                 {r.status === 1 && (
                                                     <>
@@ -290,10 +290,10 @@ export default function StaffLeavePage() {
                                                     </>
                                                 )}
                                                 <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setModalOpen(true); }}>
-                                                    <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                                                    <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                                                 </Button>
                                                 <Button variant="ghost" size="icon" onClick={() => setToDelete(r.leaveid)}>
-                                                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                                                    <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                                                 </Button>
                                             </div>
                                         </TableCell>

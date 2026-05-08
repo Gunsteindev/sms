@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { BookOpenCheck, Save, AlertCircle, RefreshCw, X } from 'lucide-react';
@@ -345,7 +345,7 @@ export default function GradebookPage() {
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        <tbody>
                             {rows.map((row, idx) => {
                                 const scoreMap = Object.fromEntries(
                                     gradingSystem.components.map(c => [c.key, row.scores[c.key]?.score ?? null])

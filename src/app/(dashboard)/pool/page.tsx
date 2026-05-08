@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { useEffect, useState, useCallback } from 'react';
@@ -11,11 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Pagination } from '@/components/ui/Pagination';
 import { poolSessionsAPI, poolRentalsAPI, poolTransactionsAPI } from '@/lib/api-client';
 import type { PoolSession } from '@/lib/dataverse/poolsessions';
 import type { PoolRental } from '@/lib/dataverse/poolrentals';
 import type { PoolTransaction } from '@/lib/dataverse/pooltransactions';
 
+const PAGE_SIZE = 10;
 const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
 const MODES: Record<number, string>    = { 1: 'School',   2: 'Public' };
 const SHIFTS: Record<number, string>   = { 1: 'Morning',  2: 'Afternoon',  3: 'Full Day' };
@@ -165,6 +167,10 @@ export default function PoolPage() {
     const [toDelete, setToDelete]         = useState<{ type: 'session' | 'rental' | 'transaction'; id: string } | null>(null);
     const [histFrom, setHistFrom]         = useState('');
     const [histTo, setHistTo]             = useState('');
+    const [pageOverview, setPageOverview] = useState(1);
+    const [pageRentals,  setPageRentals]  = useState(1);
+    const [pageSales,    setPageSales]    = useState(1);
+    const [pageHistory,  setPageHistory]  = useState(1);
 
     // Sales inline form state
     const [sale, setSale] = useState({ transtype: '1', itemname: '', quantity: 1, unitprice: 0, customername: '', paymentmethod: '1' });
@@ -197,6 +203,15 @@ export default function PoolPage() {
     const todayRevenue = todaySessions.reduce((a, s) => a + s.totalrevenue, 0);
     const todayEntries = todaySessions.reduce((a, s) => a + s.entrycount, 0);
     const todayTx = transactions.filter(t => t.transdate?.slice(0, 10) === TODAY);
+
+    const totalPagesOverview = Math.max(1, Math.ceil(sessions.length   / PAGE_SIZE));
+    const totalPagesRentals  = Math.max(1, Math.ceil(rentals.length    / PAGE_SIZE));
+    const totalPagesSales    = Math.max(1, Math.ceil(todayTx.length    / PAGE_SIZE));
+    const totalPagesHistory  = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+    const paginatedSessions  = sessions.slice((pageOverview - 1) * PAGE_SIZE, pageOverview * PAGE_SIZE);
+    const paginatedRentals   = rentals.slice((pageRentals - 1)   * PAGE_SIZE, pageRentals  * PAGE_SIZE);
+    const paginatedTodayTx   = todayTx.slice((pageSales - 1)     * PAGE_SIZE, pageSales    * PAGE_SIZE);
+    const paginatedHistory   = transactions.slice((pageHistory - 1) * PAGE_SIZE, pageHistory * PAGE_SIZE);
 
     const handleCloseSession = async (id: string) => {
         try { await poolSessionsAPI.update(id, { status: 2 }); toast.success('Session closed'); loadAll(); }
@@ -238,6 +253,7 @@ export default function PoolPage() {
         finally { setSavingSale(false); }
     };
 
+    const switchTab = (t: typeof tab) => { setTab(t); setPageOverview(1); setPageRentals(1); setPageSales(1); setPageHistory(1); };
     const TAB_CLS = (t: typeof tab) =>
         `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'}`;
 
@@ -248,10 +264,10 @@ export default function PoolPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <Waves className="h-6 w-6 text-blue-500" /> Swimming Pool
                     </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">{sessions.length} session{sessions.length !== 1 ? 's' : ''} total</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{sessions.length} session{sessions.length !== 1 ? 's' : ''} total</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={loadAll}><RefreshCw className="h-4 w-4 mr-1.5" /> Refresh</Button>
             </div>
@@ -259,7 +275,7 @@ export default function PoolPage() {
             {/* Tabs */}
             <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-fit">
                 {(['overview', 'rentals', 'sales', 'history'] as const).map(t => (
-                    <button key={t} onClick={() => setTab(t)} className={TAB_CLS(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                    <button key={t} onClick={() => switchTab(t)} className={TAB_CLS(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
                 ))}
             </div>
 
@@ -317,33 +333,33 @@ export default function PoolPage() {
                     {/* Recent sessions table */}
                     <div>
                         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Recent Sessions</h2>
-                        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800">
+                                    <TableRow>
                                         {['Date', 'Mode', 'Shift', 'Entries', 'Revenue', 'Status', ''].map(h => (
-                                            <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
+                                            <TableHead key={h}>{h}</TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {sessions.slice(0, 5).map(s => (
-                                        <TableRow key={s.sessionid} className="hover:bg-blue-50/30 dark:hover:bg-gray-800/50">
-                                            <TableCell className="px-4 py-3 text-sm">{s.sessiondate?.slice(0, 10) || '—'}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{MODES[s.mode as keyof typeof MODES] ?? '—'}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{SHIFTS[s.shift as keyof typeof SHIFTS] ?? '—'}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm font-semibold">{s.entrycount}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{fmt(s.totalrevenue)}</TableCell>
-                                            <TableCell className="px-4 py-3">
+                                <TableBody>
+                                    {paginatedSessions.map(s => (
+                                        <TableRow key={s.sessionid}>
+                                            <TableCell className="text-sm">{s.sessiondate?.slice(0, 10) || '—'}</TableCell>
+                                            <TableCell className="text-sm">{MODES[s.mode as keyof typeof MODES] ?? '—'}</TableCell>
+                                            <TableCell className="text-sm">{SHIFTS[s.shift as keyof typeof SHIFTS] ?? '—'}</TableCell>
+                                            <TableCell className="text-sm font-semibold">{s.entrycount}</TableCell>
+                                            <TableCell className="text-sm">{fmt(s.totalrevenue)}</TableCell>
+                                            <TableCell>
                                                 <Badge variant={s.status === 1 ? 'success' : 'default'}>{SSTATUS[s.status as keyof typeof SSTATUS] ?? '—'}</Badge>
                                             </TableCell>
-                                            <TableCell className="px-4 py-3">
+                                            <TableCell>
                                                 <div className="flex justify-end gap-1">
                                                     <Button variant="ghost" size="icon" onClick={() => { setEditSession(s); setSessionDlg(true); }}>
-                                                        <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                                                        <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                                                     </Button>
                                                     <Button variant="ghost" size="icon" onClick={() => setToDelete({ type: 'session', id: s.sessionid })}>
-                                                        <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                                                        <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                                                     </Button>
                                                 </div>
                                             </TableCell>
@@ -354,6 +370,7 @@ export default function PoolPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                            <Pagination page={pageOverview} totalPages={totalPagesOverview} total={sessions.length} pageSize={PAGE_SIZE} label="session" onChange={setPageOverview} />
                         </div>
                     </div>
                 </div>
@@ -365,34 +382,34 @@ export default function PoolPage() {
                     <Button onClick={() => { setEditRental(null); setRentalDlg(true); }}>
                         <Plus className="h-4 w-4 mr-1" /> Add Rental Item
                     </Button>
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                         <Table>
                             <TableHeader>
-                                <TableRow className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800">
+                                <TableRow>
                                     {['Item', 'Category', 'Size', 'Available', 'In Use', 'Cleaning', 'Damaged', 'Rental Fee', 'Deposit', ''].map(h => (
-                                        <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
+                                        <TableHead key={h}>{h}</TableHead>
                                     ))}
                                 </TableRow>
                             </TableHeader>
-                            <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {rentals.map(r => (
-                                    <TableRow key={r.rentalid} className="hover:bg-blue-50/30 dark:hover:bg-gray-800/50">
-                                        <TableCell className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{r.name}</TableCell>
-                                        <TableCell className="px-4 py-3 text-sm text-slate-500">{CATS[r.category as keyof typeof CATS] ?? '—'}</TableCell>
-                                        <TableCell className="px-4 py-3 text-sm">{r.size || '—'}</TableCell>
-                                        <TableCell className="px-4 py-3"><span className="text-emerald-600 font-semibold">{r.available}</span></TableCell>
-                                        <TableCell className="px-4 py-3"><span className="text-blue-600 font-semibold">{r.inuse}</span></TableCell>
-                                        <TableCell className="px-4 py-3"><span className="text-amber-600 font-semibold">{r.cleaning}</span></TableCell>
-                                        <TableCell className="px-4 py-3"><span className="text-red-500 font-semibold">{r.damaged}</span></TableCell>
-                                        <TableCell className="px-4 py-3 text-sm">{fmt(r.rentalfee)}</TableCell>
-                                        <TableCell className="px-4 py-3 text-sm">{fmt(r.depositfee)}</TableCell>
-                                        <TableCell className="px-4 py-3">
+                            <TableBody>
+                                {paginatedRentals.map(r => (
+                                    <TableRow key={r.rentalid}>
+                                        <TableCell className="font-medium text-slate-900 dark:text-slate-100">{r.name}</TableCell>
+                                        <TableCell className="text-sm text-slate-500">{CATS[r.category as keyof typeof CATS] ?? '—'}</TableCell>
+                                        <TableCell className="text-sm">{r.size || '—'}</TableCell>
+                                        <TableCell><span className="text-emerald-600 font-semibold">{r.available}</span></TableCell>
+                                        <TableCell><span className="text-blue-600 font-semibold">{r.inuse}</span></TableCell>
+                                        <TableCell><span className="text-amber-600 font-semibold">{r.cleaning}</span></TableCell>
+                                        <TableCell><span className="text-red-500 font-semibold">{r.damaged}</span></TableCell>
+                                        <TableCell className="text-sm">{fmt(r.rentalfee)}</TableCell>
+                                        <TableCell className="text-sm">{fmt(r.depositfee)}</TableCell>
+                                        <TableCell>
                                             <div className="flex justify-end gap-1">
                                                 <Button variant="ghost" size="icon" onClick={() => { setEditRental(r); setRentalDlg(true); }}>
-                                                    <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                                                    <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                                                 </Button>
                                                 <Button variant="ghost" size="icon" onClick={() => setToDelete({ type: 'rental', id: r.rentalid })}>
-                                                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                                                    <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                                                 </Button>
                                             </div>
                                         </TableCell>
@@ -403,6 +420,7 @@ export default function PoolPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        <Pagination page={pageRentals} totalPages={totalPagesRentals} total={rentals.length} pageSize={PAGE_SIZE} label="item" onChange={setPageRentals} />
                     </div>
                 </div>
             )}
@@ -457,27 +475,27 @@ export default function PoolPage() {
                     {/* Today's transactions */}
                     <div>
                         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Today&apos;s Sales</h2>
-                        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800">
+                                    <TableRow>
                                         {['Type', 'Item', 'Qty', 'Total', 'Customer', 'Payment', ''].map(h => (
-                                            <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
+                                            <TableHead key={h}>{h}</TableHead>
                                         ))}
                                     </TableRow>
                                 </TableHeader>
-                                <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {todayTx.map(t => (
-                                        <TableRow key={t.transactionid} className="hover:bg-blue-50/30 dark:hover:bg-gray-800/50">
-                                            <TableCell className="px-4 py-3 text-sm">{TTYPES[t.transtype as keyof typeof TTYPES] ?? '—'}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{t.itemname || '—'}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{t.quantity}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm font-semibold">{fmt(t.totalamount)}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{t.customername || '—'}</TableCell>
-                                            <TableCell className="px-4 py-3 text-sm">{PMETHODS[t.paymentmethod as keyof typeof PMETHODS] ?? '—'}</TableCell>
-                                            <TableCell className="px-4 py-3">
+                                <TableBody>
+                                    {paginatedTodayTx.map(t => (
+                                        <TableRow key={t.transactionid}>
+                                            <TableCell className="text-sm">{TTYPES[t.transtype as keyof typeof TTYPES] ?? '—'}</TableCell>
+                                            <TableCell className="text-sm">{t.itemname || '—'}</TableCell>
+                                            <TableCell className="text-sm">{t.quantity}</TableCell>
+                                            <TableCell className="text-sm font-semibold">{fmt(t.totalamount)}</TableCell>
+                                            <TableCell className="text-sm">{t.customername || '—'}</TableCell>
+                                            <TableCell className="text-sm">{PMETHODS[t.paymentmethod as keyof typeof PMETHODS] ?? '—'}</TableCell>
+                                            <TableCell>
                                                 <Button variant="ghost" size="icon" onClick={() => setToDelete({ type: 'transaction', id: t.transactionid })}>
-                                                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                                                    <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -487,6 +505,7 @@ export default function PoolPage() {
                                     )}
                                 </TableBody>
                             </Table>
+                            <Pagination page={pageSales} totalPages={totalPagesSales} total={todayTx.length} pageSize={PAGE_SIZE} label="transaction" onChange={setPageSales} />
                         </div>
                     </div>
                 </div>
@@ -524,29 +543,29 @@ export default function PoolPage() {
                     </div>
 
                     {/* All transactions */}
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                         <Table>
                             <TableHeader>
-                                <TableRow className="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800">
+                                <TableRow>
                                     {['Date', 'Type', 'Item', 'Qty', 'Unit', 'Total', 'Customer', 'Payment', ''].map(h => (
-                                        <TableHead key={h} className="px-3 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
+                                        <TableHead key={h}>{h}</TableHead>
                                     ))}
                                 </TableRow>
                             </TableHeader>
-                            <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {transactions.map(t => (
-                                    <TableRow key={t.transactionid} className="hover:bg-blue-50/30 dark:hover:bg-gray-800/50">
-                                        <TableCell className="px-3 py-3 text-xs text-slate-500">{t.transdate?.slice(0, 10) || '—'}</TableCell>
-                                        <TableCell className="px-3 py-3 text-xs">{TTYPES[t.transtype as keyof typeof TTYPES] ?? '—'}</TableCell>
-                                        <TableCell className="px-3 py-3 text-sm">{t.itemname || '—'}</TableCell>
-                                        <TableCell className="px-3 py-3 text-sm">{t.quantity}</TableCell>
-                                        <TableCell className="px-3 py-3 text-sm">{fmt(t.unitprice)}</TableCell>
-                                        <TableCell className="px-3 py-3 text-sm font-semibold">{fmt(t.totalamount)}</TableCell>
-                                        <TableCell className="px-3 py-3 text-sm">{t.customername || '—'}</TableCell>
-                                        <TableCell className="px-3 py-3 text-xs">{PMETHODS[t.paymentmethod as keyof typeof PMETHODS] ?? '—'}</TableCell>
-                                        <TableCell className="px-3 py-3">
+                            <TableBody>
+                                {paginatedHistory.map(t => (
+                                    <TableRow key={t.transactionid}>
+                                        <TableCell className="text-xs text-slate-500">{t.transdate?.slice(0, 10) || '—'}</TableCell>
+                                        <TableCell className="text-xs">{TTYPES[t.transtype as keyof typeof TTYPES] ?? '—'}</TableCell>
+                                        <TableCell className="text-sm">{t.itemname || '—'}</TableCell>
+                                        <TableCell className="text-sm">{t.quantity}</TableCell>
+                                        <TableCell className="text-sm">{fmt(t.unitprice)}</TableCell>
+                                        <TableCell className="text-sm font-semibold">{fmt(t.totalamount)}</TableCell>
+                                        <TableCell className="text-sm">{t.customername || '—'}</TableCell>
+                                        <TableCell className="text-xs">{PMETHODS[t.paymentmethod as keyof typeof PMETHODS] ?? '—'}</TableCell>
+                                        <TableCell>
                                             <Button variant="ghost" size="icon" onClick={() => setToDelete({ type: 'transaction', id: t.transactionid })}>
-                                                <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                                                <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -556,6 +575,7 @@ export default function PoolPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        <Pagination page={pageHistory} totalPages={totalPagesHistory} total={transactions.length} pageSize={PAGE_SIZE} label="transaction" onChange={setPageHistory} />
                     </div>
                 </div>
             )}

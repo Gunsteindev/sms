@@ -13,6 +13,7 @@ export interface SessionUser {
   name:     string;
   role:     string;   // human-readable role name
   userrole: number;   // numeric role — used for access checks
+  schoolId?: string;
 }
 
 export async function createSessionToken(user: SessionUser): Promise<string> {
@@ -32,6 +33,7 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
       name:     payload.name      as string,
       role:     payload.role      as string,
       userrole: (payload.userrole as number) ?? 1,
+      schoolId: payload.schoolId as string | undefined,
     };
   } catch {
     return null;

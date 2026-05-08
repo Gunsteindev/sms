@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -14,10 +14,13 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Pagination } from '@/components/ui/Pagination';
 import { activitiesAPI } from '@/lib/api-client';
 import { exportToCSV } from '@/lib/csv';
 import type { Activity as ActivityType } from '@/lib/dataverse/activities';
 
+const PAGE_SIZE = 10;
 const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
 
 const CAT: Record<number, string>  = { 1: 'Sports', 2: 'Arts', 3: 'Music', 4: 'Drama', 5: 'Science', 6: 'Academic', 7: 'Cultural', 8: 'Other' };
@@ -155,6 +158,7 @@ export default function ActivitiesPage() {
     const [loading, setLoading]   = useState(true);
     const [search, setSearch]     = useState('');
     const [catFilter, setCat]     = useState('');
+    const [page, setPage]         = useState(1);
     const [modalOpen, setOpen]    = useState(false);
     const [editing, setEditing]   = useState<ActivityType | null>(null);
     const [toDelete, setToDelete] = useState<string | null>(null);
@@ -170,6 +174,7 @@ export default function ActivitiesPage() {
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [search, catFilter]);
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase();
@@ -178,6 +183,9 @@ export default function ActivitiesPage() {
             (!q || `${a.name} ${a.coordinator} ${a.venue}`.toLowerCase().includes(q))
         );
     }, [search, catFilter, items]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const active    = items.filter(a => a.status === 1).length;
     const totalCap  = items.reduce((s, a) => s + (a.capacity || 0), 0);
@@ -208,8 +216,8 @@ export default function ActivitiesPage() {
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Activities</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">{items.length} extracurricular activit{items.length !== 1 ? 'ies' : 'y'}</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Activities</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{items.length} extracurricular activit{items.length !== 1 ? 'ies' : 'y'}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -238,9 +246,9 @@ export default function ActivitiesPage() {
                                 <c.Icon className={`h-5 w-5 ${c.icon_c}`} />
                             </div>
                             <div>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{c.value}</p>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{c.label}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">{c.sub}</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{c.value}</p>
+                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{c.label}</p>
+                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{c.sub}</p>
                             </div>
                         </div>
                     </div>
@@ -249,7 +257,7 @@ export default function ActivitiesPage() {
 
             <div className="flex gap-3">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                     <Input placeholder="Search activities…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
                 </div>
                 <SelectRoot value={catFilter} onValueChange={v => setCat(v ?? '')}>
@@ -264,87 +272,84 @@ export default function ActivitiesPage() {
             {loading ? (
                 <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
             ) : !filtered.length ? (
-                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
                     <Activity className="h-10 w-10 mb-3 opacity-40" /><p className="text-sm">No activities found</p>
                 </div>
             ) : (
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-slate-800/40">
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Activity</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Category</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Coordinator</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Schedule</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Enrollment</th>
-                                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Status</th>
-                                <th className="px-4 py-3" />
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                            {filtered.map(a => {
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                {['Activity', 'Category', 'Coordinator', 'Schedule', 'Enrollment', 'Status', ''].map(h => (
+                                    <TableHead key={h}>{h}</TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginated.map(a => {
                                 const CatIcon = CAT_ICON[a.category] ?? Activity;
                                 const pct = a.capacity ? Math.min(100, Math.round((a.enrolled / a.capacity) * 100)) : 0;
                                 const full = a.capacity > 0 && a.enrolled >= a.capacity;
                                 return (
-                                    <tr key={a.activityid} className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="px-4 py-3">
+                                    <TableRow key={a.activityid}>
+                                        <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className={`rounded-lg p-1.5 ${CAT_COLOR[a.category]}`}>
                                                     <CatIcon className="h-3.5 w-3.5" />
                                                 </div>
-                                                <span className="font-medium text-gray-900 dark:text-gray-100">{a.name}</span>
+                                                <span className="font-medium text-slate-900 dark:text-slate-100">{a.name}</span>
                                             </div>
-                                            {a.venue && <p className="text-xs text-gray-400 mt-0.5 pl-8">{a.venue}</p>}
-                                        </td>
-                                        <td className="px-4 py-3">
+                                            {a.venue && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 pl-8">{a.venue}</p>}
+                                        </TableCell>
+                                        <TableCell>
                                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${CAT_COLOR[a.category]}`}>
                                                 <CatIcon className="h-3 w-3" />{CAT[a.category] ?? '—'}
                                             </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{a.coordinator || '—'}</td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell className="text-slate-700 dark:text-slate-300">{a.coordinator || '—'}</TableCell>
+                                        <TableCell>
                                             {a.day ? (
-                                                <div className="text-gray-700 dark:text-gray-300">
+                                                <div className="text-slate-700 dark:text-slate-300">
                                                     <span className="font-medium">{DAY[a.day]}</span>
-                                                    {a.starttime && <span className="text-xs text-gray-400 ml-1.5">{a.starttime}{a.endtime ? `–${a.endtime}` : ''}</span>}
+                                                    {a.starttime && <span className="text-xs text-slate-400 dark:text-slate-500 ml-1.5">{a.starttime}{a.endtime ? `–${a.endtime}` : ''}</span>}
                                                 </div>
                                             ) : '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell>
                                             {a.capacity > 0 ? (
                                                 <div className="w-28">
-                                                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
                                                         <span>{a.enrolled}/{a.capacity}</span>
                                                         <span>{pct}%</span>
                                                     </div>
-                                                    <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+                                                    <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                                                         <div className={`h-full rounded-full transition-all ${full ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
                                                     </div>
                                                     {full && <p className="text-xs text-red-500 mt-0.5">Full</p>}
                                                 </div>
-                                            ) : <span className="text-gray-400 text-xs">No limit</span>}
-                                        </td>
-                                        <td className="px-4 py-3">
+                                            ) : <span className="text-slate-400 dark:text-slate-500 text-xs">No limit</span>}
+                                        </TableCell>
+                                        <TableCell>
                                             <Badge variant={a.status === 1 ? 'default' : 'secondary'}>
                                                 {a.status === 1 ? 'Active' : 'Inactive'}
                                             </Badge>
-                                        </td>
-                                        <td className="px-4 py-3">
+                                        </TableCell>
+                                        <TableCell>
                                             <div className="flex items-center gap-1 justify-end">
                                                 <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setOpen(true); }}>
-                                                    <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                                                    <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                                                 </Button>
                                                 <Button variant="ghost" size="icon" onClick={() => setToDelete(a.activityid)}>
-                                                    <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                                                    <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                                                 </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 );
                             })}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="activity" onChange={setPage} />
                 </div>
             )}
 

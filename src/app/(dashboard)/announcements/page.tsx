@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { DatePicker } from '@/components/ui/date-picker';
 
@@ -79,7 +79,7 @@ function AnnouncementForm({ defaultValues, onSubmit, onCancel }: {
                 </F>
                 <div className="flex items-end pb-1">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" {...register('ispinned')} className="h-4 w-4 rounded border-gray-300 text-blue-600" />
+                        <input type="checkbox" {...register('ispinned')} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
                         <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">Pin to top</span>
                     </label>
                 </div>
@@ -163,33 +163,33 @@ export default function AnnouncementsPage() {
         const AudIcon = AUDIENCE_ICON[a.audience] ?? Users;
         const isExpired = a.expirydate && new Date(a.expirydate) < new Date();
         return (
-            <div className={`relative rounded-xl border bg-white dark:bg-slate-900 p-5 shadow-sm transition-shadow hover:shadow-md ${a.ispinned ? 'border-blue-200 dark:border-blue-800' : 'border-gray-200 dark:border-gray-700'}`}>
+            <div className={`relative rounded-xl border bg-white dark:bg-slate-900 p-5 shadow-sm transition-shadow hover:shadow-md ${a.ispinned ? 'border-blue-200 dark:border-blue-800' : 'border-slate-200 dark:border-slate-800'}`}>
                 {a.ispinned && <div className="absolute inset-x-0 top-0 h-1 rounded-t-xl bg-blue-500" />}
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                             {a.ispinned && <Pin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
-                            <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{a.name}</h3>
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-snug">{a.name}</h3>
                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${AUDIENCE_COLOR[a.audience]}`}>
                                 <AudIcon className="h-3 w-3" />{AUDIENCE[a.audience]}
                             </span>
                             {isExpired && <Badge variant="destructive">Expired</Badge>}
                         </div>
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{a.message}</p>
-                        <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{a.message}</p>
+                        <div className="mt-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
                             <span>Posted {a.publishdate ? new Date(a.publishdate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
                             {a.expirydate && <span>· Expires {new Date(a.expirydate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
                         </div>
                     </div>
                     <div className="flex flex-col gap-1 flex-shrink-0">
                         <Button variant="ghost" size="icon" title={a.ispinned ? 'Unpin' : 'Pin'} onClick={() => togglePin(a)}>
-                            {a.ispinned ? <PinOff className="h-4 w-4 text-blue-500" /> : <Pin className="h-4 w-4 text-gray-400 hover:text-blue-500" />}
+                            {a.ispinned ? <PinOff className="h-4 w-4 text-blue-500" /> : <Pin className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-500" />}
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(a); setModalOpen(true); }}>
-                            <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                            <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => setToDelete(a.announcementid)}>
-                            <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                            <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                         </Button>
                     </div>
                 </div>
@@ -201,8 +201,8 @@ export default function AnnouncementsPage() {
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Announcements</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">{items.length} announcement{items.length !== 1 ? 's' : ''}</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Announcements</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{items.length} announcement{items.length !== 1 ? 's' : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -216,7 +216,7 @@ export default function AnnouncementsPage() {
 
             <div className="flex gap-3">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                     <Input placeholder="Search announcements…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
                 </div>
                 <SelectRoot value={audFilter} onValueChange={v => setAudFilter(v ?? '')}>
@@ -231,7 +231,7 @@ export default function AnnouncementsPage() {
             {loading ? (
                 <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
             ) : !filtered.length ? (
-                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
                     <Megaphone className="h-10 w-10 mb-3 opacity-40" /><p className="text-sm">No announcements found</p>
                 </div>
             ) : (
@@ -246,7 +246,7 @@ export default function AnnouncementsPage() {
                     )}
                     {unpinned.length > 0 && (
                         <div className="space-y-3">
-                            {pinned.length > 0 && <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">All Announcements</p>}
+                            {pinned.length > 0 && <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">All Announcements</p>}
                             {unpinned.map(a => <Card key={a.announcementid} a={a} />)}
                         </div>
                     )}

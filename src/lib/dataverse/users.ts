@@ -17,6 +17,8 @@ export interface SmsUser {
     isactive:      boolean;
     relatedrecord: string | null;
     createdon:     string;
+    // multi-tenancy: the school this user belongs to
+    schoolid?:     string;
 }
 
 export const USER_ROLES: Record<number, string> = {
@@ -48,7 +50,8 @@ export interface UpdateUserRequest {
 }
 
 const TABLE           = 'sms_users';
-const SELECT          = 'sms_userid,sms_name,sms_email,sms_userrole,sms_isactive,sms_relatedrecord,createdon';
+// _sms_school_value is the lookup GUID for multi-tenancy
+const SELECT          = 'sms_userid,sms_name,sms_email,sms_userrole,sms_isactive,sms_relatedrecord,createdon,_sms_school_value';
 const SELECT_WITH_PWD = SELECT + ',sms_password';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,6 +66,7 @@ function mapUser(item: any): SmsUser {
         isactive:      item.sms_isactive       ?? false,
         relatedrecord: item.sms_relatedrecord  ?? null,
         createdon:     item.createdon          ?? '',
+        schoolid:      item._sms_school_value  ?? undefined,
     };
 }
 

@@ -200,8 +200,8 @@ export default function EmployeesPage() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{employees.length} employee{employees.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold text-slate-900">Employees</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{employees.length} employee{employees.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -230,54 +230,54 @@ export default function EmployeesPage() {
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
         <Input placeholder="Search employees…" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>
       ) : !filtered.length ? (
-        <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+        <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
           <Briefcase className="h-10 w-10 mb-3 opacity-40" /><p className="text-sm">No employees found</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
           <Table className="w-full text-sm">
             <TableHeader>
-              <TableRow className="border-b border-gray-100 bg-gray-50/60">
+              <TableRow className="border-b border-slate-100 bg-slate-50/60">
                 {['Employee','Code','Department','Designation','Type','Status',''].map((h) => (
-                  <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">{h}</TableHead>
+                  <TableHead key={h}>{h}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-gray-100">
+            <TableBody className="divide-y divide-slate-100">
               {paginated.map((e) => {
                 const status = STATUS[e.statuscode] ?? { label: 'Unknown', variant: 'default' as const };
                 return (
                   <TableRow key={e.employeeid} className="hover:bg-blue-50/30 transition-colors">
-                    <TableCell className="px-4 py-3">
+                    <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-100 text-xs font-semibold text-pink-700">
                           {e.firstname[0]}{e.lastname[0]}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{e.firstname} {e.lastname}</p>
-                          <p className="text-xs text-gray-400">{e.emailaddress1}</p>
+                          <p className="font-medium text-slate-900">{e.firstname} {e.lastname}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500">{e.emailaddress1}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 font-mono text-xs">{e.employeecode}</TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500">{e.department}</TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500">{e.designation}</TableCell>
-                    <TableCell className="px-4 py-3 text-gray-500 text-xs">{EMP_TYPE[e.employeetype] ?? '—'}</TableCell>
-                    <TableCell className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></TableCell>
-                    <TableCell className="px-4 py-3">
+                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">{e.employeecode}</TableCell>
+                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.department}</TableCell>
+                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400">{e.designation}</TableCell>
+                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{EMP_TYPE[e.employeetype] ?? '—'}</TableCell>
+                    <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                    <TableCell>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(e); setModalOpen(true); }}>
-                          <Pencil className="h-4 w-4 text-gray-400 hover:text-blue-600" />
+                          <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-blue-600" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => setToDelete(e.employeeid)}>
-                          <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
+                          <Trash2 className="h-4 w-4 text-slate-400 dark:text-slate-500 hover:text-red-500" />
                         </Button>
                       </div>
                     </TableCell>

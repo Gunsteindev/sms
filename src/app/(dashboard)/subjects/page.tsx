@@ -337,11 +337,11 @@ export default function SubjectsPage() {
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Subject', 'Code', 'Type', 'Grade Level', 'Teacher', 'Hrs', 'Pass', ''].map(h => (
-                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                                    <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        <TableBody>
                             {paginated.map(s => (
                                 <TableRow key={s.subjectid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                                     {/* Subject name */}

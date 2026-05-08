@@ -422,14 +422,14 @@ export default function TimetablePage() {
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Day', 'Period', 'Time', 'Subject', 'Class', 'Teacher', 'Room', ''].map(h => (
-                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                                    <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        <TableBody>
                             {paginated.map(r => (
                                 <TableRow key={r.timetableid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                                    <TableCell className="px-4 py-3">
+                                    <TableCell>
                                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             {DAYS_OF_WEEK[r.dayofweek] ?? r.dayofweekname}
                                         </span>
@@ -440,7 +440,7 @@ export default function TimetablePage() {
                                     <TableCell className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">
                                         {r.starttime}–{r.endtime}
                                     </TableCell>
-                                    <TableCell className="px-4 py-3">
+                                    <TableCell>
                                         {r.subjectname
                                             ? <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium border ${subjectColor(r.subjectname)}`}>{r.subjectname}</span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
@@ -451,14 +451,14 @@ export default function TimetablePage() {
                                     <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
                                         {r.teachername || <span className="text-slate-400 dark:text-slate-600">—</span>}
                                     </TableCell>
-                                    <TableCell className="px-4 py-3">
+                                    <TableCell>
                                         {r.roomnumber
                                             ? <span className="inline-flex items-center gap-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
                                                 <DoorOpen className="h-3 w-3" />{r.roomnumber}
                                               </span>
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                     </TableCell>
-                                    <TableCell className="px-4 py-3">
+                                    <TableCell>
                                         <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Button variant="ghost" size="icon" onClick={() => openEdit(r)}
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">

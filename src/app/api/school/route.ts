@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSchoolProfile, createSchool, updateSchool } from '@/lib/dataverse/school';
-import { parseBody, serverError } from '@/lib/api-guard';
+import { getSchoolProfile, getSchoolById, updateSchool } from '@/lib/dataverse/school';
+import { parseBody, serverError, getSession } from '@/lib/api-guard';
 
 const upsertSchema = z.object({
     name:      z.string().min(1, 'School name is required'),
@@ -16,12 +16,17 @@ const upsertSchema = z.object({
     emiscode:  z.string().optional(),
     district:  z.string().optional(),
     region:    z.string().optional(),
-    logo:      z.string().optional(),
+    logo:         z.string().optional(),
+    primarycolor: z.string().optional(),
+    sidebarcolor: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const data = await getSchoolProfile();
+        const session = await getSession(request);
+        const data = session?.schoolId
+            ? await getSchoolById(session.schoolId)
+            : await getSchoolProfile();
         return NextResponse.json({ success: true, data });
     } catch (error) {
         return serverError(error);
@@ -30,15 +35,21 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
     try {
+        const session = await getSession(request);
         const parsed = await parseBody(request, upsertSchema);
         if ('response' in parsed) return parsed.response;
 
-        // Upsert: update if a school record exists, create otherwise
-        const existing = await getSchoolProfile();
-        const data = existing
-            ? await updateSchool(existing.schoolid, parsed.data)
-            : await createSchool(parsed.data);
+        // Resolve which school to update: prefer session schoolId, fall back to first record
+        let schoolId = session?.schoolId;
+        if (!schoolId) {
+            const existing = await getSchoolProfile();
+            schoolId = existing?.schoolid;
+        }
+        if (!schoolId) {
+            return NextResponse.json({ success: false, error: 'No school found to update' }, { status: 404 });
+        }
 
+        const data = await updateSchool(schoolId, parsed.data);
         return NextResponse.json({ success: true, data, message: 'School profile saved' });
     } catch (error) {
         return serverError(error);

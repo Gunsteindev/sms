@@ -205,8 +205,8 @@ export default function FeePaymentsPage() {
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Fee Payments</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">{rows.length} record{rows.length !== 1 ? 's' : ''}</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Fee Payments</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{rows.length} record{rows.length !== 1 ? 's' : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -232,7 +232,7 @@ export default function FeePaymentsPage() {
             </div>
 
             <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <Input placeholder="Search by student, fee or receipt…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
 
@@ -241,49 +241,49 @@ export default function FeePaymentsPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
                 </div>
             ) : !filtered.length ? (
-                <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
                     <CreditCard className="h-10 w-10 mb-3 opacity-40" />
                     <p className="text-sm">No fee payments found</p>
                 </div>
             ) : (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
                     <Table className="w-full text-sm">
                         <TableHeader>
-                            <TableRow className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-left">
+                            <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 text-left">
                                 {['Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Receipt', 'Status', 'Actions'].map(h => (
-                                    <TableHead key={h} className="px-4 py-3 font-medium text-gray-600 dark:text-gray-300">{h}</TableHead>
+                                    <TableHead key={h} className="px-4 py-3 font-medium text-slate-600 dark:text-slate-300">{h}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        <TableBody>
                             {paginated.map(r => (
-                                <TableRow key={r.feepaymentid} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                    <TableCell className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                                <TableRow key={r.feepaymentid} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                    <TableCell className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                                         <div className="flex items-center gap-2">
                                             <CreditCard className="h-4 w-4 text-green-500 flex-shrink-0" />
                                             {r.studentname || '—'}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="px-4 py-3 text-gray-600 dark:text-gray-300">{r.feestructurename || '—'}</TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300">{r.feestructurename || '—'}</TableCell>
                                     <TableCell className="px-4 py-3 font-mono font-semibold text-green-600 dark:text-green-400">{formatCurrency(r.amount)}</TableCell>
-                                    <TableCell className="px-4 py-3 text-gray-500 font-mono text-xs">{formatDate(r.paymentdate)}</TableCell>
-                                    <TableCell className="px-4 py-3 text-gray-500 text-xs">{PAYMENT_METHODS[r.paymentmethod] ?? '—'}</TableCell>
-                                    <TableCell className="px-4 py-3 text-gray-400 font-mono text-xs">{r.receiptnumber || '—'}</TableCell>
-                                    <TableCell className="px-4 py-3">
+                                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">{formatDate(r.paymentdate)}</TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{PAYMENT_METHODS[r.paymentmethod] ?? '—'}</TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono text-xs">{r.receiptnumber || '—'}</TableCell>
+                                    <TableCell>
                                         <Badge variant={STATUS_VARIANT[r.paymentstatus] ?? 'default'}>
                                             {PAYMENT_STATUS[r.paymentstatus] ?? 'Unknown'}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="px-4 py-3">
+                                    <TableCell>
                                         <div className="flex gap-1">
                                             <Button variant="ghost" size="icon" title="Print receipt" onClick={() => setReceiptData(r)}>
-                                                <Printer className="h-3.5 w-3.5 text-gray-400" />
+                                                <Printer className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                                             </Button>
                                             <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setModalOpen(true); }}>
-                                                <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                                                <Pencil className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                                             </Button>
                                             <Button variant="ghost" size="icon" onClick={() => setToDelete(r.feepaymentid)}>
-                                                <Trash2 className="h-3.5 w-3.5 text-gray-400" />
+                                                <Trash2 className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                                             </Button>
                                         </div>
                                     </TableCell>

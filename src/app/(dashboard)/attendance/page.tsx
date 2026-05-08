@@ -381,7 +381,7 @@ export default function AttendancePage() {
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                                 {['Student', 'Date', 'Status', 'Check-in', 'Class', 'Remarks', ''].map(h => (
-                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                                    <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>

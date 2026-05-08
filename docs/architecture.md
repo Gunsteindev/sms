@@ -8,7 +8,7 @@ Browser
   ├── src/lib/api-client.ts        (axios, baseURL: /api)
   │
   ▼
-src/proxy.ts                       (route guard — checks JWT session cookie)
+src/proxy.ts                       (route guard — verifies JWT, injects x-school-id header)
   │
   ▼
 src/app/api/**/*.ts                (Next.js Route Handlers, server-side)
@@ -16,7 +16,7 @@ src/app/api/**/*.ts                (Next.js Route Handlers, server-side)
   ├── src/lib/api-guard.ts         (Zod body validation + error helpers)
   │
   ▼
-src/lib/dataverse/*.ts             (OData REST calls)
+src/lib/dataverse/*.ts             (OData REST calls — auto-scoped to active school)
   │
   ▼
 Microsoft Dataverse                (Azure AD client credentials OAuth2)
@@ -29,12 +29,13 @@ Microsoft Dataverse                (Azure AD client credentials OAuth2)
 Next.js 16 uses `proxy.ts` (replacing the deprecated `middleware.ts`). The exported function must be named `proxy`.
 
 Runs before every matched request. Logic:
-1. If path is public (`/auth/login`, `/api/auth/*`, `/api/health`) → pass through
+
+1. If path is public (`/auth/login`, `/api/auth/*`, `/api/health`, `/onboarding`) → pass through
 2. Read `sms.session` cookie
 3. Verify JWT with `verifySessionToken()`
 4. Unauthenticated API call → `401 { success: false, error: "Unauthorized" }`
 5. Unauthenticated page → redirect to `/auth/login?callbackUrl=<original>`
-6. Authenticated → pass through
+6. Authenticated → decode JWT, inject `x-school-id: <schoolId>` header, pass through
 
 ```typescript
 // src/proxy.ts
@@ -47,37 +48,54 @@ export const config = {
 
 ### `src/lib/session.ts` — JWT Tokens
 
-Handles JWT creation and verification using the `jose` library.
-
 - **Cookie name**: `sms.session`
 - **Algorithm**: HS256
 - **Lifetime**: 24 hours
 - **Secret priority**: `AUTH_SECRET` → `NEXTAUTH_SECRET` → `'dev-fallback-change-in-prod'`
-- **Payload**: `{ email, name, role }`
+- **Payload**: `{ userid, email, name, role, userrole, schoolId }`
 
 ```typescript
 createSessionToken(user: SessionUser): Promise<string>
 verifySessionToken(token: string): Promise<SessionUser | null>
 ```
 
-### `src/lib/api-guard.ts` — Route Handler Utilities
+### `src/lib/dataverse/tenant.ts` — Multi-Tenancy
 
-Used by every API route handler to provide consistent validation and error handling:
+`AsyncLocalStorage`-based school ID resolver. Every request that hits a route handler is wrapped in `withTenant(schoolId, fn)` so the school ID is available to all nested Dataverse calls without passing it explicitly.
+
+```typescript
+withTenant(schoolId: string, fn: () => Promise<T>): Promise<T>
+getTenantId(): string | undefined
+```
+
+`registerTenantResolver(getTenantId)` connects this to `DataverseClient` at startup without importing `async_hooks` into the client bundle.
+
+### `src/lib/dataverse/client.ts` — Dataverse Client
+
+Singleton `DataverseClient` (axios). On every GET request it:
+1. Auto-attaches a Bearer token from `auth.ts` (cached, refreshed 5 min before expiry)
+2. Reads `getTenantId()` from the tenant resolver
+3. Automatically appends `$filter=_sms_school_value eq '<schoolId>'` to every query
+
+> **Exception**: `sms_schools` is the root entity and does not have `_sms_school_value`. Route handlers that read the school profile must call `getSchoolById(session.schoolId)` explicitly — do not rely on the auto-filter.
+
+### `src/lib/api-guard.ts` — Route Handler Utilities
 
 | Export | Description |
 |--------|-------------|
 | `parseBody(req, schema)` | Parses JSON body and validates against a Zod schema. Returns `{ data }` or `{ response }` |
-| `serverError(error)` | Returns 500 — full message in development, generic message in production |
-| `badRequest(msg)` | Returns 400 with the given message |
+| `serverError(error)` | Returns 500 — full message in development, generic in production |
+| `badRequest(msg)` | Returns 400 |
 | `unauthorized()` | Returns 401 |
-| `getSession(req)` | Reads and verifies the JWT cookie (for role-based logic beyond what the proxy handles) |
+| `getSession(req)` | Reads and verifies the JWT cookie (for role-based logic) |
 
 Usage pattern in every route handler:
+
 ```typescript
 export async function POST(request: NextRequest) {
     try {
         const parsed = await parseBody(request, schema);
-        if ('response' in parsed) return parsed.response;  // validation failed
+        if ('response' in parsed) return parsed.response;
         const data = await createEntity(parsed.data);
         return NextResponse.json({ success: true, data }, { status: 201 });
     } catch (error) {
@@ -88,32 +106,47 @@ export async function POST(request: NextRequest) {
 
 ### `src/lib/dataverse/` — Data Access Layer
 
-Server-only. Each file follows a standard pattern:
+Server-only. One module per entity. Standard pattern:
 
 ```typescript
-const TABLE = 'sms_<entityname>';
-const SELECT = ['sms_field1', 'sms_field2', ...];
+const TABLE  = 'sms_<entityname>';
+const SELECT = 'sms_field1,sms_field2,...';
 
-function mapEntity(item: Record<string, unknown>): Entity { ... }
+function mapEntity(item: any): Entity { ... }
 
-export const getEntities = async (filters?) => { ... }  // returns { items, totalCount }
-export const getEntityById = async (id: string) => { ... }
-export const createEntity = async (data: CreateRequest) => { ... }
-export const updateEntity = async (id: string, data: Partial<CreateRequest>) => { ... }
-export const deleteEntity = async (id: string) => { ... }
+export const getEntities    = async (filters?) => { ... }
+export const getEntityById  = async (id: string) => { ... }
+export const createEntity   = async (data: CreateRequest) => { ... }
+export const updateEntity   = async (id: string, data: Partial<CreateRequest>) => { ... }
+export const deleteEntity   = async (id: string): Promise<void> => { ... }
 ```
 
-The singleton `dataverseClient` in `client.ts` auto-attaches an Azure AD Bearer token. Tokens are cached and refreshed 5 minutes before expiry.
+School binding on write: `'sms_school@odata.bind': \`/sms_schools(\${schoolId})\``
 
 ### `src/lib/api-client.ts` — Frontend API Wrapper
 
-Axios instance with `baseURL: /api`. Exports a named object per resource. All methods are async and return the `data` field from the API response.
+Axios instance with `baseURL: /api`. Exports a named object per resource.
 
 ```typescript
-import { studentsAPI, gradesAPI, attendanceAPI } from '@/lib/api-client';
+import { studentsAPI, gradesAPI, attendanceAPI, schoolAPI } from '@/lib/api-client';
 
 const result = await studentsAPI.getAll({ search: 'John', classid: '...' });
-const grade  = await gradesAPI.create({ studentid, subjectid, score: 85, ... });
+await schoolAPI.switchSchool(schoolId);
+```
+
+Full list of exported API objects: `studentsAPI`, `teachersAPI`, `employeesAPI`, `parentsAPI`, `classesAPI`, `subjectsAPI`, `departmentsAPI`, `attendanceAPI`, `gradesAPI`, `examsAPI`, `enrollmentsAPI`, `feesAPI`, `feesPaymentAPI`, `feeStructuresAPI`, `feeTypesAPI`, `scholarshipsAPI`, `promotionsAPI`, `timetableAPI`, `libraryAPI`, `inventoryAPI`, `transportAPI`, `poolAPI`, `staffLeaveAPI`, `activitiesAPI`, `announcementsAPI`, `disciplinaryAPI`, `healthAPI`, `reportsAPI`, `dashboardAPI`, `schoolAPI`, `usersAPI`, `academicYearsAPI`, `termsAPI`, `gradeLevelsAPI`.
+
+### `src/contexts/BrandContext.tsx` — Per-School Branding
+
+Client-side context fetched from `GET /api/school` on mount. Provides:
+- `colors { primary, sidebar }` — applied as CSS variables `--school-primary`, `--school-sidebar`, `--primary`, `--ring`
+- `school { name, motto, logo }` — displayed in the sidebar top section
+
+Cached in `localStorage` under `sms-brand-colors` and `sms-brand-school`. Export `BRAND_SCHOOL_KEY` and clear it before redirecting after a school switch to prevent stale data flashing:
+
+```typescript
+localStorage.removeItem(BRAND_SCHOOL_KEY);
+window.location.replace('/dashboard');
 ```
 
 ## Page Structure
@@ -125,19 +158,19 @@ All authenticated pages live in `src/app/(dashboard)/`. The layout (`layout.tsx`
 ```
 
 Each page follows this pattern:
-1. `useState` for rows, loading state, modal open/closed, the item being edited, the item pending deletion
-2. `load()` async function that calls the API and sets state
-3. `useEffect(() => { load() }, [])` to fetch on mount
+1. `useState` for rows, loading state, modal open/closed, editing item, deletion target
+2. `load()` async function calling the API
+3. `useEffect(() => { load() }, [])` on mount
 4. `useMemo` for client-side filtering and pagination
-5. A table with Edit + Delete action buttons
-6. A `Dialog` containing the form (shared Add/Edit)
-7. A `ConfirmDialog` for delete confirmation
+5. Table with Edit + Delete actions
+6. `Dialog` with shared Add/Edit form
+7. `ConfirmDialog` for delete confirmation
 
 ## Form Pattern
 
-All forms use react-hook-form + Zod:
-
 ```tsx
+const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
+
 const { register, control, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: editing ? { ...editing } : {},
@@ -146,13 +179,12 @@ const { register, control, handleSubmit, formState: { errors } } = useForm<FormD
 
 - `register(...)` for `Input`, `Textarea`, checkbox
 - `<Controller>` for `SelectRoot` and `DatePicker`
-- Two-section layout: plain div for primary fields + styled card for relational fields
+- Two-section layout: plain div for primary fields + card div for relational/lookup fields
 
 ```tsx
-// Card section for lookups/relations
 <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 p-4 space-y-4">
   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Section Name</p>
-  {/* SelectRoot fields here */}
+  {/* SelectRoot fields */}
 </div>
 ```
 
@@ -161,14 +193,16 @@ const { register, control, handleSubmit, formState: { errors } } = useForm<FormD
 ```
 1. User submits email + password at /auth/login
 2. POST /api/auth/login
-3. Server compares against ADMIN_EMAIL + ADMIN_PASSWORD
-4. On match: creates JWT (jose SignJWT, HS256, 24h)
-5. Sets httpOnly cookie: sms.session=<token>
-6. Returns { ok: true }
-7. Client redirects to /dashboard
+3a. Bootstrap check: email+password matches ADMIN_EMAIL/ADMIN_PASSWORD env vars
+    → createSessionToken({ userid: 'bootstrap', schoolId: undefined })
+3b. Dataverse user check: getUserForAuth(email) → bcrypt.compare(password, hash)
+    → createSessionToken({ userid, email, name, role, userrole, schoolId })
+4. JWT signed (HS256, 24 h), set as httpOnly cookie sms.session
+5. Returns { ok: true }
+6. Client redirects to /dashboard (or /onboarding if no schoolId)
 
-8. Every subsequent request:
-   src/proxy.ts reads cookie → verifies JWT → allows or blocks
+7. Every subsequent request:
+   proxy.ts reads cookie → verifies JWT → injects x-school-id header → allows or blocks
 ```
 
 ## Security Model
@@ -176,9 +210,19 @@ const { register, control, handleSubmit, formState: { errors } } = useForm<FormD
 | Concern | Implementation |
 |---------|---------------|
 | Route protection | `src/proxy.ts` — all routes except public paths require valid JWT |
-| API protection | Middleware returns 401 before route handler runs |
-| Input validation | Zod schemas in every POST/PUT route handler |
+| API protection | Proxy returns 401 before route handler runs |
+| Input validation | Zod schemas in every POST/PUT route handler via `parseBody` |
 | Error sanitisation | `serverError()` returns generic message in production |
 | Secret storage | Environment variables only — never in code |
-| Token security | httpOnly cookie (not accessible via JavaScript), sameSite: lax |
-| Dataverse access | Server-side only via Azure AD client credentials — credentials never reach the browser |
+| Token security | httpOnly cookie (JS-inaccessible), sameSite: lax |
+| Dataverse access | Server-side only via Azure AD credentials — never reach the browser |
+| Tenant isolation | `_sms_school_value` filter injected on every OData query |
+| Password hashing | bcrypt (12 rounds) for all Dataverse user accounts |
+
+## Adding a New API Route
+
+1. Create `src/lib/dataverse/<entity>.ts` — TABLE const, SELECT string, map function, CRUD exports. Include `_sms_school_value` in SELECT if the table supports it.
+2. Create `src/app/api/<entity>/route.ts` — `parseBody` + Zod schema + `serverError`.
+3. Create `src/app/api/<entity>/[id]/route.ts` — GET/PUT/DELETE with `serverError`.
+4. Add named API object to `src/lib/api-client.ts`.
+5. `npm run build` must pass with zero TypeScript errors.

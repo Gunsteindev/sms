@@ -288,21 +288,21 @@ export default function TeachersPage() {
           <div className="overflow-x-auto">
             <Table className="w-full text-sm">
               <TableHeader>
-                <TableRow className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                <TableRow>
                   {['Teacher', 'Specialization', 'Class', 'Hired', 'Status', ''].map((h) => (
-                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <TableHead key={h}>
                       {h}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <TableBody>
                 {paginated.map((t) => {
                   const fullName = `${t.firstname} ${t.lastname}`;
                   const status = STATUS[t.statuscode] ?? { label: 'Unknown', variant: 'default' as const };
                   return (
-                    <TableRow key={t.teacherid} className="hover:bg-blue-50/30 dark:hover:bg-slate-800/50 transition-colors">
-                      <TableCell className="px-4 py-3">
+                    <TableRow key={t.teacherid}>
+                      <TableCell>
                         <div className="flex items-center gap-3">
                           <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarColor(fullName)}`}>
                             {t.firstname?.[0]}{t.lastname?.[0]}
@@ -324,13 +324,13 @@ export default function TeachersPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell>
                         <p className="text-slate-700 dark:text-slate-300">{t.specialization || '—'}</p>
                         {t.qualification && (
                           <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t.qualification}</p>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell>
                         {t.classname ? (
                           <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                             <BookOpen className="h-3.5 w-3.5 text-slate-400" />{t.classname}
@@ -342,10 +342,10 @@ export default function TeachersPage() {
                       <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
                         {t.hiredate || '—'}
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </TableCell>
-                      <TableCell className="px-4 py-3">
+                      <TableCell>
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
                             <Pencil className="h-4 w-4 text-slate-400 hover:text-blue-600" />

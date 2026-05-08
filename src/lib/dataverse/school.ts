@@ -10,20 +10,22 @@ export type SchoolType  = 'ges' | 'cambridge' | 'ib' | 'american' | 'french' | '
 export type SchoolLevel = 'primary' | 'jhs' | 'shs' | 'international' | 'all';
 
 export interface SchoolProfile {
-    schoolid:  string;
-    name:      string;
-    motto:     string;
-    type:      SchoolType;
-    level:     SchoolLevel;
-    address:   string;
-    phone:     string;
-    email:     string;
-    currency:  string;
-    website:   string;
-    emiscode:  string;
-    district:  string;
-    region:    string;
-    logo:      string;   // base64 data URL, stored in sms_logo (multiline text)
+    schoolid:     string;
+    name:         string;
+    motto:        string;
+    type:         SchoolType;
+    level:        SchoolLevel;
+    address:      string;
+    phone:        string;
+    email:        string;
+    currency:     string;
+    website:      string;
+    emiscode:     string;
+    district:     string;
+    region:       string;
+    logo:         string;   // base64 data URL, stored in sms_logo (multiline text)
+    primarycolor: string;   // hex, e.g. #2563eb
+    sidebarcolor: string;   // hex, e.g. #0f172a
 }
 
 export interface SchoolBranch {
@@ -39,19 +41,21 @@ export interface SchoolBranch {
 }
 
 export interface UpsertSchoolRequest {
-    name:       string;
-    motto?:     string;
-    type?:      SchoolType;
-    level?:     SchoolLevel;
-    address?:   string;
-    phone?:     string;
-    email?:     string;
-    currency?:  string;
-    website?:   string;
-    emiscode?:  string;
-    district?:  string;
-    region?:    string;
-    logo?:      string;
+    name:          string;
+    motto?:        string;
+    type?:         SchoolType;
+    level?:        SchoolLevel;
+    address?:      string;
+    phone?:        string;
+    email?:        string;
+    currency?:     string;
+    website?:      string;
+    emiscode?:     string;
+    district?:     string;
+    region?:       string;
+    logo?:         string;
+    primarycolor?: string;
+    sidebarcolor?: string;
 }
 
 export interface CreateBranchRequest {
@@ -108,7 +112,9 @@ function mapSchool(item: any): SchoolProfile {
         emiscode: item.sms_emiscode ?? '',
         district: item.sms_district ?? '',
         region:   item.sms_region   ?? '',
-        logo:     item.sms_logo     ?? '',
+        logo:         item.sms_logo ?? '',
+        primarycolor: '',
+        sidebarcolor: '',
     };
 }
 
@@ -141,7 +147,7 @@ function buildSchoolPayload(data: Partial<UpsertSchoolRequest>): Record<string, 
     if (data.emiscode !== undefined) p.sms_emiscode = data.emiscode;
     if (data.district !== undefined) p.sms_district = data.district;
     if (data.region   !== undefined) p.sms_region   = data.region;
-    if (data.logo     !== undefined) p.sms_logo     = data.logo;
+    if (data.logo !== undefined) p.sms_logo = data.logo;
     return p;
 }
 
@@ -152,6 +158,21 @@ export const getSchoolProfile = async (): Promise<SchoolProfile | null> => {
     const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}?$select=${SCHOOL_SELECT}&$top=1`);
     const items = r.value ?? [];
     return items.length > 0 ? mapSchool(items[0]) : null;
+};
+
+export const getSchoolById = async (id: string): Promise<SchoolProfile | null> => {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}(${id})?$select=${SCHOOL_SELECT}`);
+        return mapSchool(r);
+    } catch { return null; }
+};
+
+export const getAllSchools = async (): Promise<SchoolProfile[]> => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}?$select=${SCHOOL_SELECT}&$orderby=sms_name asc`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (r.value ?? []).map((item: any) => mapSchool(item));
 };
 
 export const createSchool = async (data: UpsertSchoolRequest): Promise<SchoolProfile> => {

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { useSession } from '@/contexts/AuthContext';
+import { useBrand } from '@/contexts/BrandContext';
 
 // Role constants — must match src/lib/dataverse/users.ts
 const ADMIN     = 1;
@@ -29,6 +30,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
   const pathname = usePathname();
   const { t } = useI18n();
   const { data: session } = useSession();
+  const { school } = useBrand();
   const role = session?.user?.userrole ?? ADMIN;
 
   type NavItem = { href: string; label: string; icon: React.ElementType; exact?: boolean; roles?: number[] };
@@ -53,7 +55,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
         { href: '/setup/programme-tracks', label: t.nav.programmeTracks ?? 'Programme Tracks',  icon: BookMarked     },
         { href: '/setup/houses',           label: t.nav.houses          ?? 'Houses & Streams',  icon: Home           },
         { href: '/setup/fee-types',        label: t.nav.feeTypes        ?? 'Fee Types',         icon: DollarSign     },
-        { href: '/setup/users',            label: 'User Management',                            icon: UserCog        },
+        { href: '/setup/users',            label: t.nav.userManagement  ?? 'User Management',   icon: UserCog        },
       ],
     },
     {
@@ -74,7 +76,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
         { href: '/enrollments', label: t.nav.enrollments, icon: ClipboardList, roles: [ADMIN, TEACHER, FINANCE] },
         { href: '/attendance',  label: t.nav.attendance,  icon: Calendar,      roles: [ADMIN, TEACHER] },
         { href: '/exams',       label: t.nav.exams,       icon: FileText,      roles: [ADMIN, TEACHER] },
-        { href: '/gradebook',   label: 'Gradebook',       icon: BookOpenCheck, roles: [ADMIN, TEACHER] },
+        { href: '/gradebook',   label: t.nav.gradebook,   icon: BookOpenCheck, roles: [ADMIN, TEACHER] },
       ],
     },
     {
@@ -88,13 +90,13 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       label: t.nav.administration,
       items: [
         { href: '/departments',            label: t.nav.departments,                  icon: Building2,    roles: [ADMIN] },
-        { href: '/library',                label: t.nav.library,                      icon: Library,      roles: [ADMIN, INVENTORY] },
-        { href: '/inventory',              label: 'Inventory',                        icon: Package,      roles: [ADMIN, INVENTORY] },
-        { href: '/procurement',            label: 'Procurement',                      icon: ShoppingCart, roles: [ADMIN, FINANCE] },
-        { href: '/staff-leave',            label: 'Staff Leave',                      icon: CalendarOff,  roles: [ADMIN] },
-        { href: '/announcements',          label: 'Announcements',                    icon: Megaphone,    roles: [ADMIN, TEACHER, FINANCE] },
-        { href: '/transport',              label: 'Transport & Fleet',                icon: Bus,          roles: [ADMIN, TRANSPORT] },
-        { href: '/activities',             label: 'Activities',                       icon: Trophy,       roles: [ADMIN, TEACHER] },
+        { href: '/library',                label: t.nav.library,                                    icon: Library,      roles: [ADMIN, INVENTORY] },
+        { href: '/inventory',              label: t.nav.inventory    ?? 'Inventory',                icon: Package,      roles: [ADMIN, INVENTORY] },
+        { href: '/procurement',            label: t.nav.procurement  ?? 'Procurement',              icon: ShoppingCart, roles: [ADMIN, FINANCE] },
+        { href: '/staff-leave',            label: t.nav.staffLeave   ?? 'Staff Leave',              icon: CalendarOff,  roles: [ADMIN] },
+        { href: '/announcements',          label: t.nav.announcements ?? 'Announcements',           icon: Megaphone,    roles: [ADMIN, TEACHER, FINANCE] },
+        { href: '/transport',              label: t.nav.transport    ?? 'Transport & Fleet',        icon: Bus,          roles: [ADMIN, TRANSPORT] },
+        { href: '/activities',             label: t.nav.activities   ?? 'Activities',               icon: Trophy,       roles: [ADMIN, TEACHER] },
         { href: '/reports',                label: t.nav.reports,                      icon: BarChart3, exact: true, roles: [ADMIN, TEACHER, FINANCE] },
         { href: '/reports/report-card',    label: t.nav.reportCards ?? 'Report Cards',    icon: FileText,  roles: [ADMIN, TEACHER, FINANCE] },
         { href: '/reports/national-exams', label: t.nav.nationalExams ?? 'National Exams', icon: Medal,    roles: [ADMIN, TEACHER] },
@@ -109,17 +111,23 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       ],
     },
     {
-      label: 'Pool Management',
+      label: t.nav.poolManagement ?? 'Pool Management',
       roles: [ADMIN, POOL, KITCHEN],
       items: [
-        { href: '/pool', label: 'Swimming Pool', icon: Waves, roles: [ADMIN, POOL, KITCHEN] },
+        { href: '/pool', label: t.nav.swimmingPool ?? 'Swimming Pool', icon: Waves, roles: [ADMIN, POOL, KITCHEN] },
       ],
     },
     {
-      label: 'Parent Portal',
+      label: t.nav.parentPortal ?? 'Parent Portal',
       roles: [PARENT],
       items: [
-        { href: '/portal', label: 'Notices & Updates', icon: Bell, roles: [PARENT] },
+        { href: '/portal', label: t.nav.portal ?? 'Notices & Updates', icon: Bell, roles: [PARENT] },
+      ],
+    },
+    {
+      label: null,
+      items: [
+        { href: '/docs', label: t.nav.docs ?? 'Help & Docs', icon: BookOpen },
       ],
     },
   ];
@@ -131,29 +139,80 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
     !item.roles || item.roles.includes(role);
 
   return (
-    <aside className={`fixed left-0 top-0 z-40 h-screen flex flex-col bg-slate-900 dark:bg-slate-950 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
+    <aside
+      className={`fixed left-0 top-0 z-40 h-screen flex flex-col transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}
+      style={{ backgroundColor: 'var(--school-sidebar)' }}
+    >
 
-      {/* Logo + toggle */}
-      <div className={`flex items-center h-16 border-b border-slate-800 flex-shrink-0 ${collapsed ? 'justify-center px-0' : 'justify-between px-4'}`}>
+      {/* Logo + school name + toggle */}
+      <div className={`flex items-center border-b border-slate-800 flex-shrink-0 ${collapsed ? 'h-16 justify-center px-0' : 'min-h-[4rem] justify-between px-4 py-3'}`}>
         {!collapsed && (
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-900/40">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Logo: school logo image, or initial avatar, or fallback icon */}
+            {school.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={school.logo}
+                alt={school.name || 'School logo'}
+                className="h-9 w-9 flex-shrink-0 rounded-xl object-contain bg-white/10 p-0.5 shadow-lg"
+              />
+            ) : school.name ? (
+              <div
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl shadow-lg text-sm font-bold text-white"
+                style={{ backgroundColor: 'var(--school-primary)' }}
+              >
+                {school.name.charAt(0).toUpperCase()}
+              </div>
+            ) : (
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl shadow-lg" style={{ backgroundColor: 'var(--school-primary)' }}>
+                <GraduationCap className="h-4 w-4 text-white" />
+              </div>
+            )}
+
+            {/* Name + motto */}
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white leading-tight tracking-tight truncate">
+                {school.name || 'SchoolMS'}
+              </p>
+              {school.motto ? (
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight truncate italic">
+                  {school.motto}
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">Admin Portal</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Collapsed: logo only */}
+        {collapsed && (
+          school.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={school.logo}
+              alt={school.name || 'School logo'}
+              className="h-8 w-8 rounded-xl object-contain bg-white/10 p-0.5 shadow-lg"
+              title={school.name || undefined}
+            />
+          ) : school.name ? (
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-xl shadow-lg text-sm font-bold text-white"
+              style={{ backgroundColor: 'var(--school-primary)' }}
+              title={school.name}
+            >
+              {school.name.charAt(0).toUpperCase()}
+            </div>
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl shadow-lg" style={{ backgroundColor: 'var(--school-primary)' }}>
               <GraduationCap className="h-4 w-4 text-white" />
             </div>
-            <div>
-              <p className="text-sm font-bold text-white leading-none tracking-tight">SchoolMS</p>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-none">Admin Portal</p>
-            </div>
-          </div>
+          )
         )}
-        {collapsed && (
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-900/40">
-            <GraduationCap className="h-4 w-4 text-white" />
-          </div>
-        )}
+
         <button
           onClick={onToggle}
-          className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-900 hover:text-slate-100 transition-colors ${collapsed ? 'absolute right-0 translate-x-1/2 top-4 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 shadow-md' : ''}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-900 hover:text-slate-100 transition-colors flex-shrink-0 ${collapsed ? 'absolute right-0 translate-x-1/2 top-4 bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 shadow-md' : 'ml-2'}`}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -188,9 +247,10 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                         collapsed ? 'justify-center px-0' : 'gap-3 px-3'
                       } ${
                         isActive
-                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/50'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                          ? 'text-white shadow-sm'
+                          : 'text-slate-400 hover:bg-white/10 hover:text-slate-100'
                       }`}
+                      style={isActive ? { backgroundColor: 'var(--school-primary)' } : undefined}
                     >
                       <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${
                         isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'

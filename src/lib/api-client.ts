@@ -385,6 +385,8 @@ export const feeTypesAPI = {
 // School Profile + Branches API
 export const schoolAPI = {
     getProfile:    ()                    => apiClient.get('/school'),
+    listSchools:   ()                    => apiClient.get('/school/list'),
+    switchSchool:  (schoolId: string)    => apiClient.post('/school/switch', { schoolId }),
     saveProfile:   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                    (data: any)           => apiClient.put('/school', data),
     getBranches:   (schoolid?: string)   => apiClient.get('/school/branches', { params: schoolid ? { schoolid } : {} }),

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The app is a standard Next.js application. It can be deployed anywhere Node.js runs: Vercel, a VPS, a Docker container, or an on-premise server at the school. The only external dependencies are Microsoft Dataverse and (optionally) Anthropic's API.
+The app is a standard Next.js application. It can be deployed anywhere Node.js runs: Vercel, a VPS, a Docker container, or an on-premise server. The only external dependencies are Microsoft Dataverse and (optionally) Anthropic's API.
 
 ## Pre-Deployment Checklist
 
@@ -10,8 +10,10 @@ The app is a standard Next.js application. It can be deployed anywhere Node.js r
 - [ ] All required environment variables are set (see [Setup](./setup.md))
 - [ ] `AUTH_SECRET` is at least 32 random characters — generate with `openssl rand -base64 32`
 - [ ] `ADMIN_PASSWORD` is strong (≥12 characters, mixed case, numbers, symbols)
+- [ ] Per-school admin passwords changed from the `School@2025` default
 - [ ] Azure AD app registration has correct permissions to Dataverse
 - [ ] `.env.local` or `.env` is **not** committed to the repository
+- [ ] `NEXTAUTH_URL` points to the production HTTPS URL
 
 ---
 
@@ -44,7 +46,7 @@ docker compose logs -f
 docker compose down
 ```
 
-Set environment variables via a `.env` file alongside `docker-compose.yml` (this file should not be committed):
+Set environment variables via a `.env` file alongside `docker-compose.yml`:
 
 ```env
 DATAVERSE_URL=https://yourorg.crm.dynamics.com
@@ -92,7 +94,6 @@ cd sms
 npm install
 npm run build
 
-# Set env vars (e.g. via /etc/environment or a .env file)
 # Start with PM2
 npm install -g pm2
 pm2 start npm --name sms -- start
@@ -104,26 +105,27 @@ pm2 startup
 
 ## HTTPS
 
-The app must be served over HTTPS in production. Reasons:
-- The session cookie uses `sameSite: lax` — browsers may not send it over HTTP
-- Azure AD OAuth token requests require HTTPS callback URLs in production
-- The `NEXTAUTH_URL` must be an HTTPS URL in production
+The app must be served over HTTPS in production:
+- The session cookie uses `sameSite: lax` — browsers may not send it over plain HTTP
+- `NEXTAUTH_URL` must be an HTTPS URL in production
+- Azure AD OAuth requires HTTPS callback URLs
 
 Use [Let's Encrypt](https://letsencrypt.org/) (free) with Certbot for TLS certificates on a VPS.
 
 ---
 
-## Scaling Considerations
+## Scaling
 
-The app is stateless — session state is stored in the JWT cookie, not server memory. This means multiple instances can run behind a load balancer without sticky sessions.
+The app is stateless — session state is stored in the JWT cookie, not server memory. Multiple instances can run behind a load balancer without sticky sessions.
 
-The only shared state is Dataverse (the database). Dataverse handles concurrent connections natively.
+The only shared state is Dataverse. Dataverse handles concurrent connections natively.
 
 ### Dataverse API Limits
 
 Microsoft Dataverse enforces API call limits based on your license tier. Monitor usage in the Power Platform admin center. The app mitigates this with:
-- Token caching (refreshed only 5 minutes before expiry, not per request)
-- Client-side pagination and filtering (reduces total rows fetched)
+- Bearer token caching (refreshed only 5 minutes before expiry, not per request)
+- Client-side pagination (reduces rows fetched per request)
+- `AsyncLocalStorage` ensures one token fetch per request, not per Dataverse call
 
 ---
 
@@ -136,7 +138,7 @@ Microsoft Dataverse enforces API call limits based on your license tier. Monitor
 | Error messages | Full details | Generic message |
 | `NODE_ENV` | `development` | `production` (set by build) |
 
-The `serverError()` utility in `src/lib/api-guard.ts` automatically serves full error messages in development and generic messages in production based on `NODE_ENV`.
+`serverError()` in `src/lib/api-guard.ts` automatically returns full errors in dev and generic messages in prod.
 
 ---
 
@@ -153,8 +155,10 @@ pm2 restart sms      # or: docker compose up --build -d
 
 ## Backup
 
-This app stores no data locally. All data lives in Microsoft Dataverse. Back up your Dataverse environment via the Power Platform admin center:
+All data lives in Microsoft Dataverse — no local database to back up.
 
-**Admin Center → Environments → Your Environment → Backups**
+Back up your Dataverse environment via:
 
-Dataverse also supports data export to Azure Blob Storage or CSV via the Data Export Service or Dataflows.
+**Power Platform Admin Center → Environments → Your Environment → Backups**
+
+Dataverse also supports data export to Azure Blob Storage or CSV via Dataflows.

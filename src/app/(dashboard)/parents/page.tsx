@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -18,7 +18,7 @@ import { parentsAPI } from '@/lib/api-client';
 import { PARENT_RELATIONSHIPS } from '@/lib/dataverse/parents';
 import type { Parent } from '@/lib/dataverse/parents';
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
 
 const RELATIONSHIP_OPTIONS = [
   { label: 'Father',   value: 1 },
@@ -260,18 +260,18 @@ export default function ParentsPage() {
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
-          <Table className="w-full text-sm">
+          <Table>
             <TableHeader>
-              <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
+              <TableRow>
                 {['Parent', 'Relationship', 'Phone', 'Occupation', 'Address', ''].map(h => (
-                  <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                  <TableHead key={h}>{h}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <TableBody>
               {paginated.map(p => (
-                <TableRow key={p.parentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                  <TableCell className="px-4 py-3.5">
+                <TableRow key={p.parentid} className="group">
+                  <TableCell>
                     <div className="flex items-center gap-2.5">
                       <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor(p.fullname || `${p.firstname}${p.lastname}`)}`}>
                         {initials(p.fullname || `${p.firstname} ${p.lastname}`)}
@@ -286,29 +286,29 @@ export default function ParentsPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="px-4 py-3.5">
+                  <TableCell>
                     {p.relationship && PARENT_RELATIONSHIPS[p.relationship]
                       ? <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${RELATIONSHIP_STYLE[p.relationship] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                           {PARENT_RELATIONSHIPS[p.relationship]}
                         </span>
                       : <span className="text-slate-400 dark:text-slate-600">—</span>}
                   </TableCell>
-                  <TableCell className="px-4 py-3.5">
+                  <TableCell>
                     {p.phone
                       ? <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300"><Phone className="h-3.5 w-3.5 text-slate-400" />{p.phone}</span>
                       : <span className="text-slate-400 dark:text-slate-600">—</span>}
                   </TableCell>
-                  <TableCell className="px-4 py-3.5">
+                  <TableCell>
                     {p.occupation
                       ? <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300"><Briefcase className="h-3.5 w-3.5 text-slate-400" />{p.occupation}</span>
                       : <span className="text-slate-400 dark:text-slate-600">—</span>}
                   </TableCell>
-                  <TableCell className="px-4 py-3.5">
+                  <TableCell>
                     {p.address
                       ? <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 max-w-[200px]"><MapPin className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" /><span className="truncate">{p.address}</span></span>
                       : <span className="text-slate-400 dark:text-slate-600">—</span>}
                   </TableCell>
-                  <TableCell className="px-4 py-3.5">
+                  <TableCell>
                     <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <Pencil className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />

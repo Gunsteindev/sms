@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getStudents, createStudent, getStudentStats } from '@/lib/dataverse/students';
-import { parseBody, serverError, badRequest } from '@/lib/api-guard';
+import { parseBody, serverError, badRequest, withSchool } from '@/lib/api-guard';
 
 const createSchema = z.object({
     firstname:        z.string().min(1),
@@ -21,32 +21,36 @@ const createSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-    try {
-        const p          = request.nextUrl.searchParams;
-        const search     = p.get('search')  || undefined;
-        const status     = p.get('status')  ? parseInt(p.get('status')!) : undefined;
-        const classid    = p.get('classid') || undefined;
+    return withSchool(request, async () => {
+        try {
+            const p          = request.nextUrl.searchParams;
+            const search     = p.get('search')  || undefined;
+            const status     = p.get('status')  ? parseInt(p.get('status')!) : undefined;
+            const classid    = p.get('classid') || undefined;
 
-        if (p.get('stats') === 'true') {
-            const data = await getStudentStats();
-            return NextResponse.json({ success: true, data });
+            if (p.get('stats') === 'true') {
+                const data = await getStudentStats();
+                return NextResponse.json({ success: true, data });
+            }
+
+            const result = await getStudents({ search, status, classid });
+            return NextResponse.json({ success: true, data: result.items, totalCount: result.totalCount });
+        } catch (error) {
+            return serverError(error);
         }
-
-        const result = await getStudents({ search, status, classid });
-        return NextResponse.json({ success: true, data: result.items, totalCount: result.totalCount });
-    } catch (error) {
-        return serverError(error);
-    }
+    });
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const parsed = await parseBody(request, createSchema);
-        if ('response' in parsed) return parsed.response;
+    return withSchool(request, async () => {
+        try {
+            const parsed = await parseBody(request, createSchema);
+            if ('response' in parsed) return parsed.response;
 
-        const data = await createStudent(parsed.data);
-        return NextResponse.json({ success: true, data, message: 'Student created successfully' }, { status: 201 });
-    } catch (error) {
-        return serverError(error);
-    }
+            const data = await createStudent(parsed.data);
+            return NextResponse.json({ success: true, data, message: 'Student created successfully' }, { status: 201 });
+        } catch (error) {
+            return serverError(error);
+        }
+    });
 }

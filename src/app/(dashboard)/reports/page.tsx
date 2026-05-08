@@ -17,6 +17,7 @@ import {
   dashboardAPI, attendanceAPI, studentsAPI, classesAPI,
   feePaymentsAPI, poolSessionsAPI, transportAPI, activitiesAPI,
 } from '@/lib/api-client';
+import { useTheme } from '@/contexts/ThemeContext';
 import type { Student } from '@/lib/dataverse/students';
 import type { FeePayment } from '@/lib/dataverse/fees';
 import type { PoolSession } from '@/lib/dataverse/poolsessions';
@@ -37,11 +38,11 @@ const TREND_OPTIONS = [
   { label: '90 days', value: 90 },
 ];
 
-const STATUS_CFG: Record<number, { label: string; color: string; bar: string }> = {
-  1: { label: 'Active',      color: 'text-emerald-600', bar: 'bg-emerald-500' },
-  2: { label: 'Graduated',   color: 'text-blue-600',    bar: 'bg-blue-500'    },
-  3: { label: 'Transferred', color: 'text-amber-600',   bar: 'bg-amber-500'   },
-  4: { label: 'Suspended',   color: 'text-red-500',     bar: 'bg-red-400'     },
+const STATUS_CFG: Record<number, { label: string; lightColor: string; darkColor: string; bar: string }> = {
+  1: { label: 'Active',      lightColor: 'text-emerald-600', darkColor: 'dark:text-emerald-400', bar: 'bg-emerald-500' },
+  2: { label: 'Graduated',   lightColor: 'text-blue-600',    darkColor: 'dark:text-blue-400',    bar: 'bg-blue-500'    },
+  3: { label: 'Transferred', lightColor: 'text-amber-600',   darkColor: 'dark:text-amber-400',   bar: 'bg-amber-500'   },
+  4: { label: 'Suspended',   lightColor: 'text-red-500',     darkColor: 'dark:text-red-400',     bar: 'bg-red-400'     },
 };
 
 const ACT_CATS: Record<number, string> = {
@@ -49,9 +50,9 @@ const ACT_CATS: Record<number, string> = {
   5: 'Science', 6: 'Academic', 7: 'Cultural', 8: 'Other',
 };
 
-const ACT_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6'];
+const ACT_COLORS   = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6'];
 const CLASS_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6','#f97316'];
-const FEE_COLOR = '#10b981';
+const FEE_COLOR    = '#10b981';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(d: string) {
@@ -104,18 +105,44 @@ function StatChip({ label, value, icon: Icon, color }: {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [stats,       setStats]       = useState<DashboardStats | null>(null);
-  const [trends,      setTrends]      = useState<TrendPoint[]>([]);
-  const [students,    setStudents]    = useState<Student[]>([]);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+
+  // ── Chart theme tokens (Recharts only accepts inline strings, not CSS vars) ──
+  const CT = {
+    grid:      isDark ? 'rgba(100,116,139,0.18)' : '#f1f5f9',
+    tick:      isDark ? '#64748b'  : '#94a3b8',
+    ttBg:      isDark ? '#1e293b'  : '#ffffff',
+    ttBorder:  isDark ? '#334155'  : '#e2e8f0',
+    ttText:    isDark ? '#e2e8f0'  : '#0f172a',
+    ttLabel:   isDark ? '#94a3b8'  : '#64748b',
+    cursor:    isDark ? 'rgba(100,116,139,0.12)' : '#f8fafc',
+    areaFill:  isDark ? 0.20 : 0.14,
+  };
+
+  const ttStyle = {
+    borderRadius: 10,
+    border: `1px solid ${CT.ttBorder}`,
+    backgroundColor: CT.ttBg,
+    color: CT.ttText,
+    fontSize: 12,
+    boxShadow: isDark
+      ? '0 8px 24px rgba(0,0,0,0.5)'
+      : '0 4px 16px rgba(0,0,0,0.08)',
+  };
+
+  const [stats,        setStats]        = useState<DashboardStats | null>(null);
+  const [trends,       setTrends]       = useState<TrendPoint[]>([]);
+  const [students,     setStudents]     = useState<Student[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [classes,     setClasses]     = useState<any[]>([]);
-  const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
-  const [poolSessions,setPoolSessions]= useState<PoolSession[]>([]);
-  const [vehicles,    setVehicles]    = useState<Vehicle[]>([]);
-  const [activities,  setActivities]  = useState<Activity[]>([]);
-  const [days,        setDays]        = useState(30);
-  const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
+  const [classes,      setClasses]      = useState<any[]>([]);
+  const [feePayments,  setFeePayments]  = useState<FeePayment[]>([]);
+  const [poolSessions, setPoolSessions] = useState<PoolSession[]>([]);
+  const [vehicles,     setVehicles]     = useState<Vehicle[]>([]);
+  const [activities,   setActivities]   = useState<Activity[]>([]);
+  const [days,         setDays]         = useState(30);
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -133,7 +160,6 @@ export default function ReportsPage() {
       setClasses(clsRes.data ?? []);
     } catch { toast.error('Failed to load report data'); }
 
-    // Secondary data — failures don't crash the page
     const [fpRes, psRes, vRes, actRes] = await Promise.allSettled([
       feePaymentsAPI.getAll(),
       poolSessionsAPI.getAll(),
@@ -243,7 +269,7 @@ export default function ReportsPage() {
   if (loading) {
     return (
       <div className="flex h-80 items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-600" />
+        <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-500" />
       </div>
     );
   }
@@ -253,13 +279,16 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
 
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Reports</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">School-wide analytics and performance overview</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            School-wide analytics and performance overview
+          </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Trend range selector */}
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {TREND_OPTIONS.map(o => (
               <button
@@ -268,7 +297,7 @@ export default function ReportsPage() {
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   days === o.value
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
                 }`}
               >
                 {o.label}
@@ -282,87 +311,120 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* KPI cards */}
+      {/* ── KPI cards ───────────────────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Students"    value={totalStudents}
+        <KpiCard label="Total Students"
+          value={totalStudents}
           sub={`${genderBreakdown.male}M · ${genderBreakdown.female}F`}
-          icon={Users}         iconBg="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" />
-        <KpiCard label="Active Students"   value={stats?.activeUsers ?? statusBreakdown.find(s => s.status === 1)?.count ?? 0}
+          icon={Users}
+          iconBg="bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400" />
+        <KpiCard label="Active Students"
+          value={stats?.activeUsers ?? statusBreakdown.find(s => s.status === 1)?.count ?? 0}
           sub="Currently enrolled"
-          icon={UserCheck}     iconBg="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" />
-        <KpiCard label="Teaching Staff"    value={stats?.totalTeachers ?? 0}
+          icon={UserCheck}
+          iconBg="bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" />
+        <KpiCard label="Teaching Staff"
+          value={stats?.totalTeachers ?? 0}
           sub="Active teachers"
-          icon={GraduationCap} iconBg="bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" />
-        <KpiCard label="Classes"           value={stats?.totalClasses ?? classes.length}
+          icon={GraduationCap}
+          iconBg="bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400" />
+        <KpiCard label="Classes"
+          value={stats?.totalClasses ?? classes.length}
           sub={`${classBreakdown.length} with students`}
-          icon={BookOpen}      iconBg="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" />
-        <KpiCard label="Avg Attendance"    value={`${avgAttendance.toFixed(1)}%`}
+          icon={BookOpen}
+          iconBg="bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400" />
+        <KpiCard label="Avg Attendance"
+          value={`${avgAttendance.toFixed(1)}%`}
           sub={`Over last ${days} days`}
-          icon={TrendingUp}    iconBg="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400" />
-        <KpiCard label="Total Collected"   value={formatCurrency(feeTotalAll || stats?.monthlyRevenue || 0)}
+          icon={TrendingUp}
+          iconBg="bg-green-100 dark:bg-green-500/15 text-green-600 dark:text-green-400" />
+        <KpiCard label="Total Collected"
+          value={formatCurrency(feeTotalAll || stats?.monthlyRevenue || 0)}
           sub="All fee collections"
-          icon={DollarSign}    iconBg="bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" />
+          icon={DollarSign}
+          iconBg="bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400" />
       </div>
 
-      {/* Secondary stat chips */}
+      {/* ── Secondary stat chips ────────────────────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatChip
           label="Pool Revenue (Total)"
           value={formatCurrency(poolRevenue.total)}
           icon={Waves}
-          color="bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300"
+          color="bg-cyan-50 dark:bg-cyan-500/10 border-cyan-200 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-300"
         />
         <StatChip
           label="Pool Sessions"
           value={`${poolRevenue.sessions} sessions`}
           icon={Waves}
-          color="bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300"
+          color="bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300"
         />
         <StatChip
           label="Active Vehicles"
           value={`${fleetStatus[1] ?? 0} of ${vehicles.length}`}
           icon={Bus}
-          color="bg-violet-50 dark:bg-violet-900/20 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300"
+          color="bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/30 text-violet-700 dark:text-violet-300"
         />
         <StatChip
           label="Active Activities"
           value={`${activeActivities} of ${activities.length}`}
           icon={Trophy}
-          color="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+          color="bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300"
         />
       </div>
 
-      {/* Attendance trend + Student status */}
+      {/* ── Attendance trend + Student status ───────────────────────────────── */}
       <div className="grid gap-5 lg:grid-cols-5">
 
+        {/* Attendance area chart */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Attendance Trend</CardTitle>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Daily attendance rate over the last {days} days</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              Daily attendance rate over the last {days} days
+            </p>
           </CardHeader>
           <CardContent>
             {trends.length ? (
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={trends.map(d => ({ ...d, label: formatDate(d.date) }))}
-                  margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                <AreaChart
+                  data={trends.map(d => ({ ...d, label: formatDate(d.date) }))}
+                  margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+                >
                   <defs>
                     <linearGradient id="attGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}    />
+                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={CT.areaFill} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={[0, 100]} unit="%" />
-                  <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  <CartesianGrid strokeDasharray="3 3" stroke={CT.grid} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: CT.tick }}
+                    axisLine={false} tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: CT.tick }}
+                    axisLine={false} tickLine={false}
+                    domain={[0, 100]} unit="%"
+                  />
+                  <Tooltip
+                    contentStyle={ttStyle}
+                    labelStyle={{ color: CT.ttLabel, fontWeight: 600, marginBottom: 2 }}
                     formatter={(v: unknown) => [`${(v as number).toFixed(1)}%`, 'Attendance']}
-                    labelFormatter={(l) => l} />
-                  <Area type="monotone" dataKey="percentage" stroke="#3b82f6" strokeWidth={2}
-                    fill="url(#attGrad)" dot={false} activeDot={{ r: 4 }} />
+                    labelFormatter={l => l}
+                  />
+                  <Area
+                    type="monotone" dataKey="percentage"
+                    stroke="#3b82f6" strokeWidth={2}
+                    fill="url(#attGrad)" dot={false}
+                    activeDot={{ r: 4, fill: '#3b82f6', strokeWidth: 0 }}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-slate-400">
+              <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-slate-400 dark:text-slate-600">
                 <AlertCircle className="h-8 w-8 opacity-40" />
                 <p className="text-sm">No attendance data available</p>
               </div>
@@ -370,10 +432,13 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
 
+        {/* Student status breakdown */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Student Status</CardTitle>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{totalStudents} students total</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              {totalStudents} students total
+            </p>
           </CardHeader>
           <CardContent>
             {statusBreakdown.length ? (
@@ -383,58 +448,93 @@ export default function ReportsPage() {
                   return (
                     <div key={status}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className={`text-sm font-medium ${cfg.color}`}>{cfg.label}</span>
+                        <span className={`text-sm font-medium ${cfg.lightColor} ${cfg.darkColor}`}>
+                          {cfg.label}
+                        </span>
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          {count} <span className="text-xs text-slate-400 font-normal">({pct.toFixed(0)}%)</span>
+                          {count}{' '}
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">
+                            ({pct.toFixed(0)}%)
+                          </span>
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                        <div className={`h-full rounded-full transition-all ${cfg.bar}`} style={{ width: `${pct}%` }} />
+                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700/60">
+                        <div
+                          className={`h-full rounded-full transition-all ${cfg.bar}`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   );
                 })}
+
+                {/* Gender split */}
                 {genderBreakdown.total > 0 && (
-                  <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-700">
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2">Gender</p>
+                  <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-700/60">
+                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wide">
+                      Gender
+                    </p>
                     <div className="flex rounded-full overflow-hidden h-3">
-                      <div className="bg-blue-500 transition-all" style={{ width: `${(genderBreakdown.male / genderBreakdown.total) * 100}%` }} />
+                      <div
+                        className="bg-blue-500 transition-all"
+                        style={{ width: `${(genderBreakdown.male / genderBreakdown.total) * 100}%` }}
+                      />
                       <div className="bg-pink-400 flex-1" />
                     </div>
-                    <div className="flex justify-between mt-1.5 text-xs text-slate-500">
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> {genderBreakdown.male} Male</span>
-                      <span className="flex items-center gap-1">{genderBreakdown.female} Female <span className="h-2 w-2 rounded-full bg-pink-400 inline-block" /></span>
+                    <div className="flex justify-between mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                        {genderBreakdown.male} Male
+                      </span>
+                      <span className="flex items-center gap-1">
+                        {genderBreakdown.female} Female
+                        <span className="h-2 w-2 rounded-full bg-pink-400 inline-block" />
+                      </span>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="h-48 flex items-center justify-center text-slate-400 text-sm">No student data</div>
+              <div className="h-48 flex items-center justify-center text-slate-400 dark:text-slate-600 text-sm">
+                No student data
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Fee Collection by Month */}
+      {/* ── Fee Collection by Month ─────────────────────────────────────────── */}
       {feeMonthly.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Fee Collection by Month</CardTitle>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-              Monthly fee payments — {formatCurrency(feeTotalAll)} collected across {feePayments.length} payments
+              Monthly fee payments —{' '}
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                {formatCurrency(feeTotalAll)}
+              </span>{' '}
+              collected across {feePayments.length} payments
             </p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={feeMonthly} margin={{ top: 4, right: 8, left: -8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false}
-                  tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CT.grid} vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: CT.tick }}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: CT.tick }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={v => `${(v / 1000).toFixed(0)}k`}
+                />
                 <Tooltip
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  contentStyle={ttStyle}
+                  labelStyle={{ color: CT.ttLabel, fontWeight: 600, marginBottom: 2 }}
                   formatter={(v: unknown) => [formatCurrency(v as number), 'Collected']}
-                  cursor={{ fill: '#f0fdf4' }}
+                  cursor={{ fill: CT.cursor }}
                 />
                 <Bar dataKey="total" fill={FEE_COLOR} radius={[4, 4, 0, 0]} maxBarSize={52} />
               </BarChart>
@@ -443,15 +543,19 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* Pool Revenue + Transport Fleet */}
+      {/* ── Pool Revenue + Transport Fleet ──────────────────────────────────── */}
       <div className="grid gap-5 lg:grid-cols-5">
 
-        {/* Pool Revenue breakdown */}
+        {/* Pool Revenue */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Swimming Pool Revenue</CardTitle>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-              {poolRevenue.sessions} sessions · {formatCurrency(poolRevenue.total)} total revenue
+              {poolRevenue.sessions} sessions ·{' '}
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                {formatCurrency(poolRevenue.total)}
+              </span>{' '}
+              total revenue
             </p>
           </CardHeader>
           <CardContent>
@@ -459,36 +563,63 @@ export default function ReportsPage() {
               <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    { label: 'School Sessions', value: poolRevenue.school, color: 'bg-blue-500', textColor: 'text-blue-600 dark:text-blue-400' },
-                    { label: 'Public Sessions', value: poolRevenue.pub,    color: 'bg-cyan-500',  textColor: 'text-cyan-600 dark:text-cyan-400' },
-                  ].map(({ label, value, color, textColor }) => (
-                    <div key={label} className="rounded-lg bg-slate-50 dark:bg-slate-800/40 p-4 text-center">
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">{label}</p>
-                      <p className={`text-2xl font-bold mt-1 ${textColor}`}>{formatCurrency(value)}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {poolRevenue.total > 0 ? `${((value / poolRevenue.total) * 100).toFixed(0)}% of total` : '—'}
+                    {
+                      label: 'School Sessions',
+                      value: poolRevenue.school,
+                      textColor: 'text-blue-600 dark:text-blue-400',
+                      bg: 'bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20',
+                    },
+                    {
+                      label: 'Public Sessions',
+                      value: poolRevenue.pub,
+                      textColor: 'text-cyan-600 dark:text-cyan-400',
+                      bg: 'bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-100 dark:border-cyan-500/20',
+                    },
+                  ].map(({ label, value, textColor, bg }) => (
+                    <div key={label} className={`rounded-xl p-4 text-center ${bg}`}>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                        {label}
+                      </p>
+                      <p className={`text-2xl font-bold mt-1 ${textColor}`}>
+                        {formatCurrency(value)}
+                      </p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                        {poolRevenue.total > 0
+                          ? `${((value / poolRevenue.total) * 100).toFixed(0)}% of total`
+                          : '—'}
                       </p>
                     </div>
                   ))}
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wide">Revenue Split</p>
+                  <p className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wide">
+                    Revenue Split
+                  </p>
                   {poolRevenue.total > 0 && (
                     <>
                       <div className="flex rounded-full overflow-hidden h-4">
-                        <div className="bg-blue-500 transition-all" style={{ width: `${(poolRevenue.school / poolRevenue.total) * 100}%` }} />
+                        <div
+                          className="bg-blue-500 transition-all"
+                          style={{ width: `${(poolRevenue.school / poolRevenue.total) * 100}%` }}
+                        />
                         <div className="bg-cyan-400 flex-1" />
                       </div>
-                      <div className="flex justify-between mt-1.5 text-xs text-slate-500">
-                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> School</span>
-                        <span className="flex items-center gap-1.5">Public <span className="h-2 w-2 rounded-full bg-cyan-400 inline-block" /></span>
+                      <div className="flex justify-between mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> School
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          Public <span className="h-2 w-2 rounded-full bg-cyan-400 inline-block" />
+                        </span>
                       </div>
                     </>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="h-40 flex items-center justify-center text-slate-400 text-sm">No pool data</div>
+              <div className="h-40 flex items-center justify-center text-slate-400 dark:text-slate-600 text-sm">
+                No pool data
+              </div>
             )}
           </CardContent>
         </Card>
@@ -497,48 +628,64 @@ export default function ReportsPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Transport Fleet</CardTitle>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{vehicles.length} vehicles registered</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              {vehicles.length} vehicles registered
+            </p>
           </CardHeader>
           <CardContent>
             {vehicles.length > 0 ? (
               <div className="space-y-4">
                 {[
-                  { label: 'Active',      key: 1, color: 'text-emerald-600', bar: 'bg-emerald-500', icon: Bus   },
-                  { label: 'Maintenance', key: 2, color: 'text-amber-600',   bar: 'bg-amber-500',   icon: Wrench },
-                  { label: 'Retired',     key: 3, color: 'text-slate-500',   bar: 'bg-slate-400',   icon: Bus   },
-                ].map(({ label, key, color, bar }) => {
+                  { label: 'Active',      key: 1, lightColor: 'text-emerald-600', darkColor: 'dark:text-emerald-400', bar: 'bg-emerald-500', icon: Bus    },
+                  { label: 'Maintenance', key: 2, lightColor: 'text-amber-600',   darkColor: 'dark:text-amber-400',   bar: 'bg-amber-500',   icon: Wrench },
+                  { label: 'Retired',     key: 3, lightColor: 'text-slate-500',   darkColor: 'dark:text-slate-400',   bar: 'bg-slate-400',   icon: Bus    },
+                ].map(({ label, key, lightColor, darkColor, bar }) => {
                   const count = fleetStatus[key] ?? 0;
                   const pct   = vehicles.length > 0 ? (count / vehicles.length) * 100 : 0;
                   return (
                     <div key={key}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className={`text-sm font-medium ${color}`}>{label}</span>
+                        <span className={`text-sm font-medium ${lightColor} ${darkColor}`}>
+                          {label}
+                        </span>
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          {count} <span className="text-xs text-slate-400 font-normal">({pct.toFixed(0)}%)</span>
+                          {count}{' '}
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">
+                            ({pct.toFixed(0)}%)
+                          </span>
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700">
-                        <div className={`h-full rounded-full transition-all ${bar}`} style={{ width: `${pct}%` }} />
+                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700/60">
+                        <div
+                          className={`h-full rounded-full transition-all ${bar}`}
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   );
                 })}
-                <div className="pt-3 mt-1 border-t border-slate-100 dark:border-slate-700">
+                <div className="pt-3 mt-1 border-t border-slate-100 dark:border-slate-700/60">
                   <p className="text-xs text-slate-400 dark:text-slate-500">
-                    Fleet utilisation: <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      {vehicles.length > 0 ? `${(((fleetStatus[1] ?? 0) / vehicles.length) * 100).toFixed(0)}%` : '—'}
-                    </span> active
+                    Fleet utilisation:{' '}
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      {vehicles.length > 0
+                        ? `${(((fleetStatus[1] ?? 0) / vehicles.length) * 100).toFixed(0)}%`
+                        : '—'}
+                    </span>{' '}
+                    active
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="h-48 flex items-center justify-center text-slate-400 text-sm">No vehicle data</div>
+              <div className="h-48 flex items-center justify-center text-slate-400 dark:text-slate-600 text-sm">
+                No vehicle data
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Activities by Category */}
+      {/* ── Activities by Category ──────────────────────────────────────────── */}
       {activitiesByCat.length > 0 && (
         <Card>
           <CardHeader>
@@ -550,13 +697,22 @@ export default function ReportsPage() {
           <CardContent>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={activitiesByCat} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CT.grid} vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: CT.tick }}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: CT.tick }}
+                  axisLine={false} tickLine={false}
+                />
                 <Tooltip
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  contentStyle={ttStyle}
+                  labelStyle={{ color: CT.ttLabel, fontWeight: 600, marginBottom: 2 }}
                   formatter={(v: unknown) => [v as React.ReactNode, 'Activities']}
-                  cursor={{ fill: '#fefce8' }}
+                  cursor={{ fill: CT.cursor }}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={48}>
                   {activitiesByCat.map((_, i) => (
@@ -569,23 +725,34 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* Enrollment by Class */}
+      {/* ── Enrollment by Class ─────────────────────────────────────────────── */}
       {classBreakdown.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Enrollment by Class</CardTitle>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Number of students per class</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              Number of students per class
+            </p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={classBreakdown} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={CT.grid} vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11, fill: CT.tick }}
+                  axisLine={false} tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 11, fill: CT.tick }}
+                  axisLine={false} tickLine={false}
+                />
                 <Tooltip
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  contentStyle={ttStyle}
+                  labelStyle={{ color: CT.ttLabel, fontWeight: 600, marginBottom: 2 }}
                   formatter={(v: unknown) => [v as React.ReactNode, 'Students']}
-                  cursor={{ fill: '#f8fafc' }}
+                  cursor={{ fill: CT.cursor }}
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={48}>
                   {classBreakdown.map((_, i) => (
@@ -598,12 +765,12 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* Daily Attendance Log */}
+      {/* ── Daily Attendance Log ─────────────────────────────────────────────── */}
       {trends.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-slate-400" />
+              <CalendarDays className="h-4 w-4 text-slate-400 dark:text-slate-500" />
               <CardTitle>Daily Attendance Log</CardTitle>
             </div>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Most recent 14 days</p>
@@ -612,33 +779,55 @@ export default function ReportsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                  <tr className="border-b border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-800/40">
                     {['Date', 'Present', 'Total', 'Absent', 'Rate'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</th>
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40">
                   {[...trends].reverse().slice(0, 14).map(t => {
                     const absent = t.total - t.present;
                     const pct    = t.percentage;
                     return (
-                      <tr key={t.date} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+                      <tr
+                        key={t.date}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
                         <td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">
-                          {new Date(t.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                          {new Date(t.date).toLocaleDateString('en-US', {
+                            weekday: 'short', month: 'short', day: 'numeric',
+                          })}
                         </td>
-                        <td className="px-4 py-2.5 text-emerald-600 dark:text-emerald-400 font-medium">{t.present}</td>
+                        <td className="px-4 py-2.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                          {t.present}
+                        </td>
                         <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{t.total}</td>
                         <td className="px-4 py-2.5 text-red-500 dark:text-red-400">{absent}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2.5">
-                            <div className="h-1.5 w-24 rounded-full bg-slate-100 dark:bg-slate-700 flex-shrink-0">
+                            <div className="h-1.5 w-24 rounded-full bg-slate-100 dark:bg-slate-700/60 flex-shrink-0">
                               <div
-                                className={`h-full rounded-full transition-all ${pct >= 90 ? 'bg-emerald-500' : pct >= 75 ? 'bg-amber-500' : 'bg-red-400'}`}
+                                className={`h-full rounded-full transition-all ${
+                                  pct >= 90 ? 'bg-emerald-500'
+                                  : pct >= 75 ? 'bg-amber-500'
+                                  : 'bg-red-400'
+                                }`}
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <span className={`text-xs font-semibold tabular-nums ${pct >= 90 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500'}`}>
+                            <span
+                              className={`text-xs font-semibold tabular-nums ${
+                                pct >= 90 ? 'text-emerald-600 dark:text-emerald-400'
+                                : pct >= 75 ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-red-500 dark:text-red-400'
+                              }`}
+                            >
                               {pct.toFixed(1)}%
                             </span>
                           </div>

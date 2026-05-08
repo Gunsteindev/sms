@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowLeft, Pencil, AlertCircle, Plus, Trash2, Star,
   Search, UserPlus, CalendarDays, ShieldCheck, Users,
-  HeartPulse, AlertTriangle, Check, X, Loader2,
+  HeartPulse, AlertTriangle, Check, X, Loader2, ExternalLink,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
@@ -520,7 +521,10 @@ export default function StudentDetailPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{link.parentname || '—'}</p>
+                          <Link href="/parents" className="inline-flex items-center gap-1 font-semibold text-slate-900 dark:text-slate-100 text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            {link.parentname || '—'}
+                            <ExternalLink className="h-3 w-3 text-slate-400" />
+                          </Link>
                           <span className="inline-flex items-center rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
                             {PARENT_RELATIONSHIPS[link.relationship] ?? 'Guardian'}
                           </span>

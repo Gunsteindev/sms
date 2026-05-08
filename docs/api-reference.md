@@ -11,12 +11,14 @@ Unauthenticated requests return `401 { "success": false, "error": "Unauthorized"
 Validation errors return `400` with a field-level error string.  
 Server errors return `500 { "success": false, "error": "Internal server error" }` (full message in development only).
 
+All data endpoints are automatically scoped to the active school via the `x-school-id` header (injected by `src/proxy.ts`). No client needs to pass a school ID explicitly.
+
 ---
 
 ## Authentication
 
 ### `POST /api/auth/login`
-Log in with admin credentials.
+Log in. Checks bootstrap admin (env vars) first, then Dataverse `sms_users`.
 
 **Body**
 ```json
@@ -33,10 +35,7 @@ Log in with admin credentials.
 ### `POST /api/auth/logout`
 Clear the session cookie.
 
-**Response**
-```json
-{ "ok": true }
-```
+**Response**: `{ "ok": true }`
 
 ---
 
@@ -46,11 +45,44 @@ Return the current session user.
 **Response**
 ```json
 {
-  "user": { "email": "...", "name": "Administrator", "role": "admin" },
-  "expires": "2025-05-05T10:00:00.000Z"
+  "user": {
+    "userid": "...",
+    "email": "admin@greyacademy.edu.gh",
+    "name": "Grey Academy Admin",
+    "role": "Admin",
+    "userrole": 1,
+    "schoolId": "3a5c5d93-b948-f111-bec6-7ced8d6e6816"
+  },
+  "expires": "2026-05-09T10:00:00.000Z"
 }
 ```
-Returns `null` if not authenticated.
+
+---
+
+## School
+
+### `GET /api/school`
+Return the active school's profile (name, motto, logo, colours, address, EMIS code, type, level).
+
+### `GET /api/school/list`
+Return all registered schools (id + name). Used by the onboarding switcher.
+
+### `POST /api/school/switch`
+Switch the active school. Re-issues the JWT with the new `schoolId`.
+
+**Body**: `{ "schoolId": "<guid>" }`
+
+### `PUT /api/school`
+Update the active school's profile.
+
+---
+
+## Onboarding
+
+### `POST /api/onboarding/complete`
+Complete the school registration wizard. Creates the school record and sets it as the active session school.
+
+**Body**: full school profile fields (name, motto, address, region, district, type, level, email, phone, website, emiscode)
 
 ---
 
@@ -62,17 +94,13 @@ Returns `null` if not authenticated.
 | `search` | string | Filter by name |
 | `status` | number | 1=Active, 2=Inactive, 3=Graduated, 4=Transferred |
 | `classid` | string | Filter by class GUID |
-| `stats` | `true` | Return aggregate statistics instead of list |
+| `stats` | `true` | Return aggregate statistics |
 
-**Response**
-```json
-{ "success": true, "data": [...], "totalCount": 120 }
-```
+**Response**: `{ "success": true, "data": [...], "totalCount": 120 }`
 
 ### `POST /api/students`
-**Required body fields**: `firstname`, `lastname`, `dateofbirth`, `enrollmentdate`
-
-**Optional**: `gender` (number), `studentstatus`, `enrollmentstatus`, `classid`, `gradelevelid`, `address`, `phone`, `email`, `rollnumber`, `parentid`
+**Required**: `firstname`, `lastname`, `dateofbirth`, `enrollmentdate`  
+**Optional**: `gender`, `studentstatus`, `classid`, `gradelevelid`, `address`, `phone`, `email`, `rollnumber`, `parentid`
 
 ### `GET /api/students/[id]`
 ### `PUT /api/students/[id]`
@@ -83,16 +111,13 @@ Returns `null` if not authenticated.
 ## Teachers
 
 ### `GET /api/teachers`
-| Query Param | Type | Description |
-|-------------|------|-------------|
-| `search` | string | Filter by name |
-| `status` | number | Employment status |
-| `pageSize` | number | Records per page |
-| `stats` | `true` | Return statistics |
+| Query Param | Description |
+|-------------|-------------|
+| `search` | Filter by name |
+| `stats` | `true` — return statistics |
 
 ### `POST /api/teachers`
-**Required**: `firstname`, `lastname`, `email`, `dateofbirth`, `gender`, `hiredate`, `qualification`, `specialization`
-
+**Required**: `firstname`, `lastname`, `email`, `dateofbirth`, `gender`, `hiredate`, `qualification`, `specialization`  
 **Optional**: `phone`, `address`, `employeeid`
 
 ### `GET /api/teachers/[id]`
@@ -104,10 +129,10 @@ Returns `null` if not authenticated.
 ## Employees
 
 ### `GET /api/employees`
-| Query Param | Type | Description |
-|-------------|------|-------------|
-| `department` | string | Filter by department name |
-| `stats` | `true` | Return statistics |
+| Query Param | Description |
+|-------------|-------------|
+| `department` | Filter by department name |
+| `stats` | `true` — return statistics |
 
 ### `POST /api/employees`
 ### `GET /api/employees/[id]`
@@ -116,16 +141,39 @@ Returns `null` if not authenticated.
 
 ---
 
+## Parents
+
+### `GET /api/parents`
+### `POST /api/parents`
+**Fields**: `firstname`, `lastname`, `email`, `phone`, `address`, `relationship`
+
+### `GET /api/parents/[id]`
+### `PUT /api/parents/[id]`
+### `DELETE /api/parents/[id]`
+
+### `GET /api/student-parents`
+| Query Param | Description |
+|-------------|-------------|
+| `studentid` | Get parents of a student |
+| `parentid` | Get students of a parent |
+
+### `POST /api/student-parents`
+**Fields**: `studentid`, `parentid`, `relationship`, `isprimary`
+
+### `PUT /api/student-parents/[id]`
+### `DELETE /api/student-parents/[id]`
+
+---
+
 ## Classes
 
 ### `GET /api/classes`
-| Query Param | Type | Description |
-|-------------|------|-------------|
-| `stats` | `true` | Return class count statistics |
+| Query Param | Description |
+|-------------|-------------|
+| `stats` | `true` — return class count statistics |
 
 ### `POST /api/classes`
-**Required**: `classname`, `capacity`
-
+**Required**: `classname`, `capacity`  
 **Optional**: `roomnumber`, `gradelevelid`, `teacherid`, `academicyearid`, `description`
 
 ### `GET /api/classes/[id]`
@@ -158,7 +206,7 @@ Returns `null` if not authenticated.
 
 ### `GET /api/enrollments`
 ### `POST /api/enrollments`
-**Fields**: `studentid`, `classid`, `academicyearid`, `enrollmentdate`, `rollnumber`, `enrollmentstatus`
+**Fields**: `studentid`, `classid`, `academicyearid`, `termid`, `enrollmentdate`, `rollnumber`, `enrollmentstatus`
 
 ### `GET /api/enrollments/[id]`
 ### `PUT /api/enrollments/[id]`
@@ -169,34 +217,29 @@ Returns `null` if not authenticated.
 ## Attendance
 
 ### `GET /api/attendance`
-| Query Param | Type | Description |
-|-------------|------|-------------|
-| `date` | string | YYYY-MM-DD — filter by date |
-| `trends` | `true` | Return daily trend data instead of records |
-| `days` | number | Number of days for trends (default 30, max 365) |
+| Query Param | Description |
+|-------------|-------------|
+| `date` | YYYY-MM-DD — filter by date |
+| `classid` | Filter by class |
+| `trends` | `true` — return daily trend data |
+| `days` | Number of days for trends (default 30, max 365) |
 
 ### `POST /api/attendance`
-Submit bulk attendance records.
+Bulk submit attendance records.
 
 **Body**
 ```json
 {
   "records": [
-    { "studentid": "...", "date": "2025-05-04", "attendancestatus": 1, "classid": "..." }
+    { "studentid": "...", "date": "2026-05-08", "attendancestatus": 1, "classid": "..." }
   ]
 }
 ```
 
-**Status values**: 1 = Present, 2 = Absent, 3 = Late, 4 = Excused
+**Status**: 1=Present, 2=Absent, 3=Late, 4=Excused
 
 ### `PUT /api/attendance/[id]`
 ### `DELETE /api/attendance/[id]`
-
-### `GET /api/attendance/student/[id]`
-| Query Param | Description |
-|-------------|-------------|
-| `startDate` | Filter start date |
-| `endDate` | Filter end date |
 
 ---
 
@@ -210,38 +253,19 @@ Submit bulk attendance records.
 | `termid` | Filter by term |
 | `academicyearid` | Filter by academic year |
 | `studentid` | Filter by student |
-| `assessmenttype` | Filter by type (1–6) |
+| `assessmenttype` | 1=Classwork, 2=Homework, 3=Quiz, 4=MidTerm, 5=EndOfTerm, 6=Project |
 
 ### `POST /api/grades`
+Single grade or bulk array (include `gradeid` to update existing):
 
-**Single grade**
-```json
-{
-  "assessmenttype": 1,
-  "score": 82.5,
-  "studentid": "...",
-  "subjectid": "...",
-  "classid": "...",
-  "termid": "...",
-  "academicyearid": "...",
-  "date": "2025-05-04"
-}
-```
-
-**Assessment types**: 1=Classwork, 2=Homework, 3=Quiz, 4=MidTerm, 5=EndOfTerm, 6=Project
-
-**Bulk upsert** — POST an array of grade objects (include `gradeid` to update existing):
 ```json
 [
-  { "gradeid": "existing-id", "assessmenttype": 1, "score": 75, ... },
+  { "gradeid": "existing-id", "assessmenttype": 1, "score": 75, "studentid": "...", "subjectid": "...", "classid": "...", "termid": "...", "academicyearid": "..." },
   { "assessmenttype": 2, "score": 80, ... }
 ]
 ```
 
-**Response**
-```json
-{ "success": true, "data": { "saved": 12 }, "message": "12 grades saved" }
-```
+**Response**: `{ "success": true, "data": { "saved": 12 } }`
 
 ### `GET /api/grades/[id]`
 ### `PUT /api/grades/[id]`
@@ -255,12 +279,12 @@ Submit bulk attendance records.
 | Query Param | Description |
 |-------------|-------------|
 | `search` | Filter by exam name |
+| `classid` | Filter by class |
+| `termid` | Filter by term |
 
 ### `POST /api/exams`
-**Required**: `name`, `examtype`, `startdate`, `enddate`
-
-**Exam types**: 1=Quiz, 2=Midterm, 3=Final, 4=Practical
-
+**Required**: `name`, `examtype`, `startdate`, `enddate`  
+**Exam types**: 1=Quiz, 2=Midterm, 3=Final, 4=Practical  
 **Optional**: `classid`, `termid`, `academicyearid`, `totalmarks`, `passmarks`, `weightpercent`, `venue`, `description`
 
 ### `GET /api/exams/[id]`
@@ -268,11 +292,6 @@ Submit bulk attendance records.
 ### `DELETE /api/exams/[id]`
 
 ### `GET /api/exams/results`
-| Query Param | Description |
-|-------------|-------------|
-| `examid` | Filter by exam |
-| `studentid` | Filter by student |
-
 ### `POST /api/exams/results`
 **Fields**: `examid`, `studentid`, `score`, `remarks`
 
@@ -289,8 +308,10 @@ Submit bulk attendance records.
 |-------------|-------------|
 | `search` | Filter by name |
 
+Results are automatically scoped to the active school.
+
 ### `POST /api/academic-years`
-**Fields**: `name`, `startdate`, `enddate`, `iscurrent`
+**Fields**: `name`, `startdate`, `enddate`, `iscurrent`, `description`
 
 ### `GET /api/academic-years/[id]`
 ### `PUT /api/academic-years/[id]`
@@ -327,12 +348,25 @@ Submit bulk attendance records.
 
 ---
 
+## Finance — Fee Types
+
+### `GET /api/fee-types`
+### `POST /api/fee-types`
+**Fields**: `name`, `description`, `ismandatory`
+
+### `GET /api/fee-types/[id]`
+### `PUT /api/fee-types/[id]`
+### `DELETE /api/fee-types/[id]`
+
+---
+
 ## Finance — Fee Structures
 
 ### `GET /api/finance/fee-structures`
 | Query Param | Description |
 |-------------|-------------|
-| `gradelevel` | Filter by grade level |
+| `gradelevelid` | Filter by grade level |
+| `academicyearid` | Filter by academic year |
 
 ### `POST /api/finance/fee-structures`
 ### `GET /api/finance/fee-structures/[id]`
@@ -363,11 +397,9 @@ Submit bulk attendance records.
 | `pageSize` | Records per page |
 
 ### `POST /api/finance/fee-payments`
-**Required**: `studentid`, `feeid`, `amount`, `paymentdate`, `paymentmethod`
-
-**Payment methods**: 1=Cash, 2=Mobile Money, 3=Bank Transfer, 4=Cheque, 5=Other
-
-**Optional**: `paymentstatus`, `transactionid`, `receiptnumber` (auto-generated if omitted)
+**Required**: `studentid`, `feeid`, `amount`, `paymentdate`, `paymentmethod`  
+**Payment methods**: 1=Cash, 2=Mobile Money, 3=Bank Transfer, 4=Cheque, 5=Other  
+**Optional**: `transactionid`, `receiptnumber` (auto-generated if omitted: `RCP-<timestamp>-<random>`)
 
 ### `GET /api/finance/fee-payments/[id]`
 ### `PUT /api/finance/fee-payments/[id]`
@@ -398,11 +430,6 @@ Submit bulk attendance records.
 ### `DELETE /api/library/[id]`
 
 ### `GET /api/library/loans`
-| Query Param | Description |
-|-------------|-------------|
-| `studentid` | Filter by borrower |
-| `status` | Filter by loan status |
-
 ### `POST /api/library/loans`
 **Fields**: `bookid`, `studentid`, `issuedate`, `duedate`, `status`
 
@@ -412,11 +439,138 @@ Submit bulk attendance records.
 
 ---
 
+## Inventory
+
+### `GET /api/inventory`
+### `POST /api/inventory`
+**Fields**: `name`, `category`, `unit`, `quantity`, `reorderlevel`, `location`, `description`
+
+### `GET /api/inventory/[id]`
+### `PUT /api/inventory/[id]`
+### `DELETE /api/inventory/[id]`
+
+---
+
+## Procurement
+
+### `GET /api/procurement`
+### `POST /api/procurement`
+**Fields**: `item`, `quantity`, `supplier`, `unitprice`, `totalamount`, `status`, `notes`
+
+### `GET /api/procurement/[id]`
+### `PUT /api/procurement/[id]`
+### `DELETE /api/procurement/[id]`
+
+---
+
+## Transport
+
+### `GET /api/transport`
+### `POST /api/transport`
+**Fields**: `registration`, `make`, `model`, `capacity`, `drivername`, `driverphone`, `maintenancedue`, `status`
+
+### `GET /api/transport/[id]`
+### `PUT /api/transport/[id]`
+### `DELETE /api/transport/[id]`
+
+---
+
+## Pool
+
+### `GET /api/pool/sessions`
+### `POST /api/pool/sessions`
+### `GET /api/pool/sessions/[id]`
+### `PUT /api/pool/sessions/[id]`
+### `DELETE /api/pool/sessions/[id]`
+
+### `GET /api/pool/rentals`
+### `POST /api/pool/rentals`
+### `GET /api/pool/rentals/[id]`
+### `PUT /api/pool/rentals/[id]`
+### `DELETE /api/pool/rentals/[id]`
+
+### `GET /api/pool/transactions`
+### `POST /api/pool/transactions`
+
+---
+
+## Staff Leave
+
+### `GET /api/staff-leave`
+| Query Param | Description |
+|-------------|-------------|
+| `status` | Filter by approval status |
+
+### `POST /api/staff-leave`
+**Fields**: `staffid`, `leavetype`, `startdate`, `enddate`, `reason`, `status`
+
+### `GET /api/staff-leave/[id]`
+### `PUT /api/staff-leave/[id]`
+### `DELETE /api/staff-leave/[id]`
+
+---
+
+## Activities
+
+### `GET /api/activities`
+### `POST /api/activities`
+**Fields**: `name`, `type`, `teacherid`, `schedule`, `description`
+
+### `GET /api/activities/[id]`
+### `PUT /api/activities/[id]`
+### `DELETE /api/activities/[id]`
+
+---
+
+## Announcements
+
+### `GET /api/announcements`
+### `POST /api/announcements`
+**Fields**: `title`, `body`, `audience`, `publishdate`, `expirydate`, `ispinned`
+
+### `GET /api/announcements/[id]`
+### `PUT /api/announcements/[id]`
+### `DELETE /api/announcements/[id]`
+
+---
+
+## Disciplinary Records
+
+### `GET /api/disciplinary`
+| Query Param | Description |
+|-------------|-------------|
+| `studentid` | Filter by student |
+
+### `POST /api/disciplinary`
+**Fields**: `studentid`, `incidentdate`, `category`, `description`, `actiontaken`, `resolved`, `parentnotified`
+
+### `GET /api/disciplinary/[id]`
+### `PUT /api/disciplinary/[id]`
+### `DELETE /api/disciplinary/[id]`
+
+---
+
+## Medical Records
+
+### `GET /api/medical`
+| Query Param | Description |
+|-------------|-------------|
+| `studentid` | Filter by student |
+
+### `POST /api/medical`
+**Fields**: `studentid`, `condition`, `treatmentdate`, `remarks`, `medication`
+
+### `GET /api/medical/[id]`
+### `PUT /api/medical/[id]`
+### `DELETE /api/medical/[id]`
+
+---
+
 ## Timetable
 
 ### `GET /api/timetable`
 ### `POST /api/timetable`
-**Fields**: `classid`, `subjectid`, `teacherid`, `day`, `starttime`, `endtime`
+**Fields**: `classid`, `subjectid`, `teacherid`, `day` (1=Mon … 5=Fri), `starttime` (HH:MM), `endtime`
 
 ### `GET /api/timetable/[id]`
 ### `PUT /api/timetable/[id]`
@@ -461,57 +615,21 @@ Bulk-create promotion records and update student grade/class assignments.
 
 ---
 
-## Parents & Student-Parents
+## Users
 
-### `GET /api/parents`
-### `POST /api/parents`
-### `GET /api/parents/[id]`
-### `PUT /api/parents/[id]`
-### `DELETE /api/parents/[id]`
-
-### `GET /api/student-parents`
+### `GET /api/users`
 | Query Param | Description |
 |-------------|-------------|
-| `studentid` | Get parents of a student |
-| `parentid` | Get students of a parent |
+| `role` | Filter by userrole number (1–8) |
 
-### `POST /api/student-parents`
-**Fields**: `studentid`, `parentid`, `relationship`, `isprimary`
+### `POST /api/users`
+**Fields**: `name`, `email`, `password`, `userrole`, `relatedrecord`
 
-### `PUT /api/student-parents/[id]`
-### `DELETE /api/student-parents/[id]`
+### `GET /api/users/[id]`
+### `PUT /api/users/[id]`
+**Updatable**: `name`, `email`, `password`, `userrole`, `isactive`, `relatedrecord`
 
----
-
-## Disciplinary Records
-
-### `GET /api/disciplinary`
-| Query Param | Description |
-|-------------|-------------|
-| `studentid` | Filter by student |
-
-### `POST /api/disciplinary`
-**Fields**: `studentid`, `incidentdate`, `category`, `description`, `actiontaken`, `resolved`, `parentnotified`
-
-### `GET /api/disciplinary/[id]`
-### `PUT /api/disciplinary/[id]`
-### `DELETE /api/disciplinary/[id]`
-
----
-
-## Medical Records
-
-### `GET /api/medical`
-| Query Param | Description |
-|-------------|-------------|
-| `studentid` | Filter by student |
-
-### `POST /api/medical`
-**Fields**: `studentid`, `condition`, `treatmentdate`, `remarks`, `medication`
-
-### `GET /api/medical/[id]`
-### `PUT /api/medical/[id]`
-### `DELETE /api/medical/[id]`
+### `DELETE /api/users/[id]`
 
 ---
 
@@ -530,7 +648,7 @@ Generate a student's term report card data.
 {
   "success": true,
   "data": {
-    "student": { "studentid": "...", "firstname": "...", "lastname": "...", ... },
+    "student": { "studentid": "...", "firstname": "...", "lastname": "...", "rollnumber": "..." },
     "termId": "...",
     "subjectRows": [
       {
@@ -540,7 +658,8 @@ Generate a student's term report card data.
         "classScore": 76.5,
         "examScore": 68.0,
         "finalScore": 70.55,
-        "grade": "B2"
+        "grade": "B2",
+        "remarks": "Very Good"
       }
     ],
     "summary": {
@@ -566,7 +685,7 @@ Generate a student's term report card data.
 ## Other
 
 ### `GET /api/health`
-Health check endpoint (public, no auth required).
+Public health check (no auth required).
 
 **Response**: `{ "status": "ok", "timestamp": "..." }`
 
@@ -577,9 +696,3 @@ Health check endpoint (public, no auth required).
 
 ### `POST /api/ai/summary`
 Generate an AI-powered text summary (requires `ANTHROPIC_API_KEY`).
-
-### `GET /api/announcements`
-### `POST /api/announcements`
-### `GET /api/announcements/[id]`
-### `PUT /api/announcements/[id]`
-### `DELETE /api/announcements/[id]`
