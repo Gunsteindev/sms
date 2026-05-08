@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -311,7 +311,7 @@ export default function FeesPage() {
       {/* Search + filters bar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
           <Input placeholder="Search…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         {tab === 'payments' && (
@@ -337,7 +337,7 @@ export default function FeesPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : !filteredFS.length ? (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
             <Receipt className="h-10 w-10 mb-3 opacity-40" />
             <p className="text-sm font-medium">No fee structures found</p>
             <p className="text-xs mt-1 opacity-70">Add a fee structure or run the seed script</p>
@@ -348,7 +348,7 @@ export default function FeesPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
                   {['Name', 'Type', 'Amount', 'Grade', 'Due Date', 'Academic Year', 'Actions'].map(h => (
-                    <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                    <TableHead key={h}>{h}</TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
@@ -361,20 +361,20 @@ export default function FeesPage() {
                         <span className="truncate max-w-[280px]">{s.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-4 py-3">
+                    <TableCell>
                       <Badge variant="default">{s.feetypename || '—'}</Badge>
                     </TableCell>
                     <TableCell className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(s.amount)}</TableCell>
                     <TableCell className="px-4 py-3 text-slate-500">{s.gradelevelname || '—'}</TableCell>
                     <TableCell className="px-4 py-3 text-slate-500 font-mono text-xs">{formatDate(s.duedate)}</TableCell>
                     <TableCell className="px-4 py-3 text-slate-500 text-xs">{s.academicyearname || '—'}</TableCell>
-                    <TableCell className="px-4 py-3">
+                    <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(s); setModalOpen(true); }}>
-                          <Pencil className="h-3.5 w-3.5 text-gray-400" />
+                          <Pencil className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => setToDelete(s.feestructureid)}>
-                          <Trash2 className="h-3.5 w-3.5 text-gray-400" />
+                          <Trash2 className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                         </Button>
                       </div>
                     </TableCell>
@@ -394,7 +394,7 @@ export default function FeesPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : !filteredPay.length ? (
-          <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+          <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-500">
             <CheckCircle2 className="h-10 w-10 mb-3 opacity-40" />
             <p className="text-sm font-medium">No payments recorded</p>
             <p className="text-xs mt-1 opacity-70">
@@ -421,7 +421,7 @@ export default function FeesPage() {
                 <TableHeader>
                   <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
                     {['Receipt', 'Student', 'Fee Structure', 'Amount', 'Date', 'Method', 'Status', ''].map(h => (
-                      <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                      <TableHead key={h}>{h}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
@@ -438,7 +438,7 @@ export default function FeesPage() {
                         <TableCell className="px-4 py-3 font-bold text-emerald-700 dark:text-emerald-400 font-mono">{formatCurrency(p.amount)}</TableCell>
                         <TableCell className="px-4 py-3 text-slate-600 text-xs font-mono">{formatDate(p.paymentdate)}</TableCell>
                         <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">{METHODS[p.paymentmethod] ?? '—'}</TableCell>
-                        <TableCell className="px-4 py-3"><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                        <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                         <TableCell className="px-2 py-3">
                           <button onClick={() => setReceiptData(p)} title="Print receipt"
                             className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">

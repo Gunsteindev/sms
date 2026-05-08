@@ -356,13 +356,13 @@ export default function ScholarshipsPage() {
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
                                 {['Scholarship', 'Type', 'Value', 'Sponsored By', 'Student', 'Period', 'Acad. Year', ''].map(h => (
-                                    <TableHead key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <TableHead key={h}>
                                         {h}
                                     </TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        <TableBody>
                             {paginated.map(r => (
                                 <TableRow key={r.scholarshipid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 

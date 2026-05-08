@@ -37,6 +37,18 @@ const es: Translations = {
     schoolProfile:   'Perfil del colegio',
     houses:          'Casas y Grupos',
     feeTypes:        'Tipos de cuota',
+    userManagement:  'Gestión de usuarios',
+    inventory:       'Inventario',
+    procurement:     'Adquisiciones',
+    staffLeave:      'Licencias del personal',
+    announcements:   'Anuncios',
+    transport:       'Transporte y flota',
+    activities:      'Actividades',
+    poolManagement:  'Gestión de piscina',
+    swimmingPool:    'Piscina',
+    parentPortal:    'Portal de padres',
+    portal:          'Avisos y actualizaciones',
+    docs:            'Ayuda & Docs',
   },
 
   common: {

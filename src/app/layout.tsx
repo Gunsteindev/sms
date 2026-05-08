@@ -3,6 +3,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { I18nProvider } from '@/contexts/I18nContext';
 import { SchoolSettingsProvider } from '@/contexts/SchoolSettingsContext';
+import { BrandProvider } from '@/contexts/BrandContext';
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
@@ -24,14 +25,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             var d = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
             if (d) document.documentElement.classList.add('dark');
           } catch(e) {}
+          try {
+            var bc = JSON.parse(localStorage.getItem('sms-brand-colors') || 'null');
+            if (bc && bc.primary) {
+              document.documentElement.style.setProperty('--school-primary', bc.primary);
+              document.documentElement.style.setProperty('--school-sidebar', bc.sidebar);
+              document.documentElement.style.setProperty('--primary', bc.primary);
+              document.documentElement.style.setProperty('--ring',    bc.primary);
+            }
+          } catch(e) {}
         `}} />
       </head>
       <body>
         <ThemeProvider>
           <I18nProvider>
-            <SchoolSettingsProvider>
-              <AuthProvider>{children}</AuthProvider>
-            </SchoolSettingsProvider>
+            <BrandProvider>
+              <SchoolSettingsProvider>
+                <AuthProvider>{children}</AuthProvider>
+              </SchoolSettingsProvider>
+            </BrandProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

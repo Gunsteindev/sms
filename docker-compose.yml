@@ -17,6 +17,7 @@ services:
       # ── NextAuth ─────────────────────────────────────────────────────────────
       NEXTAUTH_URL:        ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET:     ${NEXTAUTH_SECRET}
+      AUTH_SECRET:         ${AUTH_SECRET}
       # ── Microsoft Dataverse / Azure AD ───────────────────────────────────────
       DATAVERSE_URL:       ${DATAVERSE_URL}
       AZURE_TENANT_ID:     ${AZURE_TENANT_ID}

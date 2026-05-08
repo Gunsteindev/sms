@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getExams, createExam } from '@/lib/dataverse/exams';
-import { parseBody, serverError } from '@/lib/api-guard';
+import { parseBody, serverError, withSchool } from '@/lib/api-guard';
 
 const createSchema = z.object({
     name:           z.string().min(1),
@@ -16,22 +16,26 @@ const createSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-    try {
-        const search = request.nextUrl.searchParams.get('search') ?? undefined;
-        const data = await getExams(search);
-        return NextResponse.json({ success: true, data, total: data.length });
-    } catch (error) {
-        return serverError(error);
-    }
+    return withSchool(request, async () => {
+        try {
+            const search = request.nextUrl.searchParams.get('search') ?? undefined;
+            const data = await getExams(search);
+            return NextResponse.json({ success: true, data, total: data.length });
+        } catch (error) {
+            return serverError(error);
+        }
+    });
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const parsed = await parseBody(request, createSchema);
-        if ('response' in parsed) return parsed.response;
-        const data = await createExam(parsed.data);
-        return NextResponse.json({ success: true, data }, { status: 201 });
-    } catch (error) {
-        return serverError(error);
-    }
+    return withSchool(request, async () => {
+        try {
+            const parsed = await parseBody(request, createSchema);
+            if ('response' in parsed) return parsed.response;
+            const data = await createExam(parsed.data);
+            return NextResponse.json({ success: true, data }, { status: 201 });
+        } catch (error) {
+            return serverError(error);
+        }
+    });
 }

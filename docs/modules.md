@@ -1,17 +1,32 @@
 # Module Reference
 
+## Onboarding `/onboarding` (public)
+
+First-run wizard and school switcher. Accessible at any time — not protected by the route guard.
+
+**Select mode** — search bar + scrollable list of all registered schools. Clicking a school calls `POST /api/school/switch` and redirects to the dashboard scoped to that school.
+
+**Create mode** — 3-step wizard:
+1. School name, motto, EMIS code, curriculum type (GES / Cambridge / IB / American / French / Mixed)
+2. Address, region, district, phone, email, website
+3. Review and submit → `POST /api/onboarding/complete`
+
+Admins return here to add schools or switch between tenants.
+
+---
+
 ## Dashboard `/dashboard`
 
-The landing page after login. Shows live statistics:
+Landing page after login. Shows live statistics for the active school:
 
 - Total students, teachers, employees, classes
 - Today's attendance count
 - Current month revenue
-- Recent announcements
 - Attendance trend chart (last 30 days)
+- Recent announcements
 - AI-generated summary (requires `ANTHROPIC_API_KEY`)
 
-Data comes from `GET /api/dashboard?full=true`.
+Data from `GET /api/dashboard?full=true`.
 
 ---
 
@@ -23,30 +38,22 @@ Full student lifecycle management.
 - Search by name
 - Filter by status (Active / Inactive / Graduated / Transferred)
 - Pagination (10 per page)
-- Quick actions: Edit, View profile, Delete
+- Actions: Edit, View profile, Delete
 
 ### Student Profile `/students/[id]`
 
-Tabbed detail view with six tabs:
+Tabbed detail view:
 
 | Tab | Contents |
 |-----|----------|
-| **Overview** | Name, date of birth, roll number, class, grade level, status, contact, guardian |
+| **Overview** | Name, DOB, roll number, class, grade level, status, contact, guardian |
 | **Academic** | Enrolment history, class assignments |
 | **Attendance** | Attendance record for current term with percentage |
 | **Fees** | Fee invoices and payment status |
-| **Medical** | Blood type, allergies, chronic conditions, medications, vaccinations, last check-up |
-| **Disciplinary** | Incident date, type, description, action taken, resolved status |
+| **Medical** | Blood type, allergies, conditions, medications, vaccinations |
+| **Disciplinary** | Incidents, sanctions, resolution status |
 
-### Add Student `/students/add`
-
-Full creation form with fields:
-- First name, last name, date of birth, gender
-- Roll number, enrolment date, status
-- Class and grade level assignment
-- Email, phone, address
-- Guardian name, phone, email
-- Parent link
+**Fields**: First name, last name, date of birth, gender, roll number, enrolment date, status, class, grade level, email, phone, address, guardian name/phone/email, parent link.
 
 ---
 
@@ -56,7 +63,7 @@ Teaching staff management.
 
 **Fields**: Title, first name, last name, email, phone, date of birth, gender, qualification, specialization, hire date, employee ID.
 
-List supports search and status filter. Each teacher can be linked to subjects and classes via the Timetable and Subjects modules.
+List supports search and status filter. Teachers can be linked to subjects via the Subjects module and to classes via Timetable.
 
 ---
 
@@ -64,9 +71,19 @@ List supports search and status filter. Each teacher can be linked to subjects a
 
 Non-teaching staff management.
 
-**Fields**: First name, last name, email, phone, position, date of birth, department.
+**Fields**: First name, last name, email, phone, position, department, date of birth, employment type, contract dates.
 
 Filter by department. Stats card shows total and active employees.
+
+---
+
+## Parents `/parents`
+
+Guardian profiles.
+
+**Fields**: First name, last name, email, phone, address, relationship.
+
+Parents can be linked to one or more students. Linked parents with user accounts can access the Parent Portal.
 
 ---
 
@@ -76,7 +93,7 @@ Manage classrooms.
 
 **Fields**: Class name, section, grade level, capacity, room number, assigned teacher, academic year.
 
-Each class can have students enrolled (via Enrollments) and subjects assigned (via Timetable).
+Students are enrolled via the Enrollments module. Subjects are assigned via the Timetable module.
 
 ---
 
@@ -84,15 +101,15 @@ Each class can have students enrolled (via Enrollments) and subjects assigned (v
 
 Course catalogue.
 
-**Fields**: Subject name, subject code, description.
+**Fields**: Subject name, subject code, description, grade level.
 
-Subjects are assigned to classes through the Timetable module.
+Subject codes appear on report cards and in the gradebook (e.g. MATH, ENG, SCI).
 
 ---
 
 ## Departments `/departments`
 
-Administrative departments.
+Academic departments.
 
 **Fields**: Department name, description, head of department (linked to an employee).
 
@@ -102,7 +119,9 @@ Administrative departments.
 
 Links students to classes.
 
-**Fields**: Student, class, academic year, roll number, enrolment date, enrolment status (Active / Withdrawn / Completed / Deferred).
+**Fields**: Student, class, academic year, term, roll number, enrolment date, status (Active / Withdrawn / Completed / Deferred).
+
+Enrollment is required before attendance or exam marks can be recorded for a student.
 
 ---
 
@@ -116,35 +135,33 @@ Daily attendance recording.
 3. Submit marks all records in bulk via `POST /api/attendance`
 
 ### Attendance Trends
-A line chart shows daily attendance rates over the last 30 days (configurable).
+Line chart showing daily attendance rates over the last 30 days.
 
-**Status codes**: 1 = Present, 2 = Absent, 3 = Late, 4 = Excused.
+**Status codes**: 1=Present, 2=Absent, 3=Late, 4=Excused.
 
 ---
 
 ## Gradebook `/gradebook`
 
-Enter and review continuous assessment scores following the GES framework.
+Enter and review continuous assessment scores using the GES framework.
 
 ### Filter Bar (cascading)
 Class → Subject → Academic Year → Term
 
 ### Score Entry
-Once filters are selected, a table shows all students in the class. Columns correspond to assessment types:
 
-| Column | Type Code | Weight in Class Score |
-|--------|-----------|----------------------|
-| Classwork | 1 | Included in 30% |
-| Homework | 2 | Included in 30% |
-| Quiz | 3 | — (informational) |
-| MidTerm | 4 | Included in 30% |
-| End of Term | 5 | Maps to Exam Score (70%) |
-| Project | 6 | — (informational) |
+| Column | Assessment Type | Role in Final Score |
+|--------|----------------|-------------------|
+| Classwork | 1 | Included in 30% class score |
+| Homework | 2 | Included in 30% class score |
+| Quiz | 3 | Informational only |
+| MidTerm | 4 | Included in 30% class score |
+| End of Term | 5 | Exam score (70%) |
+| Project | 6 | Informational only |
 
 Click any cell to edit the score (0–100). **Save All** bulk-upserts all changes.
 
-### Grade Computation
-The Computed Grade column applies the GES formula and displays the letter grade (A1–F9) in real time.
+The Computed Grade column applies the GES formula and shows the letter grade (A1–F9) in real time.
 
 ---
 
@@ -153,15 +170,10 @@ The Computed Grade column applies the GES formula and displays the letter grade 
 Exam scheduling and result entry.
 
 ### Exams Tab
-Create and manage exams:
-- **Fields**: Name, exam type, start date, end date, total marks, pass marks, weight %, venue, description
-- **Exam types**: 1 = Quiz, 2 = Midterm, 3 = Final, 4 = Practical
+**Fields**: Name, exam type (Quiz / Midterm / Final / Practical), start date, end date, total marks, pass marks, weight %, venue, description, class, term, academic year.
 
 ### Results Tab
-Enter scores for each student per exam:
-- **Fields**: Student, exam, score, remarks
-- Percentage and grade letter are auto-calculated: `(score / totalmarks) × 100`
-- Pass/fail determined by comparing percentage against exam's `passmarks`
+Enter scores per student per exam. Percentage and grade letter are auto-calculated. Pass/fail is determined against the exam's `passmarks`.
 
 ---
 
@@ -169,38 +181,24 @@ Enter scores for each student per exam:
 
 Generates GES-compliant termly report cards.
 
-### Step 1 — Selection Page
-Choose: Academic Year → Term → Class → Student, then click **Generate Report Card**.
+**Step 1** — Select: Academic Year → Term → Class → Student → Generate.
 
-### Step 2 — Report Card Page `/reports/report-card/[studentId]`
+**Step 2** — `/reports/report-card/[studentId]`
 
-Displays and prints the student's full term report.
+Report sections:
+1. School header (name, logo)
+2. Student info (name, roll number, class, term, date)
+3. Subject table: Class Score (30%) | Exam Score (70%) | Total | Grade | Remarks
+4. Summary: average score, overall grade, total subjects
+5. GES grade scale reference
 
-**Report sections:**
-
-1. **School Header** — school name and logo
-2. **Student Info** — name, roll number, class, term, academic year, date printed
-3. **Subject Table**:
-
-   | Subject | Class Score (30%) | Exam Score (70%) | Total | Grade | Remarks |
-   |---------|-------------------|------------------|-------|-------|---------|
-
-   - Class Score = average of Classwork, Homework, MidTerm grades
-   - Exam Score = End-of-Term exam result
-   - Remarks derived from grade: Excellent (A1), Very Good (B2), Good (B3), Credit (C4–C6), Pass (D7–E8), Fail (F9)
-
-4. **Summary** — average score, overall grade, total subjects
-5. **GES Grade Scale** reference table
-
-**Print** — Click the Print button to open the browser print dialog. Sidebar and navigation are hidden via `@media print` CSS for a clean output.
+Print button opens the browser print dialog. Sidebar and nav are hidden via `@media print`.
 
 ---
 
 ## Fees `/fees`
 
-Overview of fee structures linked to grade levels.
-
-Lists fee structures with type, amount, due date, and grade level. Administrators can create, edit, and delete structures here.
+Fee structures and invoicing hub.
 
 **Fee types**: Tuition, Examination, Development, Feeding, Transport, Boarding, Activity, Other.
 
@@ -208,78 +206,183 @@ Lists fee structures with type, amount, due date, and grade level. Administrator
 
 ## Finance
 
+### Fee Types `/setup/fee-types`
+Configurable fee categories. Create types before building fee structures.
+
 ### Fee Structures `/finance/fee-structures`
-Manage fee templates: amount, type, due date, academic year, grade level.
+Templates linking fee type + amount + grade level + academic year + term.
 
 ### Fee Invoices `/finance/fees`
-Individual fee invoices issued to students:
-- **Fields**: Student, fee structure, amount due, due date, status (Pending / Paid / Partial / Waived / Overdue)
+Individual invoices issued to students. Status: Pending / Paid / Partial / Waived / Overdue.
 
 ### Fee Payments `/finance/fee-payments`
-Record actual payments against invoices:
-- **Fields**: Fee invoice, student, amount, payment date, method (Cash, Mobile Money, Bank Transfer, Cheque, Other), status, transaction ID, receipt number
-- Receipt numbers auto-generated if not provided: `RCP-<timestamp>-<random>`
+Payment recording with receipt generation. Methods: Cash, Mobile Money, Bank Transfer, Cheque, Other. Receipt numbers auto-generated (`RCP-<timestamp>-<random>`) if not provided.
 
 ### Scholarships `/finance/scholarships`
-Scholarship awards:
-- **Fields**: Name, description, type (Full / Partial / Bursary), amount, percentage, conditions, sponsor, start date, end date, student
-- Scholarship type determines whether a fixed amount or percentage is applied
+**Fields**: Name, type (Full / Partial / Bursary), amount, percentage, conditions, sponsor, start date, end date, student.
 
 ---
 
 ## Library `/library`
 
-Book inventory and loan tracking.
+Book catalogue and loan tracking.
 
 ### Books Tab
-Catalogue of available books:
-- **Fields**: Title, author, ISBN, publisher, year, genre, quantity, location
+**Fields**: Title, author, ISBN, publisher, year, genre, quantity, location.
 
 ### Loans Tab
-Track book loans:
-- **Fields**: Book, borrower (student), issue date, due date, return date (filled on return), status (Issued / Returned / Overdue / Lost)
+**Fields**: Book, borrower (student), issue date, due date, return date, status (Issued / Returned / Overdue / Lost).
 
 ---
 
 ## Timetable `/timetable`
 
-Class schedule management:
-- **Fields**: Class, subject, teacher, day of week, start time, end time
-- Displayed with colour-coded period blocks
+Class schedule management.
+
+**Fields**: Class, subject, teacher, day of week (Mon–Fri), start time, end time.
+
+Displayed as colour-coded period blocks.
+
+---
+
+## Health Records `/health`
+
+Student medical records.
+
+**Fields**: Student, condition, treatment date, medication, remarks.
+
+Medical clearance appears on the student profile and feeds into pool session eligibility.
+
+---
+
+## Disciplinary `/disciplinary`
+
+Student disciplinary case management.
+
+**Fields**: Student, incident date, category, description, action taken, resolved (boolean), parent notified (boolean).
+
+---
+
+## Staff Leave `/staff-leave`
+
+Leave application and approval tracking.
+
+**Fields**: Staff member, leave type, start date, end date, reason, status (Pending / Approved / Declined).
+
+---
+
+## Activities `/activities`
+
+Extra-curricular activity management.
+
+**Fields**: Activity name, type (Sport / Club / Arts / Academic / Other), teacher in charge, schedule, description.
+
+Students can be enrolled in activities. Awards and achievements can be recorded.
+
+---
+
+## Announcements `/announcements`
+
+School-wide notice board.
+
+**Fields**: Title, body, audience (All / Students / Parents / Staff), publish date, expiry date, pinned (boolean).
+
+Pinned announcements appear at the top of the portal.
+
+---
+
+## Inventory `/inventory`
+
+Stock and asset tracking.
+
+**Fields**: Item name, category, unit, quantity, reorder level, location, description.
+
+Record stock receipts (in) and issues (out). Physical counts can be reconciled via adjustments.
+
+---
+
+## Procurement `/procurement`
+
+Purchase order management.
+
+**Fields**: Item, quantity, supplier, unit price, total amount, status (Pending / Approved / Rejected / Received), notes.
+
+Approving and marking as received updates inventory stock automatically.
+
+---
+
+## Transport `/transport`
+
+School vehicle and route management.
+
+**Fields**: Registration number, make/model, capacity, driver name, driver phone, maintenance due date, status.
+
+Student route assignments are managed per term.
+
+---
+
+## Swimming Pool `/pool`
+
+Pool session and rental management.
+
+**Tabs**: Sessions (create swim groups and sessions), Rentals (external pool hire), Transactions (revenue tracking).
+
+Medical clearance from the Health module is required before assigning a student to any pool session.
+
+---
+
+## Reports `/reports`
+
+### Summary Reports
+- Attendance summary by class or period
+- Academic performance summary by term
+- Fee collection and outstanding balance reports
+
+### National Exams `/reports/national-exams`
+BECE / WASSCE entry tracking — candidate index numbers, results entry, pass rate analysis.
+
+---
+
+## Parent Portal `/portal`
+
+Read-only view for parents with portal user accounts:
+- Pinned and recent school announcements
+- Child's attendance and academic summary
 
 ---
 
 ## Setup Modules
 
-### Academic Years `/setup/academic-years`
-Define academic years (e.g. 2024–2025). Mark one as the current year.
+### School Profile `/setup/school-profile`
+Name, motto, logo, brand colours, EMIS code, curriculum type, contact details, campus branches. Includes a school switcher dropdown when multiple schools are registered.
 
-**Fields**: Name, start date, end date, is current.
+### Academic Years `/setup/academic-years`
+**Fields**: Name (e.g. 2025-2026), start date, end date, is current, description. Each school has its own set of academic years. The current year is scoped per school.
 
 ### Terms `/setup/terms`
-Define terms within an academic year (e.g. Term 1, Term 2, Term 3).
-
 **Fields**: Name, academic year, term number, start date, end date.
 
 ### Grade Levels `/setup/grade-levels`
-Define the school's grade structure (e.g. KG1, Primary 1, JHS 1, SHS 1).
-
 **Fields**: Name, level number, description.
+
+Set the `levelnumber` carefully — it determines promotion order.
 
 ### Promotions `/setup/promotions`
 
-End-of-year workflow to advance students to the next grade level.
+End-of-year workflow:
+1. Select academic year and grade level
+2. Set each student's decision: Promoted / Retained / Transferred / Graduated
+3. For promoted students: select the target class
+4. **Apply Promotions** creates `sms_promotions` audit records and updates student grade/class
 
-**Step 1** — Select academic year and grade level to promote from.
+### Programme Tracks `/setup/programme-tracks`
+Curriculum tracks (e.g. General Science, Business) for differentiated SHS programmes.
 
-**Step 2** — A table lists all students in that grade with:
-- Name, roll number, average grade, attendance %
-- Status dropdown: Promoted / Retained / Transferred / Graduated
-- For promoted students: select the target class
+### Houses & Streams `/setup/houses`
+Student house or stream assignments for pastoral care and competitions.
 
-**Step 3** — **Apply Promotions** triggers a bulk operation:
-- Creates `sms_promotions` records for audit trail
-- Updates each student's grade level and class assignment
-- Sets status to "Graduated" for students at the final grade
+### Fee Types `/setup/fee-types`
+Create fee categories before building fee structures.
 
-**History Tab** — View all past promotions filterable by academic year and grade.
+### User Management `/setup/users`
+Create and manage per-school system user accounts with role assignment. Roles: Admin, Teacher, Finance, Inventory Manager, Transport Manager, Pool Attendant, Parent, Kitchen Attendant.

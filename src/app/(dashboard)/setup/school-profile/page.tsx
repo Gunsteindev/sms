@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Save, School, Phone, Mail, Globe, MapPin, Hash, Building2,
-  Plus, Pencil, Trash2, Star, GitBranch, Loader2, Upload, X, ImageIcon,
+  Plus, Pencil, Trash2, Star, GitBranch, Loader2, X, ImageIcon, Palette, ChevronDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { schoolAPI } from '@/lib/api-client';
+import { useBrand } from '@/contexts/BrandContext';
 import type { SchoolProfile, SchoolBranch, SchoolType, SchoolLevel } from '@/lib/dataverse/school';
 
 const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
@@ -52,7 +53,19 @@ const DEFAULT_DRAFT: Omit<SchoolProfile, 'schoolid'> = {
   name: '', motto: '', type: 'ges', level: 'all',
   address: '', phone: '', email: '', currency: 'GHS',
   website: '', emiscode: '', district: '', region: '', logo: '',
+  primarycolor: '#2563eb', sidebarcolor: '#0f172a',
 };
+
+const COLOR_PRESETS: { name: string; primary: string; sidebar: string }[] = [
+  { name: 'Ocean Blue',    primary: '#2563eb', sidebar: '#0f172a' },
+  { name: 'Forest Green',  primary: '#16a34a', sidebar: '#14532d' },
+  { name: 'Crimson',       primary: '#dc2626', sidebar: '#450a0a' },
+  { name: 'Purple',        primary: '#7c3aed', sidebar: '#2e1065' },
+  { name: 'Amber',         primary: '#d97706', sidebar: '#451a03' },
+  { name: 'Teal',          primary: '#0891b2', sidebar: '#083344' },
+  { name: 'Rose',          primary: '#e11d48', sidebar: '#4c0519' },
+  { name: 'Slate',         primary: '#475569', sidebar: '#0f172a' },
+];
 
 type BranchDraft = Omit<SchoolBranch, 'branchid' | 'schoolid'>;
 const EMPTY_BRANCH: BranchDraft = {
@@ -163,6 +176,44 @@ function LogoUpload({ value, onChange }: { value: string; onChange: (b64: string
   );
 }
 
+function ColorSwatch({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [hex, setHex] = useState(value);
+  useEffect(() => { setHex(value); }, [value]);
+
+  const handleHex = (v: string) => {
+    setHex(v);
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) onChange(v);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">{label}</Label>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="h-10 w-10 flex-shrink-0 rounded-lg border-2 border-white dark:border-slate-700 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 cursor-pointer transition-transform hover:scale-105"
+          style={{ backgroundColor: value }}
+          title="Click to open color picker"
+        />
+        <input
+          ref={inputRef} type="color" value={value}
+          onChange={e => { onChange(e.target.value); setHex(e.target.value); }}
+          className="sr-only"
+        />
+        <Input
+          value={hex}
+          onChange={e => handleHex(e.target.value)}
+          placeholder="#2563eb"
+          className="font-mono text-sm"
+          maxLength={7}
+        />
+      </div>
+    </div>
+  );
+}
+
 function BranchForm({ value, onChange }: { value: BranchDraft; onChange: (b: BranchDraft) => void }) {
   const set = (k: keyof BranchDraft, v: string | boolean) => onChange({ ...value, [k]: v });
   return (
@@ -210,11 +261,19 @@ function BranchForm({ value, onChange }: { value: BranchDraft; onChange: (b: Bra
 /* ── Page ───────────────────────────────────────────────────────────────── */
 
 export default function SchoolProfilePage() {
-  const [loading, setLoading]   = useState(true);
-  const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [draft, setDraft]       = useState<Omit<SchoolProfile, 'schoolid'>>(DEFAULT_DRAFT);
+  const { colors, setColors, setSchool } = useBrand();
+  const [loading, setLoading]     = useState(true);
+  const [schoolId, setSchoolId]   = useState('');
+  const [schools, setSchools]     = useState<SchoolProfile[]>([]);
+  const [switching, setSwitching] = useState(false);
+  const [draft, setDraft]         = useState<Omit<SchoolProfile, 'schoolid'>>(() => ({
+    ...DEFAULT_DRAFT,
+    primarycolor: colors.primary,
+    sidebarcolor: colors.sidebar,
+  }));
   const [branches, setBranches] = useState<SchoolBranch[]>([]);
   const [saving, setSaving]     = useState(false);
+  const [savedAt, setSavedAt]   = useState<Date | null>(null);
 
   const [modalOpen, setModalOpen]       = useState(false);
   const [editingBranch, setEditing]     = useState<SchoolBranch | null>(null);
@@ -222,23 +281,35 @@ export default function SchoolProfilePage() {
   const [toDelete, setToDelete]         = useState<string | null>(null);
   const [branchSaving, setBranchSaving] = useState(false);
 
+  const loadSchool = async (id?: string) => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [profileRes, branchRes] = await Promise.all([
+        id ? fetch(`/api/school?id=${id}`).then(r => r.json()) : schoolAPI.getProfile(),
+        schoolAPI.getBranches(id),
+      ]) as any[];
+      if (profileRes?.data) {
+        const p: SchoolProfile = profileRes.data;
+        setSchoolId(p.schoolid);
+        setDraft({ name: p.name, motto: p.motto, type: p.type, level: p.level, address: p.address, phone: p.phone, email: p.email, currency: p.currency, website: p.website, emiscode: p.emiscode, district: p.district, region: p.region, logo: p.logo ?? '', primarycolor: p.primarycolor || colors.primary, sidebarcolor: p.sidebarcolor || colors.sidebar });
+      }
+      if (branchRes?.data) setBranches(branchRes.data as SchoolBranch[]);
+    } catch {
+      toast.error('Failed to load school profile');
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [profileRes, branchRes] = await Promise.all([schoolAPI.getProfile(), schoolAPI.getBranches()]) as any[];
-        if (profileRes?.data) {
-          const p: SchoolProfile = profileRes.data;
-          setSchoolId(p.schoolid);
-          setDraft({ name: p.name, motto: p.motto, type: p.type, level: p.level, address: p.address, phone: p.phone, email: p.email, currency: p.currency, website: p.website, emiscode: p.emiscode, district: p.district, region: p.region, logo: p.logo ?? '' });
-        }
-        if (branchRes?.data) setBranches(branchRes.data as SchoolBranch[]);
-      } catch {
-        toast.error('Failed to load school profile');
+        const [, listRes] = await Promise.all([loadSchool(), schoolAPI.listSchools()]) as any[];
+        if (listRes?.data) setSchools(listRes.data as SchoolProfile[]);
       } finally {
         setLoading(false);
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const set = (key: keyof typeof draft, value: string) => setDraft(p => ({ ...p, [key]: value }));
@@ -247,14 +318,35 @@ export default function SchoolProfilePage() {
     if (!draft.name.trim()) { toast.error('School name is required'); return; }
     setSaving(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await schoolAPI.saveProfile(draft) as any;
-      if (res?.data?.schoolid) setSchoolId(res.data.schoolid);
+      await schoolAPI.saveProfile(draft);
+      setColors({ primary: draft.primarycolor, sidebar: draft.sidebarcolor });
+      setSchool({ name: draft.name, motto: draft.motto, logo: draft.logo });
+      setSavedAt(new Date());
       toast.success('School profile saved');
     } catch {
       toast.error('Failed to save school profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSwitchSchool = async (id: string) => {
+    if (id === schoolId) return;
+    setSwitching(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await schoolAPI.switchSchool(id) as any;
+      setSavedAt(null);
+      await loadSchool(id);
+      setSchoolId(id);
+      // Sync sidebar branding to the newly-active school
+      const target = schools.find(s => s.schoolid === id);
+      if (target) setSchool({ name: target.name, motto: target.motto, logo: target.logo ?? '' });
+      toast.success(`Switched to ${target?.name ?? 'school'}`);
+    } catch {
+      toast.error('Failed to switch school');
+    } finally {
+      setSwitching(false);
     }
   };
 
@@ -267,7 +359,6 @@ export default function SchoolProfilePage() {
 
   const saveBranch = async () => {
     if (!branchDraft.name.trim()) { toast.error('Branch name is required'); return; }
-    if (!schoolId && !editingBranch) { toast.error('Save the school profile first before adding branches'); return; }
     setBranchSaving(true);
     try {
       if (editingBranch) {
@@ -277,7 +368,7 @@ export default function SchoolProfilePage() {
         toast.success('Branch updated');
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = await schoolAPI.createBranch({ ...branchDraft, schoolid: schoolId! }) as any;
+        const res = await schoolAPI.createBranch({ ...branchDraft, schoolid: schoolId }) as any;
         setBranches(prev => [...prev, res.data]);
         toast.success('Branch added');
       }
@@ -324,27 +415,54 @@ export default function SchoolProfilePage() {
   }
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-6xl mx-auto">
 
       {/* Page header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">School Profile</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Manage your school&apos;s identity, curriculum, contact details and branches
           </p>
         </div>
-        {/* Mobile save */}
-        <Button onClick={save} disabled={saving} className="lg:hidden">
-          {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {savedAt && (
+            <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+              Saved {savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+          {schools.length > 1 && (
+            <div className="relative">
+              <SelectRoot value={schoolId} onValueChange={v => v && handleSwitchSchool(v)} disabled={switching}>
+                <SelectTrigger className="h-9 min-w-[200px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm">
+                  <div className="flex items-center gap-2">
+                    {switching && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+                    <SelectValue>{schools.find(s => s.schoolid === schoolId)?.name ?? 'Select school'}</SelectValue>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-slate-400 ml-1 flex-shrink-0" />
+                </SelectTrigger>
+                <SelectContent>
+                  {schools.map(s => (
+                    <SelectItem key={s.schoolid} value={s.schoolid}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </SelectRoot>
+            </div>
+          )}
+          <Button onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            {saving ? 'Saving…' : 'Save Profile'}
+          </Button>
+        </div>
       </div>
 
-      <div className="flex gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_288px] gap-6 items-start">
 
         {/* ── Left: form ────────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-5">
+        <div className="space-y-5 min-w-0">
 
           {/* Identity */}
           <Card title="School Identity" icon={School}>
@@ -441,35 +559,84 @@ export default function SchoolProfilePage() {
             </div>
           </Card>
 
+          {/* Brand Colors */}
+          <Card title="Brand Colors" icon={Palette}>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Customize your school&apos;s primary and sidebar colors. Changes apply immediately across the app after saving.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <ColorSwatch label="Primary Color" value={draft.primarycolor} onChange={v => set('primarycolor', v)} />
+              <ColorSwatch label="Sidebar Color" value={draft.sidebarcolor} onChange={v => set('sidebarcolor', v)} />
+            </div>
+
+            {/* Presets */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Presets</p>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PRESETS.map(p => (
+                  <button
+                    key={p.name}
+                    type="button"
+                    title={p.name}
+                    onClick={() => { set('primarycolor', p.primary); set('sidebarcolor', p.sidebar); }}
+                    className="group relative h-9 w-9 rounded-lg border-2 border-white dark:border-slate-800 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 hover:ring-blue-400 dark:hover:ring-blue-500 transition-all overflow-hidden"
+                  >
+                    <div className="absolute inset-0 right-1/2" style={{ backgroundColor: p.sidebar }} />
+                    <div className="absolute inset-0 left-1/2" style={{ backgroundColor: p.primary }} />
+                    <span className="sr-only">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mini preview */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2">Preview</p>
+              <div className="flex rounded-xl overflow-hidden shadow border border-slate-200 dark:border-slate-700 h-28">
+                <div className="w-20 flex flex-col gap-1.5 p-2.5" style={{ backgroundColor: draft.sidebarcolor }}>
+                  <div className="h-2.5 rounded-md" style={{ backgroundColor: draft.primarycolor }} />
+                  <div className="h-1.5 rounded bg-white/20" />
+                  <div className="h-1.5 rounded bg-white/20" />
+                  <div className="h-1.5 rounded bg-white/15" />
+                  <div className="h-1.5 rounded bg-white/15" />
+                </div>
+                <div className="flex-1 bg-slate-100 dark:bg-slate-800 p-2.5 flex flex-col gap-2">
+                  <div className="h-2 w-2/3 rounded bg-slate-300 dark:bg-slate-600" />
+                  <div className="flex gap-1.5">
+                    <div className="h-10 flex-1 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-slate-200 dark:border-slate-600" style={{ borderTopColor: draft.primarycolor, borderTopWidth: 2 }} />
+                    <div className="h-10 flex-1 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-slate-200 dark:border-slate-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Branches */}
           <Card
             title={`Branches${branches.length > 0 ? ` (${branches.length})` : ''}`}
             icon={GitBranch}
+            noPad
             action={
-              <Button size="sm" onClick={openAdd} disabled={!schoolId} className="h-7 text-xs px-2.5">
+              <Button size="sm" onClick={openAdd} className="h-7 text-xs px-2.5">
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Branch
               </Button>
             }
           >
-            {!schoolId ? (
-              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-4 py-3">
-                Save the school profile first before adding branches.
-              </p>
-            ) : branches.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
-                  <GitBranch className="h-5 w-5 text-slate-400" />
+            {branches.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 mb-2.5">
+                  <GitBranch className="h-4.5 w-4.5 text-slate-400" />
                 </div>
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No branches yet</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-4">Add campuses or satellite locations</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 mb-3">Add campuses or satellite locations</p>
                 <Button size="sm" variant="outline" onClick={openAdd}>
                   <Plus className="h-3.5 w-3.5 mr-1" /> Add First Branch
                 </Button>
               </div>
             ) : (
-              <div className="divide-y divide-slate-50 dark:divide-slate-800">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {branches.map(b => (
-                  <div key={b.branchid} className="group flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <div key={b.branchid} className="group flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${b.ismain ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
                       {b.ismain
                         ? <Star className="h-4 w-4 text-amber-500" />
@@ -514,13 +681,16 @@ export default function SchoolProfilePage() {
 
         </div>
 
-        {/* ── Right: sticky preview sidebar ─────────────────────────── */}
-        <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 sticky top-6 gap-4">
+        {/* ── Right: sticky preview panel ───────────────────────────── */}
+        <div className="hidden lg:block">
+        <div className="sticky top-6 space-y-3">
+
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500 px-1">Live Preview</p>
 
           {/* Identity card */}
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900">
             {/* Gradient banner */}
-            <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 px-5 pt-6 pb-12 flex flex-col items-center text-center">
+            <div className="px-5 pt-6 pb-12 flex flex-col items-center text-center" style={{ background: `linear-gradient(135deg, ${draft.primarycolor}, ${draft.sidebarcolor})` }}>
               {draft.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={draft.logo} alt="logo"
@@ -534,12 +704,12 @@ export default function SchoolProfilePage() {
                 {draft.name || <span className="text-white/50 italic">School Name</span>}
               </h3>
               {draft.motto && (
-                <p className="text-blue-100 text-xs italic mt-1 leading-snug">&ldquo;{draft.motto}&rdquo;</p>
+                <p className="text-white/70 text-xs italic mt-1 leading-snug">&ldquo;{draft.motto}&rdquo;</p>
               )}
             </div>
 
             {/* Info pills */}
-            <div className="-mt-5 mx-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="-mt-5 mx-3 mb-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 overflow-hidden">
               <div className="divide-y divide-slate-50 dark:divide-slate-800">
 
                 <div className="flex items-center gap-2.5 px-3 py-2.5">
@@ -639,22 +809,10 @@ export default function SchoolProfilePage() {
               </div>
             </div>
 
-            <div className="h-5" />
           </div>
 
-          {/* Save button */}
-          <Button onClick={save} disabled={saving} size="lg" className="w-full">
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            {saving ? 'Saving…' : 'Save Profile'}
-          </Button>
-
-          {!schoolId && (
-            <p className="text-xs text-center text-slate-400 dark:text-slate-500">
-              Profile not yet saved to Dataverse
-            </p>
-          )}
-
-        </aside>
+        </div>
+        </div>
 
       </div>
 

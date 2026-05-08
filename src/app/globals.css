@@ -45,6 +45,12 @@
 }
 
 @layer base {
+  /* ── Brand color defaults (overridden at runtime via JS / localStorage) ─── */
+  :root {
+    --school-primary: #2563eb;
+    --school-sidebar: #0f172a;
+  }
+
   /* ── Light mode ──────────────────────────────────────────────────────────── */
   :root {
     --background:              oklch(0.978 0.003 264);  /* cool off-white */

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getFeePayments, createFeePayment } from '@/lib/dataverse/fees';
-import { parseBody, serverError } from '@/lib/api-guard';
+import { parseBody, serverError, withSchool } from '@/lib/api-guard';
 
 const paymentSchema = z.object({
     studentid:     z.string().min(1),
@@ -15,31 +15,35 @@ const paymentSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-    try {
-        const p = request.nextUrl.searchParams;
-        const result = await getFeePayments({
-            studentid: p.get('studentid') ?? undefined,
-            status:    p.get('status')    ? Number(p.get('status'))   : undefined,
-            pageSize:  p.get('pageSize')  ? Number(p.get('pageSize')) : undefined,
-        });
-        return NextResponse.json({ success: true, data: result.items, total: result.totalCount });
-    } catch (error) {
-        return serverError(error);
-    }
+    return withSchool(request, async () => {
+        try {
+            const p = request.nextUrl.searchParams;
+            const result = await getFeePayments({
+                studentid: p.get('studentid') ?? undefined,
+                status:    p.get('status')    ? Number(p.get('status'))   : undefined,
+                pageSize:  p.get('pageSize')  ? Number(p.get('pageSize')) : undefined,
+            });
+            return NextResponse.json({ success: true, data: result.items, total: result.totalCount });
+        } catch (error) {
+            return serverError(error);
+        }
+    });
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const parsed = await parseBody(request, paymentSchema);
-        if ('response' in parsed) return parsed.response;
+    return withSchool(request, async () => {
+        try {
+            const parsed = await parseBody(request, paymentSchema);
+            if ('response' in parsed) return parsed.response;
 
-        const body = { ...parsed.data };
-        if (!body.receiptnumber) {
-            body.receiptnumber = `RCP-${crypto.randomUUID()}`;
+            const body = { ...parsed.data };
+            if (!body.receiptnumber) {
+                body.receiptnumber = `RCP-${crypto.randomUUID()}`;
+            }
+            const data = await createFeePayment(body);
+            return NextResponse.json({ success: true, data, message: 'Payment recorded' }, { status: 201 });
+        } catch (error) {
+            return serverError(error);
         }
-        const data = await createFeePayment(body);
-        return NextResponse.json({ success: true, data, message: 'Payment recorded' }, { status: 201 });
-    } catch (error) {
-        return serverError(error);
-    }
+    });
 }

@@ -20,6 +20,8 @@ const PUBLIC_PATHS = [
     '/api/health',
 ];
 
+const ONBOARDING_PATHS = ['/onboarding', '/api/onboarding'];
+
 // Routes restricted to specific roles. Paths are prefix-matched.
 // Roles NOT listed here means Admin-only.
 const ROLE_ACCESS: { path: string; roles: number[] }[] = [
@@ -139,6 +141,13 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
+    // Onboarding gate — admin without a school must complete setup first
+    const isOnboardingPath = ONBOARDING_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+    if (user.userrole === ADMIN && !user.schoolId && !isOnboardingPath && !pathname.startsWith('/api/')) {
+        return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
+    // Allow admins to visit /onboarding at any time (to switch school or add a new one)
+
     // Role check
     const allowedRoles = getAllowedRoles(pathname);
     if (allowedRoles !== null && !allowedRoles.includes(user.userrole)) {
@@ -148,7 +157,10 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
-    return NextResponse.next();
+    // Inject school context header for route handlers
+    const requestHeaders = new Headers(request.headers);
+    if (user?.schoolId) requestHeaders.set('x-school-id', user.schoolId);
+    return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
@@ -185,5 +197,7 @@ export const config = {
         '/activities/:path*',
         '/portal/:path*',
         '/pool/:path*',
+        '/onboarding/:path*',
+        '/api/onboarding/:path*',
     ],
 };

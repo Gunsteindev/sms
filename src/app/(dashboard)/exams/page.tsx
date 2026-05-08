@@ -18,12 +18,12 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { AISummary } from '@/components/ui/AISummary';
 import { Pagination } from '@/components/ui/Pagination';
 import { examsAPI, examResultsAPI, academicYearsAPI, studentsAPI, classesAPI, subjectsAPI, termsAPI } from '@/lib/api-client';
-
-const PAGE_SIZE = 10;
 import type { Exam } from '@/lib/dataverse/exams';
 import type { ExamResult } from '@/lib/dataverse/examresults';
 import type { AcademicYear } from '@/lib/dataverse/academicyears';
 import { EXAM_TYPES } from '@/lib/dataverse/exams';
+
+const PAGE_SIZE = 10;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface StudentOption { id: string; name: string; }
@@ -547,20 +547,19 @@ export default function ExamsPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                        <Table className="w-full text-sm">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                        <Table>
                             <TableHeader>
-                                <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
+                                <TableRow>
                                     {['Exam', 'Type', 'Class / Subject', 'Academic Year', 'Dates', 'Marks', 'Actions'].map(h => (
-                                        <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                                        <TableHead key={h}>{h}</TableHead>
                                     ))}
                                 </TableRow>
                             </TableHeader>
-                            <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            <TableBody>
                                 {paginatedExams.map(e => (
-                                    <TableRow key={e.examid} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        {/* Exam name + code */}
-                                        <TableCell className="px-4 py-3">
+                                    <TableRow key={e.examid} className="group">
+                                        <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300">
                                                     <FileText className="h-4 w-4" />
@@ -575,14 +574,12 @@ export default function ExamsPage() {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        {/* Type */}
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell>
                                             <Badge variant={EXAM_TYPE_VARIANT[e.examtype] ?? 'default'}>
                                                 {EXAM_TYPES[e.examtype] ?? e.examtypename}
                                             </Badge>
                                         </TableCell>
-                                        {/* Class / Subject */}
-                                        <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
+                                        <TableCell className="text-slate-600 dark:text-slate-300 text-xs">
                                             {e.classname
                                                 ? <p className="font-medium">{e.classname}</p>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
@@ -590,14 +587,12 @@ export default function ExamsPage() {
                                                 <p className="text-slate-400 dark:text-slate-500 mt-0.5">{e.subjectname}</p>
                                             )}
                                         </TableCell>
-                                        {/* Academic Year */}
-                                        <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300 text-xs">
+                                        <TableCell className="text-slate-600 dark:text-slate-300 text-xs">
                                             {e.academicyearname
                                                 ? <span className="inline-block bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">{e.academicyearname}</span>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                         </TableCell>
-                                        {/* Dates */}
-                                        <TableCell className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">
+                                        <TableCell className="text-xs text-slate-500 dark:text-slate-400">
                                             <p>{formatDate(e.startdate)}</p>
                                             {e.enddate !== e.startdate && (
                                                 <p className="text-slate-400 dark:text-slate-600 mt-0.5">→ {formatDate(e.enddate)}</p>
@@ -608,8 +603,7 @@ export default function ExamsPage() {
                                                 </p>
                                             )}
                                         </TableCell>
-                                        {/* Marks */}
-                                        <TableCell className="px-4 py-3 text-xs">
+                                        <TableCell className="text-xs">
                                             {e.totalmarks !== null ? (
                                                 <div className="text-slate-600 dark:text-slate-300">
                                                     <span className="font-medium">{e.totalmarks}</span>
@@ -622,8 +616,7 @@ export default function ExamsPage() {
                                                 <span className="text-slate-400 dark:text-slate-600">—</span>
                                             )}
                                         </TableCell>
-                                        {/* Actions */}
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell>
                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon"
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -656,19 +649,19 @@ export default function ExamsPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-                        <Table className="w-full text-sm">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+                        <Table>
                             <TableHeader>
-                                <TableRow className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-left">
+                                <TableRow>
                                     {['Student', 'Exam', 'Score', 'Grade', 'Pass/Fail', 'Remarks', 'Actions'].map(h => (
-                                        <TableHead key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{h}</TableHead>
+                                        <TableHead key={h}>{h}</TableHead>
                                     ))}
                                 </TableRow>
                             </TableHeader>
-                            <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            <TableBody>
                                 {paginatedResults.map(r => (
-                                    <TableRow key={r.examresultid} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                        <TableCell className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                                    <TableRow key={r.examresultid} className="group">
+                                        <TableCell className="font-medium text-slate-900 dark:text-slate-100">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-xs font-bold">
                                                     {r.studentname ? r.studentname.charAt(0).toUpperCase() : '?'}
@@ -676,8 +669,8 @@ export default function ExamsPage() {
                                                 {r.studentname || r.studentid.slice(0, 8) + '…'}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-slate-600 dark:text-slate-300">{r.examname || '—'}</TableCell>
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell className="text-slate-600 dark:text-slate-300">{r.examname || '—'}</TableCell>
+                                        <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{r.score}</span>
                                                 {r.percentage !== null && (
@@ -685,20 +678,20 @@ export default function ExamsPage() {
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell>
                                             {r.gradeletter
                                                 ? <span className="font-bold text-lg text-slate-800 dark:text-slate-200">{r.gradeletter}</span>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                         </TableCell>
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell>
                                             {r.ispassed
                                                 ? <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 text-xs font-semibold"><CheckCircle2 className="h-3.5 w-3.5" />Pass</span>
                                                 : <span className="flex items-center gap-1 text-red-500 dark:text-red-400 text-xs font-semibold"><XCircle className="h-3.5 w-3.5" />Fail</span>}
                                         </TableCell>
-                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-[160px] truncate">
+                                        <TableCell className="text-slate-500 dark:text-slate-400 text-xs max-w-[160px] truncate">
                                             {r.remarks || '—'}
                                         </TableCell>
-                                        <TableCell className="px-4 py-3">
+                                        <TableCell>
                                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon"
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"

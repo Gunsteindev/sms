@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, ShieldCheck, Search, Eye, EyeOff, UserCog, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -9,14 +9,16 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Pagination } from '@/components/ui/Pagination';
 import { usersAPI } from '@/lib/api-client';
 import { USER_ROLES } from '@/lib/dataverse/users';
 import type { SmsUser } from '@/lib/dataverse/users';
 
+const PAGE_SIZE = 10;
 const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
 
 const createSchema = z.object({
@@ -75,6 +77,7 @@ export default function UsersPage() {
     const [loading,      setLoading]      = useState(true);
     const [search,       setSearch]       = useState('');
     const [roleFilter,   setRoleFilter]   = useState('');
+    const [page,         setPage]         = useState(1);
     const [createOpen,   setCreateOpen]   = useState(false);
     const [editingUser,  setEditingUser]  = useState<SmsUser | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<SmsUser | null>(null);
@@ -90,13 +93,17 @@ export default function UsersPage() {
     };
 
     useEffect(() => { load(); }, []);
+    useEffect(() => { setPage(1); }, [search, roleFilter]);
 
-    const filtered = users.filter(u => {
+    const filtered = useMemo(() => users.filter(u => {
         const q = search.toLowerCase();
         const matchSearch = !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
         const matchRole   = !roleFilter || u.userrole === Number(roleFilter);
         return matchSearch && matchRole;
-    });
+    }), [users, search, roleFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     /* ── Create form ── */
     const { register: regC, handleSubmit: hsC, control: ctrlC, setValue: setVC, watch: watchC,
@@ -199,7 +206,7 @@ export default function UsersPage() {
             </div>
 
             {/* Table */}
-            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 overflow-hidden">
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
                 {loading ? (
                     <div className="flex justify-center items-center py-16">
                         <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
@@ -211,40 +218,40 @@ export default function UsersPage() {
                         <p className="text-xs mt-1">Add a user to get started</p>
                     </div>
                 ) : (
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
                                 {['Name', 'Email', 'Role', 'Status', 'Created', ''].map(h => (
-                                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">{h}</th>
+                                    <TableHead key={h}>{h}</TableHead>
                                 ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                            {filtered.map(u => (
-                                <tr key={u.userid} className="group hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                    <td className="px-4 py-3">
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginated.map(u => (
+                                <TableRow key={u.userid} className="group">
+                                    <TableCell>
                                         <div className="flex items-center gap-3">
                                             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold">
                                                 {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                                             </div>
                                             <span className="font-medium text-slate-900 dark:text-slate-100">{u.name}</span>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{u.email}</td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="text-slate-500 dark:text-slate-400">{u.email}</TableCell>
+                                    <TableCell>
                                         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[u.userrole] ?? ROLE_COLORS[7]}`}>
                                             <ShieldCheck className="h-3 w-3" />
                                             {u.userrolename}
                                         </span>
-                                    </td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell>
                                         {u.isactive
                                             ? <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="h-3.5 w-3.5" /> Active</span>
                                             : <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400"><XCircle className="h-3.5 w-3.5" /> Inactive</span>
                                         }
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-400 text-xs">{u.createdon ? new Date(u.createdon).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                                    <td className="px-4 py-3">
+                                    </TableCell>
+                                    <TableCell className="text-slate-400 text-xs">{u.createdon ? new Date(u.createdon).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</TableCell>
+                                    <TableCell>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600"
                                                 title={u.isactive ? 'Deactivate' : 'Activate'}
@@ -260,11 +267,14 @@ export default function UsersPage() {
                                                 <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ))}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
+                )}
+                {!loading && filtered.length > PAGE_SIZE && (
+                    <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="user" onChange={setPage} />
                 )}
             </div>
 

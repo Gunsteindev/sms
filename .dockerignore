@@ -36,6 +36,9 @@ Thumbs.db
 # Scripts (seed/test scripts not needed in production)
 scripts/
 
+# Documentation (not needed in the image)
+docs/
+
 # Docker files themselves
 Dockerfile*
 docker-compose*

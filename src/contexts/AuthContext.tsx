@@ -9,6 +9,7 @@ export interface SessionUser {
     name:     string;
     role:     string;
     userrole: number;
+    schoolId?: string;
 }
 
 interface Session {

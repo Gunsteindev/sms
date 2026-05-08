@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
         name:     'Administrator',
         role:     'Admin',
         userrole: 1,
+        schoolId: undefined,
       });
       const res = NextResponse.json({ ok: true });
       res.cookies.set(SESSION_COOKIE, token, COOKIE_OPTS);
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
           name:     dbUser.name,
           role:     USER_ROLES[dbUser.userrole] ?? 'Admin',
           userrole: dbUser.userrole,
+          schoolId: dbUser.schoolid ?? undefined,
         });
         const res = NextResponse.json({ ok: true });
         res.cookies.set(SESSION_COOKIE, token, COOKIE_OPTS);

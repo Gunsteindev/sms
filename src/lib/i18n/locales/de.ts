@@ -37,6 +37,18 @@ const de: Translations = {
     schoolProfile:   'Schulprofil',
     houses:          'Häuser & Klassen',
     feeTypes:        'Gebührenarten',
+    userManagement:  'Benutzerverwaltung',
+    inventory:       'Inventar',
+    procurement:     'Beschaffung',
+    staffLeave:      'Personalurlaub',
+    announcements:   'Ankündigungen',
+    transport:       'Transport & Fuhrpark',
+    activities:      'Aktivitäten',
+    poolManagement:  'Schwimmbadverwaltung',
+    swimmingPool:    'Schwimmbad',
+    parentPortal:    'Elternportal',
+    portal:          'Mitteilungen & Updates',
+    docs:            'Hilfe & Docs',
   },
 
   common: {

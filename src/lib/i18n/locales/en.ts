@@ -36,6 +36,18 @@ const en = {
     schoolProfile:    'School Profile',
     houses:           'Houses & Streams',
     feeTypes:         'Fee Types',
+    userManagement:   'User Management',
+    inventory:        'Inventory',
+    procurement:      'Procurement',
+    staffLeave:       'Staff Leave',
+    announcements:    'Announcements',
+    transport:        'Transport & Fleet',
+    activities:       'Activities',
+    poolManagement:   'Pool Management',
+    swimmingPool:     'Swimming Pool',
+    parentPortal:     'Parent Portal',
+    portal:           'Notices & Updates',
+    docs:             'Help & Docs',
   },
 
   // ── Common actions / labels ───────────────────────────────────────────────────
