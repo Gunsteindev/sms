@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { schoolAPI } from '@/lib/api-client';
 import { ALL_MODULE_KEYS } from '@/lib/modules';
+import { useSession } from '@/contexts/AuthContext';
 
 const COLORS_KEY              = 'sms-brand-colors';
 export const MODULES_KEY      = 'sms-enabled-modules';
@@ -37,6 +38,7 @@ function applyColors(c: BrandColors) {
 }
 
 export function BrandProvider({ children }: { children: ReactNode }) {
+  const { status } = useSession();
   const [colors, setColorsState] = useState<BrandColors>(() => {
     if (typeof window === 'undefined') return DEFAULT;
     try {
@@ -67,8 +69,9 @@ export function BrandProvider({ children }: { children: ReactNode }) {
   // Apply cached colors immediately on mount
   useEffect(() => { applyColors(colors); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync brand data from Dataverse on mount
+  // Sync brand data from Dataverse — only when a session exists
   useEffect(() => {
+    if (status !== 'authenticated') return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (schoolAPI.getProfile() as Promise<any>).then((res: any) => {
       const p = res?.data;
@@ -98,7 +101,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       setEnabledModulesState(mods);
       localStorage.setItem(MODULES_KEY, JSON.stringify(mods));
     }).catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status]); // re-run when auth status changes
 
   const setColors = (c: BrandColors) => {
     setColorsState(c); applyColors(c);

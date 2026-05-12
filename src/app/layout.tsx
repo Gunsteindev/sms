@@ -39,11 +39,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <I18nProvider>
-            <BrandProvider>
-              <SchoolSettingsProvider>
-                <AuthProvider>{children}</AuthProvider>
-              </SchoolSettingsProvider>
-            </BrandProvider>
+            <AuthProvider>
+              <BrandProvider>
+                <SchoolSettingsProvider>
+                  {children}
+                </SchoolSettingsProvider>
+              </BrandProvider>
+            </AuthProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>
