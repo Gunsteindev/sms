@@ -3,13 +3,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   GraduationCap, School, Phone, Palette, ChevronRight, ChevronLeft,
-  Loader2, X, ImageIcon, Check, Plus, Building2, ArrowLeft, Search,
+  Loader2, X, ImageIcon, Check, Plus, Building2, ArrowLeft, Search, LayoutGrid, Settings,
 } from 'lucide-react';
+import { MODULE_GROUPS, ALL_MODULE_KEYS } from '@/lib/modules'; // used in modules mode (existing schools)
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Switch } from '@/components/ui/switch';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import type { SchoolType, SchoolLevel, SchoolProfile } from '@/lib/dataverse/school';
-import { BRAND_SCHOOL_KEY } from '@/contexts/BrandContext';
+import { BRAND_SCHOOL_KEY, MODULES_KEY } from '@/contexts/BrandContext';
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 
@@ -58,9 +60,9 @@ const COLOR_PRESETS = [
 ];
 
 const WIZARD_STEPS = [
-  { icon: School,  label: 'School Identity', desc: 'Name, type & curriculum'  },
-  { icon: Phone,   label: 'Contact Details', desc: 'Location & contact info'  },
-  { icon: Palette, label: 'Branding',        desc: 'Logo & brand colours'     },
+  { icon: School,  label: 'School Identity', desc: 'Name, type & curriculum' },
+  { icon: Phone,   label: 'Contact Details', desc: 'Location & contact info' },
+  { icon: Palette, label: 'Branding',        desc: 'Logo & brand colours'    },
 ];
 
 const DEFAULT_DRAFT = {
@@ -74,6 +76,7 @@ const TYPE_LABEL: Record<string, string> = {
   ges: 'GES', cambridge: 'Cambridge', ib: 'IB',
   american: 'American', french: 'French', mixed: 'Mixed',
 };
+
 
 /* ── Sub-components ──────────────────────────────────────────────────────── */
 
@@ -168,7 +171,7 @@ function ColorSwatch({ label, value, onChange }: { label: string; value: string;
 
 /* ── Page ──────────────────────────────────────────────────────────────────── */
 
-type Mode = 'select' | 'create';
+type Mode = 'select' | 'create' | 'modules';
 
 export default function OnboardingPage() {
   const [mode, setMode]               = useState<Mode>('select');
@@ -177,9 +180,15 @@ export default function OnboardingPage() {
   const [selecting, setSelecting]     = useState<string | null>(null);
   const [search, setSearch]           = useState('');
 
+  // Module editor (select mode)
+  const [moduleSchool, setModuleSchool] = useState<SchoolProfile | null>(null);
+  const [schoolMods, setSchoolMods]     = useState<string[]>(ALL_MODULE_KEYS);
+  const [savingMods, setSavingMods]     = useState(false);
+  const [modsError, setModsError]       = useState('');
+
   // Wizard
-  const [step, setStep]     = useState(1);
-  const [draft, setDraft]   = useState(DEFAULT_DRAFT);
+  const [step, setStep]   = useState(1);
+  const [draft, setDraft] = useState(DEFAULT_DRAFT);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -228,6 +237,44 @@ export default function OnboardingPage() {
     }
   };
 
+  /* ── Module management (existing schools) ───────────────── */
+  const enterModules = (s: SchoolProfile) => {
+    setModuleSchool(s);
+    setSchoolMods(s.enabledmodules?.length ? s.enabledmodules : ALL_MODULE_KEYS);
+    setModsError('');
+    setMode('modules');
+  };
+
+  const saveModules = async () => {
+    if (!moduleSchool) return;
+    setSavingMods(true);
+    setModsError('');
+    try {
+      const res = await fetch(`/api/school/${moduleSchool.schoolid}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabledmodules: schoolMods }),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        throw new Error(j.error ?? 'Failed to save');
+      }
+      // Switch the active school session to the one whose modules were just updated,
+      // then clear both caches so BrandContext re-fetches the correct data on remount.
+      await fetch('/api/school/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schoolId: moduleSchool.schoolid }),
+      });
+      localStorage.removeItem(MODULES_KEY);
+      localStorage.removeItem(BRAND_SCHOOL_KEY);
+      window.location.replace('/dashboard');
+    } catch (e) {
+      setModsError(e instanceof Error ? e.message : 'Failed to save modules');
+      setSavingMods(false);
+    }
+  };
+
   /* ── Wizard ─────────────────────────────────────────────── */
   const set = (k: keyof typeof DEFAULT_DRAFT, v: string) => setDraft(p => ({ ...p, [k]: v }));
 
@@ -249,7 +296,9 @@ export default function OnboardingPage() {
         body: JSON.stringify(draft),
       });
       if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? 'Setup failed'); }
+      // Clear both brand caches so BrandContext fetches the new school's data, not the old one's.
       localStorage.removeItem(BRAND_SCHOOL_KEY);
+      localStorage.removeItem(MODULES_KEY);
       window.location.replace('/dashboard');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Setup failed. Please try again.');
@@ -270,7 +319,7 @@ export default function OnboardingPage() {
   /* ─────────────────────────── Render ────────────────────────────────────── */
 
   return (
-    <div className="min-h-screen flex">
+    <div className={`${mode === 'modules' ? 'h-screen overflow-hidden' : 'min-h-screen'} flex`}>
 
       {/* ── Left panel ──────────────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[42%] flex-col bg-slate-900 relative overflow-hidden">
@@ -316,12 +365,42 @@ export default function OnboardingPage() {
                 </div>
                 <div className="flex items-center gap-3.5 rounded-xl p-3.5 opacity-50">
                   <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/10">
+                    <Settings className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-400">Manage modules</p>
+                    <p className="text-[11px] text-slate-500">Click the ⚙ icon next to a school</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3.5 rounded-xl p-3.5 opacity-50">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/10">
                     <Plus className="h-4 w-4 text-white" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-slate-400">Register new school</p>
-                    <p className="text-[11px] text-slate-500">3-step guided setup</p>
+                    <p className="text-[11px] text-slate-500">4-step guided setup</p>
                   </div>
+                </div>
+              </div>
+            </>
+          ) : mode === 'modules' && moduleSchool ? (
+            /* Modules-mode left panel */
+            <>
+              <div className="mb-10">
+                <h1 className="text-3xl font-bold text-white leading-tight mb-3">
+                  Module<br />Access.
+                </h1>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Control which features are available to <span className="text-white font-medium">{moduleSchool.name}</span>. Changes take effect immediately.
+                </p>
+              </div>
+              <div className="flex items-center gap-3.5 rounded-xl bg-white/10 p-3.5">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-500">
+                  <LayoutGrid className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{moduleSchool.name}</p>
+                  <p className="text-[11px] text-slate-500">{schoolMods.length} of {ALL_MODULE_KEYS.length} modules active</p>
                 </div>
               </div>
             </>
@@ -337,16 +416,16 @@ export default function OnboardingPage() {
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {WIZARD_STEPS.map((s, i) => {
                   const n       = i + 1;
                   const done    = step > n;
                   const current = step === n;
                   const Icon    = s.icon;
                   return (
-                    <div key={n} className={`flex items-center gap-3.5 rounded-xl p-3.5 transition-all ${current ? 'bg-white/10' : 'opacity-50'}`}>
-                      <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${done ? 'bg-emerald-500' : current ? 'bg-blue-500' : 'bg-white/10'}`}>
-                        {done ? <Check className="h-4 w-4 text-white" /> : <Icon className="h-4 w-4 text-white" />}
+                    <div key={n} className={`flex items-center gap-3.5 rounded-xl p-3 transition-all ${current ? 'bg-white/10' : 'opacity-50'}`}>
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${done ? 'bg-emerald-500' : current ? 'bg-blue-500' : 'bg-white/10'}`}>
+                        {done ? <Check className="h-3.5 w-3.5 text-white" /> : <Icon className="h-3.5 w-3.5 text-white" />}
                       </div>
                       <div>
                         <p className={`text-sm font-semibold ${current ? 'text-white' : 'text-slate-400'}`}>{s.label}</p>
@@ -367,8 +446,8 @@ export default function OnboardingPage() {
       </div>
 
       {/* ── Right panel ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-y-auto bg-white dark:bg-slate-950">
-        <div className="max-w-lg mx-auto w-full px-8 py-10 flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${mode === 'modules' ? 'overflow-hidden' : 'overflow-y-auto'} bg-white dark:bg-slate-950`}>
+        <div className={`${mode === 'modules' ? 'w-full overflow-hidden' : 'max-w-lg'} mx-auto px-8 py-8 flex-1 flex flex-col min-h-0`}>
 
           {/* Mobile brand */}
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
@@ -435,44 +514,55 @@ export default function OnboardingPage() {
                       filtered.map(s => {
                         const isSelecting = selecting === s.schoolid;
                         return (
-                          <button
-                            key={s.schoolid}
-                            onClick={() => selectSchool(s.schoolid)}
-                            disabled={!!selecting}
-                            className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-blue-50/60 dark:hover:bg-blue-900/10 disabled:opacity-60 group"
-                          >
-                            {/* Avatar */}
-                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
-                              {s.name.charAt(0).toUpperCase()}
-                            </div>
-
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate leading-tight">
-                                {s.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                {s.type && (
-                                  <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/30 px-1.5 py-px text-[10px] font-semibold text-blue-600 dark:text-blue-400">
-                                    {TYPE_LABEL[s.type] ?? s.type}
-                                  </span>
-                                )}
-                                {s.level && (
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500 capitalize">{s.level}</span>
-                                )}
-                                {s.region && (
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{s.region}</span>
-                                )}
+                          <div key={s.schoolid} className="flex items-center group">
+                            <button
+                              onClick={() => selectSchool(s.schoolid)}
+                              disabled={!!selecting}
+                              className="flex-1 flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-blue-50/60 dark:hover:bg-blue-900/10 disabled:opacity-60"
+                            >
+                              {/* Avatar */}
+                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
+                                {s.name.charAt(0).toUpperCase()}
                               </div>
-                            </div>
 
-                            {/* Action */}
-                            {isSelecting ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 flex-shrink-0 transition-colors" />
-                            )}
-                          </button>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate leading-tight">
+                                  {s.name}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {s.type && (
+                                    <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/30 px-1.5 py-px text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                                      {TYPE_LABEL[s.type] ?? s.type}
+                                    </span>
+                                  )}
+                                  {s.level && (
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 capitalize">{s.level}</span>
+                                  )}
+                                  {s.region && (
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500">{s.region}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Action */}
+                              {isSelecting ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-blue-400 flex-shrink-0 transition-colors" />
+                              )}
+                            </button>
+
+                            {/* Manage modules button */}
+                            <button
+                              onClick={() => enterModules(s)}
+                              disabled={!!selecting}
+                              title="Manage modules"
+                              className="flex-shrink-0 h-full px-3 py-3.5 text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-900/10 disabled:opacity-40 transition-colors border-l border-slate-100 dark:border-slate-800"
+                            >
+                              <Settings className="h-4 w-4" />
+                            </button>
+                          </div>
                         );
                       })
                     )}
@@ -491,12 +581,148 @@ export default function OnboardingPage() {
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                         Register new school
                       </p>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500">3-step guided setup · takes a few minutes</p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">4-step guided setup · takes a few minutes</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600 group-hover:text-emerald-400 flex-shrink-0 transition-colors" />
                   </button>
                 </>
               )}
+            </div>
+          )}
+
+          {/* ──────────── MODULES MODE ──────────── */}
+          {mode === 'modules' && moduleSchool && (
+            <div className="flex flex-col flex-1 min-h-0 w-full">
+
+              {/* Back + header row — fixed height */}
+              <div className="flex-shrink-0 flex items-center gap-4 mb-3">
+                <button
+                  onClick={() => setMode('select')}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex-shrink-0"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back
+                </button>
+
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-sm">
+                    {moduleSchool.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 truncate leading-tight">
+                      {moduleSchool.name}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div className="w-24 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                          style={{ width: `${(schoolMods.length / ALL_MODULE_KEYS.length) * 100}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                        {schoolMods.length}/{ALL_MODULE_KEYS.length} active
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button type="button" onClick={() => setSchoolMods(ALL_MODULE_KEYS)}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                    Enable all
+                  </button>
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <button type="button" onClick={() => setSchoolMods([])}
+                    className="text-xs text-slate-500 dark:text-slate-400 hover:underline">
+                    Disable all
+                  </button>
+                  <Button onClick={saveModules} disabled={savingMods} className="h-8 text-xs px-3">
+                    {savingMods
+                      ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
+                      : <><Check className="h-3.5 w-3.5 mr-1" /> Save</>}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Error — fixed height, only shown on error */}
+              {modsError && (
+                <div className="flex-shrink-0 mb-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 px-4 py-2 text-sm text-red-700 dark:text-red-400">
+                  {modsError}
+                </div>
+              )}
+
+              {/* Card grid — fills all remaining height, 3×2 at xl */}
+              <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 xl:grid-rows-2 gap-3">
+                {MODULE_GROUPS.map(group => {
+                  const groupKeys   = group.modules.map(m => m.key);
+                  const activeCount = groupKeys.filter(k => schoolMods.includes(k)).length;
+                  const allOn       = activeCount === groupKeys.length;
+                  const someOn      = activeCount > 0 && !allOn;
+                  const toggleGroup = () => {
+                    if (allOn) setSchoolMods(schoolMods.filter(k => !groupKeys.includes(k)));
+                    else       setSchoolMods([...new Set([...schoolMods, ...groupKeys])]);
+                  };
+                  return (
+                    <div key={group.group} className="flex flex-col rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden min-h-0">
+                      {/* Group header — fixed */}
+                      <div className="flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60">
+                        <Switch
+                          checked={allOn}
+                          onCheckedChange={toggleGroup}
+                          className={someOn ? 'data-[state=unchecked]:bg-blue-200 dark:data-[state=unchecked]:bg-blue-900' : ''}
+                        />
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 flex-1 truncate">
+                          {group.group}
+                        </p>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                          allOn
+                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                            : someOn
+                              ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                        }`}>
+                          {activeCount}/{groupKeys.length}
+                        </span>
+                      </div>
+                      {/* Module rows — scrollable if group has many items */}
+                      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-800/60 bg-white dark:bg-slate-900">
+                        {group.modules.map(mod => {
+                          const on = schoolMods.includes(mod.key);
+                          return (
+                            <div key={mod.key} className="flex items-center gap-3 px-3.5 py-2">
+                              <Switch
+                                checked={on}
+                                onCheckedChange={checked => setSchoolMods(checked
+                                  ? [...schoolMods, mod.key]
+                                  : schoolMods.filter(k => k !== mod.key)
+                                )}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className={`text-xs font-medium leading-tight ${on ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                                  {mod.label}
+                                </p>
+                                <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate leading-tight mt-0.5">{mod.desc}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer — fixed height */}
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
+                <Button variant="outline" onClick={() => setMode('select')} disabled={savingMods}>
+                  <ArrowLeft className="h-4 w-4 mr-1" /> Cancel
+                </Button>
+                <Button onClick={saveModules} disabled={savingMods}>
+                  {savingMods
+                    ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Saving…</>
+                    : <><Check className="h-4 w-4 mr-1.5" /> Save Modules</>}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -678,6 +904,7 @@ export default function OnboardingPage() {
                     </div>
                   </>
                 )}
+
               </div>
 
               {/* Error */}

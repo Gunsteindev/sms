@@ -30,10 +30,11 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
   const pathname = usePathname();
   const { t } = useI18n();
   const { data: session } = useSession();
-  const { school } = useBrand();
-  const role = session?.user?.userrole ?? ADMIN;
+  const { school, enabledModules } = useBrand();
+  const role        = session?.user?.userrole ?? ADMIN;
+  const isSuperAdmin = session?.user?.userid === 'bootstrap';
 
-  type NavItem = { href: string; label: string; icon: React.ElementType; exact?: boolean; roles?: number[] };
+  type NavItem = { href: string; label: string; icon: React.ElementType; exact?: boolean; roles?: number[]; module?: string };
   type Section = { label: string | null; items: NavItem[]; roles?: number[] };
 
   const sections: Section[] = [
@@ -61,60 +62,60 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
     {
       label: t.nav.people,
       items: [
-        { href: '/students',  label: t.nav.students,              icon: Users,     roles: [ADMIN, TEACHER, FINANCE, INVENTORY] },
-        { href: '/teachers',  label: t.nav.teachers,              icon: UserCircle,roles: [ADMIN] },
-        { href: '/employees', label: t.nav.employees,             icon: Briefcase, roles: [ADMIN] },
-        { href: '/parents',   label: t.nav.parents ?? 'Parents',  icon: UserPlus,  roles: [ADMIN, TEACHER, FINANCE] },
+        { href: '/students',  label: t.nav.students,              icon: Users,     roles: [ADMIN, TEACHER, FINANCE, INVENTORY], module: 'students'  },
+        { href: '/teachers',  label: t.nav.teachers,              icon: UserCircle,roles: [ADMIN],                              module: 'teachers'  },
+        { href: '/employees', label: t.nav.employees,             icon: Briefcase, roles: [ADMIN],                              module: 'employees' },
+        { href: '/parents',   label: t.nav.parents ?? 'Parents',  icon: UserPlus,  roles: [ADMIN, TEACHER, FINANCE],            module: 'parents'   },
       ],
     },
     {
       label: t.nav.academic,
       items: [
-        { href: '/classes',     label: t.nav.classes,     icon: BookOpen,      roles: [ADMIN, TEACHER] },
-        { href: '/subjects',    label: t.nav.subjects,    icon: BookMarked,    roles: [ADMIN, TEACHER] },
-        { href: '/timetable',   label: t.nav.timetable,   icon: CalendarDays,  roles: [ADMIN, TEACHER] },
-        { href: '/enrollments', label: t.nav.enrollments, icon: ClipboardList, roles: [ADMIN, TEACHER, FINANCE] },
-        { href: '/attendance',  label: t.nav.attendance,  icon: Calendar,      roles: [ADMIN, TEACHER] },
-        { href: '/exams',       label: t.nav.exams,       icon: FileText,      roles: [ADMIN, TEACHER] },
-        { href: '/gradebook',   label: t.nav.gradebook,   icon: BookOpenCheck, roles: [ADMIN, TEACHER] },
+        { href: '/classes',     label: t.nav.classes,     icon: BookOpen,      roles: [ADMIN, TEACHER],                module: 'classes'     },
+        { href: '/subjects',    label: t.nav.subjects,    icon: BookMarked,    roles: [ADMIN, TEACHER],                module: 'subjects'    },
+        { href: '/timetable',   label: t.nav.timetable,   icon: CalendarDays,  roles: [ADMIN, TEACHER],                module: 'timetable'   },
+        { href: '/enrollments', label: t.nav.enrollments, icon: ClipboardList, roles: [ADMIN, TEACHER, FINANCE],       module: 'enrollments' },
+        { href: '/attendance',  label: t.nav.attendance,  icon: Calendar,      roles: [ADMIN, TEACHER],                module: 'attendance'  },
+        { href: '/exams',       label: t.nav.exams,       icon: FileText,      roles: [ADMIN, TEACHER],                module: 'exams'       },
+        { href: '/gradebook',   label: t.nav.gradebook,   icon: BookOpenCheck, roles: [ADMIN, TEACHER],                module: 'gradebook'   },
       ],
     },
     {
       label: t.nav.welfare ?? 'Welfare',
       items: [
-        { href: '/health',       label: t.nav.health       ?? 'Health Records', icon: HeartPulse,  roles: [ADMIN, TEACHER] },
-        { href: '/disciplinary', label: t.nav.disciplinary ?? 'Disciplinary',   icon: ShieldAlert, roles: [ADMIN, TEACHER] },
+        { href: '/health',       label: t.nav.health       ?? 'Health Records', icon: HeartPulse,  roles: [ADMIN, TEACHER], module: 'health'       },
+        { href: '/disciplinary', label: t.nav.disciplinary ?? 'Disciplinary',   icon: ShieldAlert, roles: [ADMIN, TEACHER], module: 'disciplinary' },
       ],
     },
     {
       label: t.nav.administration,
       items: [
-        { href: '/departments',            label: t.nav.departments,                  icon: Building2,    roles: [ADMIN] },
-        { href: '/library',                label: t.nav.library,                                    icon: Library,      roles: [ADMIN, INVENTORY] },
-        { href: '/inventory',              label: t.nav.inventory    ?? 'Inventory',                icon: Package,      roles: [ADMIN, INVENTORY] },
-        { href: '/procurement',            label: t.nav.procurement  ?? 'Procurement',              icon: ShoppingCart, roles: [ADMIN, FINANCE] },
-        { href: '/staff-leave',            label: t.nav.staffLeave   ?? 'Staff Leave',              icon: CalendarOff,  roles: [ADMIN] },
-        { href: '/announcements',          label: t.nav.announcements ?? 'Announcements',           icon: Megaphone,    roles: [ADMIN, TEACHER, FINANCE] },
-        { href: '/transport',              label: t.nav.transport    ?? 'Transport & Fleet',        icon: Bus,          roles: [ADMIN, TRANSPORT] },
-        { href: '/activities',             label: t.nav.activities   ?? 'Activities',               icon: Trophy,       roles: [ADMIN, TEACHER] },
-        { href: '/reports',                label: t.nav.reports,                      icon: BarChart3, exact: true, roles: [ADMIN, TEACHER, FINANCE] },
-        { href: '/reports/report-card',    label: t.nav.reportCards ?? 'Report Cards',    icon: FileText,  roles: [ADMIN, TEACHER, FINANCE] },
-        { href: '/reports/national-exams', label: t.nav.nationalExams ?? 'National Exams', icon: Medal,    roles: [ADMIN, TEACHER] },
+        { href: '/departments',            label: t.nav.departments,                              icon: Building2,    roles: [ADMIN],                        module: 'departments'   },
+        { href: '/library',                label: t.nav.library,                                  icon: Library,      roles: [ADMIN, INVENTORY],             module: 'library'       },
+        { href: '/inventory',              label: t.nav.inventory    ?? 'Inventory',              icon: Package,      roles: [ADMIN, INVENTORY],             module: 'inventory'     },
+        { href: '/procurement',            label: t.nav.procurement  ?? 'Procurement',            icon: ShoppingCart, roles: [ADMIN, FINANCE],               module: 'procurement'   },
+        { href: '/staff-leave',            label: t.nav.staffLeave   ?? 'Staff Leave',            icon: CalendarOff,  roles: [ADMIN],                        module: 'staff-leave'   },
+        { href: '/announcements',          label: t.nav.announcements ?? 'Announcements',         icon: Megaphone,    roles: [ADMIN, TEACHER, FINANCE],      module: 'announcements' },
+        { href: '/transport',              label: t.nav.transport    ?? 'Transport & Fleet',      icon: Bus,          roles: [ADMIN, TRANSPORT],             module: 'transport'     },
+        { href: '/activities',             label: t.nav.activities   ?? 'Activities',             icon: Trophy,       roles: [ADMIN, TEACHER],               module: 'activities'    },
+        { href: '/reports',                label: t.nav.reports,                      icon: BarChart3, exact: true, roles: [ADMIN, TEACHER, FINANCE],       module: 'reports'       },
+        { href: '/reports/report-card',    label: t.nav.reportCards  ?? 'Report Cards',           icon: FileText,     roles: [ADMIN, TEACHER, FINANCE],      module: 'reports'       },
+        { href: '/reports/national-exams', label: t.nav.nationalExams ?? 'National Exams',        icon: Medal,        roles: [ADMIN, TEACHER],               module: 'reports'       },
       ],
     },
     {
       label: t.nav.finance,
       roles: [ADMIN, FINANCE],
       items: [
-        { href: '/fees',                 label: t.nav.fees,         icon: DollarSign },
-        { href: '/finance/scholarships', label: t.nav.scholarships, icon: Award      },
+        { href: '/fees',                 label: t.nav.fees,         icon: DollarSign, module: 'fees'         },
+        { href: '/finance/scholarships', label: t.nav.scholarships, icon: Award,      module: 'scholarships' },
       ],
     },
     {
       label: t.nav.poolManagement ?? 'Pool Management',
       roles: [ADMIN, POOL, KITCHEN],
       items: [
-        { href: '/pool', label: t.nav.swimmingPool ?? 'Swimming Pool', icon: Waves, roles: [ADMIN, POOL, KITCHEN] },
+        { href: '/pool', label: t.nav.swimmingPool ?? 'Swimming Pool', icon: Waves, roles: [ADMIN, POOL, KITCHEN], module: 'pool' },
       ],
     },
     {
@@ -133,10 +134,11 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
   ];
 
   const canSeeSection = (section: Section) =>
-    !section.roles || section.roles.includes(role);
+    isSuperAdmin || !section.roles || section.roles.includes(role);
 
   const canSeeItem = (item: NavItem) =>
-    !item.roles || item.roles.includes(role);
+    (isSuperAdmin || !item.roles || item.roles.includes(role)) &&
+    (!item.module || enabledModules.includes(item.module));
 
   return (
     <aside
