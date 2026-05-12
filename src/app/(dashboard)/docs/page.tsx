@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
-  Search, ChevronDown,
+  Search, ChevronDown, X,
   School, CalendarRange, CalendarDays, Layers, TrendingUp,
   BookMarked, Home, DollarSign, UserCog,
   Users, UserCircle, Briefcase, UserPlus,
@@ -11,9 +11,10 @@ import {
   Building2, Library, Package, ShoppingCart, CalendarOff,
   Megaphone, Bus, Trophy, BarChart3, Medal,
   Award, Waves, Bell, Lightbulb, SwitchCamera, Settings, UserRound,
+  LayoutGrid, ArrowRight, CheckCircle2,
 } from 'lucide-react';
 
-// ── Role badge colours ────────────────────────────────────────────────────────
+/* ── Role badge colours ────────────────────────────────────────────────────── */
 const roleBadge: Record<string, string> = {
   Admin:     'bg-blue-100   dark:bg-blue-900/40   text-blue-700   dark:text-blue-300   border border-blue-200   dark:border-blue-800/50',
   Teacher:   'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50',
@@ -24,6 +25,17 @@ const roleBadge: Record<string, string> = {
   Parent:    'bg-amber-100  dark:bg-amber-900/40  text-amber-700  dark:text-amber-300  border border-amber-200  dark:border-amber-800/50',
   Kitchen:   'bg-pink-100   dark:bg-pink-900/40   text-pink-700   dark:text-pink-300   border border-pink-200   dark:border-pink-800/50',
   All:       'bg-slate-100  dark:bg-slate-800      text-slate-600  dark:text-slate-300  border border-slate-200  dark:border-slate-700',
+};
+
+const sectionColor: Record<string, string> = {
+  Setup:          'bg-blue-500',
+  People:         'bg-violet-500',
+  Academic:       'bg-indigo-500',
+  Welfare:        'bg-rose-500',
+  Administration: 'bg-amber-500',
+  Finance:        'bg-emerald-500',
+  Platform:       'bg-slate-500',
+  Other:          'bg-cyan-500',
 };
 
 function RoleBadge({ role }: { role: string }) {
@@ -43,7 +55,7 @@ function Tip({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ── Module definition ─────────────────────────────────────────────────────────
+/* ── Module definition ───────────────────────────────────────────────────────── */
 interface Module {
   href: string;
   icon: React.ElementType;
@@ -68,15 +80,18 @@ const sections: Section[] = [
         icon: SwitchCamera,
         name: 'School Switcher & Onboarding',
         roles: ['Admin'],
-        description: 'The system supports multiple schools in a single installation. Use the onboarding page to register a new school or switch your active session to a different school. Each school is an isolated tenant — data, users, and configuration do not cross school boundaries.',
+        description: 'The system supports multiple schools in a single installation. Use the onboarding page to register a new school, switch your active session, or manage module access for any school. Each school is a fully isolated tenant — data, users, and configuration do not cross school boundaries.',
         actions: [
           'Select an existing school from the list to switch your active session',
           'Search schools by name, region, or district',
-          'Register a brand-new school using the 3-step setup wizard',
+          'Click the ⚙ gear icon next to any school to manage its module access',
+          'Register a brand-new school using the 4-step guided setup wizard',
+          'Choose which features (modules) to activate in the wizard\'s final step',
           'Return to this page at any time to switch between schools',
         ],
         tips: [
-          'Navigate to /onboarding from your browser address bar to switch schools. Each admin account is tied to one school — create a separate admin account for each school if you need per-school access control.',
+          'The 4-step wizard covers: School Identity → Contact Details → Branding → Modules. You can change branding and modules anytime after setup.',
+          'Super admins can edit module access for any school by clicking the gear icon (⚙) next to its name. Module changes take effect immediately when you are redirected to the dashboard.',
         ],
       },
       {
@@ -88,13 +103,13 @@ const sections: Section[] = [
         actions: [
           'Set school name, motto, and contact details',
           'Upload or change the school logo',
-          'Pick primary and sidebar brand colours',
+          'Pick primary and sidebar brand colours using presets or custom hex codes',
           'Select curriculum type (GES, Cambridge, IB, American, French, Mixed)',
           'Add multiple campus branches',
           'Switch to a different school via the school selector dropdown',
         ],
         tips: [
-          'After changing brand colours, the sidebar updates immediately. If the logo does not appear, check that the image URL is publicly accessible.',
+          'After changing brand colours, the sidebar updates immediately. Use the colour presets to quickly apply professionally matched palettes.',
         ],
       },
       {
@@ -110,7 +125,7 @@ const sections: Section[] = [
           'View all years and their associated terms',
         ],
         tips: [
-          'Always create the new academic year before the school year begins so attendance, enrollments, and exams can reference it from day one.',
+          'Always create the new academic year before the school year begins so attendance, enrolments, and exams can reference it from day one.',
         ],
       },
       {
@@ -209,7 +224,7 @@ const sections: Section[] = [
         icon: UserCog,
         name: 'User Management',
         roles: ['Admin'],
-        description: 'Create system user accounts, assign roles, reset passwords, and manage login access for all staff. Roles control which modules each user can see and edit.',
+        description: 'Create system user accounts, assign roles, reset passwords, and manage login access for all staff. Roles control which modules each user can see and interact with.',
         actions: [
           'Create a new user account with email and temporary password',
           'Assign a role: Admin, Teacher, Finance, Inventory, Transport, Pool, Parent, or Kitchen',
@@ -239,7 +254,7 @@ const sections: Section[] = [
           'Search, filter, and export the student list',
         ],
         tips: [
-          'Use the student detail page (click the student name) to get a single view of everything about that student, from fees to health records.',
+          'Use the student detail page (click a student\'s name) to get a single view of everything about that student — from fees to health records.',
         ],
       },
       {
@@ -255,7 +270,7 @@ const sections: Section[] = [
           'View teacher class assignments',
         ],
         tips: [
-          'Link a teacher record to a user account so they can log in and access the teacher-facing modules.',
+          'Link a teacher record to a user account so they can log in and access teacher-facing modules.',
         ],
       },
       {
@@ -347,7 +362,7 @@ const sections: Section[] = [
         icon: ClipboardList,
         name: 'Enrollments',
         roles: ['Admin', 'Teacher', 'Finance'],
-        description: 'Enrol students into classes for a given academic year and term. Enrollment is required before attendance and exam marks can be recorded for a student.',
+        description: 'Enrol students into classes for a given academic year and term. Enrolment is required before attendance and exam marks can be recorded for a student.',
         actions: [
           'Enrol a student into a class for the current term',
           'Bulk-enrol multiple students at once',
@@ -461,7 +476,7 @@ const sections: Section[] = [
           'Link teachers to a department',
         ],
         tips: [
-          'Departments are used in staff reports and can help organise timetable planning by subject group.',
+          'Departments are used in staff reports and help organise timetable planning by subject group.',
         ],
       },
       {
@@ -525,7 +540,7 @@ const sections: Section[] = [
           'Export leave records for payroll',
         ],
         tips: [
-          'Configure leave types (Annual, Sick, Maternity, etc.) in system settings before recording any requests.',
+          'Configure leave types (Annual, Sick, Maternity, etc.) before recording any requests.',
         ],
       },
       {
@@ -679,7 +694,7 @@ const sections: Section[] = [
           'Reset your login password',
         ],
         tips: [
-          'Choose a strong password of at least 8 characters mixing letters, numbers, and symbols. Contact your administrator if you are locked out of your account.',
+          'Choose a strong password of at least 8 characters mixing letters, numbers, and symbols. Contact your administrator if you are locked out.',
         ],
       },
       {
@@ -687,7 +702,7 @@ const sections: Section[] = [
         icon: Settings,
         name: 'Settings',
         roles: ['Admin'],
-        description: 'Manage application-wide preferences including language / locale, dark mode, and notification settings. Settings are saved per user and persist across sessions.',
+        description: 'Manage application-wide preferences including language/locale, dark mode, and notification settings. Settings are saved per user and persist across sessions.',
         actions: [
           'Switch the interface language (English, French, Spanish, German, Portuguese)',
           'Toggle dark mode or follow the system preference',
@@ -737,46 +752,66 @@ const sections: Section[] = [
   },
 ];
 
-// ── Quick start cards ─────────────────────────────────────────────────────────
-const quickStart = [
+/* ── Workflow cards ──────────────────────────────────────────────────────────── */
+const workflows = [
   {
     icon: School,
     title: 'First-Time Setup',
-    desc: 'Log in and visit /onboarding to register your school. Then set up Academic Years, Terms, Grade Levels, and Fee Types before adding students.',
-    color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30 text-blue-700 dark:text-blue-300',
-    iconColor: 'text-blue-500',
+    steps: ['Register your school at /onboarding', 'Set up Academic Years & Terms', 'Add Grade Levels & Fee Types', 'Create user accounts for staff'],
+    color: 'border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10',
+    iconBg: 'bg-blue-500',
   },
   {
-    icon: SwitchCamera,
-    title: 'Multiple Schools',
-    desc: 'This system supports multiple schools. Visit /onboarding at any time to switch your active school or register a new one. Each school\'s data is fully isolated.',
-    color: 'bg-violet-50 dark:bg-violet-900/20 border-violet-100 dark:border-violet-800/30 text-violet-700 dark:text-violet-300',
-    iconColor: 'text-violet-500',
+    icon: LayoutGrid,
+    title: 'Module Management',
+    steps: ['Go to /onboarding', 'Click the ⚙ icon next to a school', 'Toggle modules on or off', 'Save — dashboard updates immediately'],
+    color: 'border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-900/10',
+    iconBg: 'bg-violet-500',
   },
   {
     icon: DollarSign,
     title: 'Finance Setup',
-    desc: 'Create Fee Types first, then build Fee Structures per grade and term. Record payments against student accounts after structures are in place.',
-    color: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300',
-    iconColor: 'text-emerald-500',
+    steps: ['Create Fee Types in Setup', 'Build Fee Structures per grade & term', 'Record payments against student accounts', 'Apply scholarships to reduce balances'],
+    color: 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10',
+    iconBg: 'bg-emerald-500',
+  },
+  {
+    icon: BookOpenCheck,
+    title: 'End-of-Term Flow',
+    steps: ['Enter exam marks in Exams module', 'Compute grades in Gradebook', 'Generate Report Cards', 'Run Promotions for next year'],
+    color: 'border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10',
+    iconBg: 'bg-amber-500',
   },
 ];
 
-// ── Accordion card ────────────────────────────────────────────────────────────
-function ModuleCard({ mod }: { mod: Module }) {
+/* ── Role overview ───────────────────────────────────────────────────────────── */
+const roles = [
+  { name: 'Admin',     desc: 'Full access to all modules and setup',                 badge: roleBadge.Admin },
+  { name: 'Teacher',   desc: 'Students, classes, attendance, exams, gradebook',      badge: roleBadge.Teacher },
+  { name: 'Finance',   desc: 'Fees, scholarships, procurement, reports',             badge: roleBadge.Finance },
+  { name: 'Inventory', desc: 'Library, inventory, students (read)',                  badge: roleBadge.Inventory },
+  { name: 'Transport', desc: 'Transport & fleet management',                         badge: roleBadge.Transport },
+  { name: 'Pool',      desc: 'Swimming pool sessions and scheduling',                badge: roleBadge.Pool },
+  { name: 'Parent',    desc: 'Parent portal — notices and child updates (read only)',badge: roleBadge.Parent },
+  { name: 'Kitchen',   desc: 'Pool / kitchen access (limited)',                      badge: roleBadge.Kitchen },
+];
+
+/* ── Accordion card ──────────────────────────────────────────────────────────── */
+function ModuleCard({ mod, sectionLabel }: { mod: Module; sectionLabel: string }) {
   const [open, setOpen] = useState(false);
   const Icon = mod.icon;
+  const accent = sectionColor[sectionLabel] ?? 'bg-slate-500';
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+    <div className={`rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden transition-shadow ${open ? 'shadow-sm' : ''}`}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
         className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
-            <Icon className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${accent} bg-opacity-10`}>
+            <Icon className={`h-4 w-4 ${accent.replace('bg-', 'text-')}`} />
           </div>
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{mod.name}</span>
           <div className="hidden sm:flex items-center gap-1 flex-wrap">
@@ -788,28 +823,24 @@ function ModuleCard({ mod }: { mod: Module }) {
 
       {open && (
         <div className="border-t border-slate-100 dark:border-slate-800 px-4 py-4 space-y-4">
-          {/* Role badges (mobile) */}
           <div className="flex sm:hidden items-center gap-1 flex-wrap">
             {mod.roles.map(r => <RoleBadge key={r} role={r} />)}
           </div>
 
-          {/* Description */}
           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{mod.description}</p>
 
-          {/* Key actions */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Key Actions</p>
             <ul className="space-y-1.5">
               {mod.actions.map((a, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
-                  <span className="mt-0.5 flex-shrink-0 text-emerald-500">&#10003;</span>
+                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-emerald-500" />
                   {a}
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Tips */}
           {mod.tips.length > 0 && (
             <div className="space-y-2">
               {mod.tips.map((tip, i) => <Tip key={i}>{tip}</Tip>)}
@@ -821,9 +852,11 @@ function ModuleCard({ mod }: { mod: Module }) {
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+/* ── Page ────────────────────────────────────────────────────────────────────── */
 export default function DocsPage() {
-  const [query, setQuery] = useState('');
+  const [query, setQuery]         = useState('');
+  const [activeSection, setActive] = useState<string | null>(null);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -841,45 +874,103 @@ export default function DocsPage() {
       .filter(s => s.modules.length > 0);
   }, [query]);
 
+  const scrollTo = (label: string) => {
+    setActive(label);
+    sectionRefs.current[label]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Help &amp; Documentation</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Guides and quick-reference for every module in the School Management System.
-        </p>
+    <div className="max-w-5xl mx-auto space-y-8 pb-10">
+
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl" />
+        </div>
+        <div className="relative px-8 py-8">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-blue-400 mb-2">Documentation</p>
+              <h1 className="text-2xl font-bold text-white mb-2">Help &amp; Docs</h1>
+              <p className="text-sm text-slate-400 max-w-md leading-relaxed">
+                Complete reference for every module — what it does, who can use it, and how to get the most out of it.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400 inline-block" /> {sections.reduce((n, s) => n + s.modules.length, 0)} modules covered</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-400 inline-block" /> {sections.length} sections</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400 inline-block" /> 8 user roles</span>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative mt-6 max-w-lg">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search modules, actions, or topics…"
+              value={query}
+              onChange={e => { setQuery(e.target.value); setActive(null); }}
+              className="w-full pl-9 pr-9 h-10 rounded-xl border border-white/10 bg-white/10 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-white/20 transition backdrop-blur-sm"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Search modules, actions, or topics…"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          className="w-full pl-9 pr-4 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-slate-400 dark:focus:ring-slate-500 transition"
-        />
-      </div>
+      {/* ── Section nav pills — only when not searching ─────────────────── */}
+      {!query && (
+        <div className="flex flex-wrap gap-2">
+          {sections.map(s => {
+            const accent = sectionColor[s.label] ?? 'bg-slate-500';
+            const isActive = activeSection === s.label;
+            return (
+              <button
+                key={s.label}
+                onClick={() => scrollTo(s.label)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all ${
+                  isActive
+                    ? `${accent} text-white border-transparent`
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-white/60' : accent}`} />
+                {s.label}
+                <span className="opacity-50">{s.modules.length}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Quick start — only show when not searching */}
+      {/* ── Workflow cards — only when not searching ─────────────────────── */}
       {!query && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Quick Start</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {quickStart.map(card => {
-              const CardIcon = card.icon;
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">Common Workflows</p>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {workflows.map(w => {
+              const WIcon = w.icon;
               return (
-                <div
-                  key={card.title}
-                  className={`rounded-xl border p-4 space-y-2 ${card.color}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <CardIcon className={`h-4 w-4 flex-shrink-0 ${card.iconColor}`} />
-                    <p className="text-sm font-semibold">{card.title}</p>
+                <div key={w.title} className={`rounded-xl border p-4 space-y-3 ${w.color}`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${w.iconBg}`}>
+                      <WIcon className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{w.title}</p>
                   </div>
-                  <p className="text-xs leading-relaxed opacity-90">{card.desc}</p>
+                  <ol className="space-y-1.5">
+                    {w.steps.map((step, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                        <span className="flex-shrink-0 flex h-4 w-4 items-center justify-center rounded-full bg-white/60 dark:bg-white/10 text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-px">{i + 1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
                 </div>
               );
             })}
@@ -887,7 +978,22 @@ export default function DocsPage() {
         </div>
       )}
 
-      {/* Module sections */}
+      {/* ── Role overview — only when not searching ───────────────────────── */}
+      {!query && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">User Roles</p>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {roles.map(r => (
+              <div key={r.name} className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-3">
+                <span className={`inline-flex mt-0.5 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0 ${r.badge}`}>{r.name}</span>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-snug">{r.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Module sections ──────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-16 text-center">
           <Search className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600 mb-3" />
@@ -895,19 +1001,41 @@ export default function DocsPage() {
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Try a different search term</p>
         </div>
       ) : (
-        filtered.map(section => (
-          <div key={section.label} className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              {section.label}
-            </p>
-            <div className="space-y-2">
-              {section.modules.map(mod => (
-                <ModuleCard key={mod.href} mod={mod} />
-              ))}
+        filtered.map(section => {
+          const accent = sectionColor[section.label] ?? 'bg-slate-500';
+          return (
+            <div
+              key={section.label}
+              ref={el => { sectionRefs.current[section.label] = el; }}
+              className="space-y-3 scroll-mt-6"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className={`h-3 w-3 rounded-full ${accent}`} />
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  {section.label}
+                </p>
+                <span className="text-[10px] text-slate-400 dark:text-slate-600">
+                  {section.modules.length} module{section.modules.length !== 1 ? 's' : ''}
+                </span>
+                {!query && (
+                  <button
+                    onClick={() => scrollTo(section.label === activeSection ? '' : section.label)}
+                    className="ml-auto flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  >
+                    Jump to top <ArrowRight className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {section.modules.map(mod => (
+                  <ModuleCard key={mod.href} mod={mod} sectionLabel={section.label} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
+
     </div>
   );
 }

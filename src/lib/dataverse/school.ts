@@ -10,22 +10,23 @@ export type SchoolType  = 'ges' | 'cambridge' | 'ib' | 'american' | 'french' | '
 export type SchoolLevel = 'primary' | 'jhs' | 'shs' | 'international' | 'all';
 
 export interface SchoolProfile {
-    schoolid:     string;
-    name:         string;
-    motto:        string;
-    type:         SchoolType;
-    level:        SchoolLevel;
-    address:      string;
-    phone:        string;
-    email:        string;
-    currency:     string;
-    website:      string;
-    emiscode:     string;
-    district:     string;
-    region:       string;
-    logo:         string;   // base64 data URL, stored in sms_logo (multiline text)
-    primarycolor: string;   // hex, e.g. #2563eb
-    sidebarcolor: string;   // hex, e.g. #0f172a
+    schoolid:       string;
+    name:           string;
+    motto:          string;
+    type:           SchoolType;
+    level:          SchoolLevel;
+    address:        string;
+    phone:          string;
+    email:          string;
+    currency:       string;
+    website:        string;
+    emiscode:       string;
+    district:       string;
+    region:         string;
+    logo:           string;      // base64 data URL, stored in sms_logo (multiline text)
+    primarycolor:   string;      // hex, e.g. #2563eb
+    sidebarcolor:   string;      // hex, e.g. #0f172a
+    enabledmodules: string[];    // JSON-serialised list of active module keys
 }
 
 export interface SchoolBranch {
@@ -41,21 +42,22 @@ export interface SchoolBranch {
 }
 
 export interface UpsertSchoolRequest {
-    name:          string;
-    motto?:        string;
-    type?:         SchoolType;
-    level?:        SchoolLevel;
-    address?:      string;
-    phone?:        string;
-    email?:        string;
-    currency?:     string;
-    website?:      string;
-    emiscode?:     string;
-    district?:     string;
-    region?:       string;
-    logo?:         string;
-    primarycolor?: string;
-    sidebarcolor?: string;
+    name:            string;
+    motto?:          string;
+    type?:           SchoolType;
+    level?:          SchoolLevel;
+    address?:        string;
+    phone?:          string;
+    email?:          string;
+    currency?:       string;
+    website?:        string;
+    emiscode?:       string;
+    district?:       string;
+    region?:         string;
+    logo?:           string;
+    primarycolor?:   string;
+    sidebarcolor?:   string;
+    enabledmodules?: string[];
 }
 
 export interface CreateBranchRequest {
@@ -91,30 +93,35 @@ const LVL_REV:  Record<SchoolLevel, number> = { primary: 1, jhs: 2, shs: 3, inte
 const SCHOOL_TABLE = 'sms_schools';
 const BRANCH_TABLE = 'sms_schoolbranchs';
 
-const SCHOOL_SELECT = 'sms_schoolid,sms_name,sms_motto,sms_type,sms_level,sms_address,sms_phone,sms_email,sms_currency,sms_website,sms_emiscode,sms_district,sms_region,sms_logo';
+const SCHOOL_SELECT = 'sms_schoolid,sms_name,sms_motto,sms_type,sms_level,sms_address,sms_phone,sms_email,sms_currency,sms_website,sms_emiscode,sms_district,sms_region,sms_logo,sms_enabledmodule';
 const BRANCH_SELECT = 'sms_schoolbranchid,sms_name,sms_address,sms_district,sms_region,sms_phone,sms_email,sms_ismain,_sms_school_value';
 
 /* ── Mappers ────────────────────────────────────────────────────────────── */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapSchool(item: any): SchoolProfile {
+    let enabledmodules: string[] = [];
+    if (item.sms_enabledmodule) {
+        try { enabledmodules = JSON.parse(item.sms_enabledmodule); } catch { /* ignore */ }
+    }
     return {
-        schoolid: item.sms_schoolid,
-        name:     item.sms_name     ?? '',
-        motto:    item.sms_motto    ?? '',
-        type:     TYPE_MAP[item.sms_type]  ?? 'ges',
-        level:    LVL_MAP[item.sms_level] ?? 'all',
-        address:  item.sms_address  ?? '',
-        phone:    item.sms_phone    ?? '',
-        email:    item.sms_email    ?? '',
-        currency: item.sms_currency ?? 'GHS',
-        website:  item.sms_website  ?? '',
-        emiscode: item.sms_emiscode ?? '',
-        district: item.sms_district ?? '',
-        region:   item.sms_region   ?? '',
-        logo:         item.sms_logo ?? '',
-        primarycolor: '',
-        sidebarcolor: '',
+        schoolid:       item.sms_schoolid,
+        name:           item.sms_name     ?? '',
+        motto:          item.sms_motto    ?? '',
+        type:           TYPE_MAP[item.sms_type]  ?? 'ges',
+        level:          LVL_MAP[item.sms_level] ?? 'all',
+        address:        item.sms_address  ?? '',
+        phone:          item.sms_phone    ?? '',
+        email:          item.sms_email    ?? '',
+        currency:       item.sms_currency ?? 'GHS',
+        website:        item.sms_website  ?? '',
+        emiscode:       item.sms_emiscode ?? '',
+        district:       item.sms_district ?? '',
+        region:         item.sms_region   ?? '',
+        logo:           item.sms_logo ?? '',
+        primarycolor:   '',
+        sidebarcolor:   '',
+        enabledmodules,
     };
 }
 
@@ -147,7 +154,8 @@ function buildSchoolPayload(data: Partial<UpsertSchoolRequest>): Record<string, 
     if (data.emiscode !== undefined) p.sms_emiscode = data.emiscode;
     if (data.district !== undefined) p.sms_district = data.district;
     if (data.region   !== undefined) p.sms_region   = data.region;
-    if (data.logo !== undefined) p.sms_logo = data.logo;
+    if (data.logo            !== undefined) p.sms_logo            = data.logo;
+    if (data.enabledmodules  !== undefined) p.sms_enabledmodule  = JSON.stringify(data.enabledmodules);
     return p;
 }
 

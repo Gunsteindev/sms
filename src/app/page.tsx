@@ -297,7 +297,7 @@ export default function LandingPage() {
               <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-2.5 lg:justify-start">
                 {TRUST.map(({ icon: Icon, label }) => (
                   <span key={label} className="flex items-center gap-2 text-sm text-slate-400">
-                    <Icon className="h-4 w-4 text-cyan-400 flex-shrink-0" />
+                    <Icon className="h-4 w-4 text-cyan-400 shrink-0" />
                     {label}
                   </span>
                 ))}

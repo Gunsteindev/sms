@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, serverError } from '@/lib/api-guard';
-import { createSchool, getSchoolProfile } from '@/lib/dataverse/school';
+import { createSchool } from '@/lib/dataverse/school';
 import { createSessionToken, SESSION_COOKIE } from '@/lib/session';
 import type { UpsertSchoolRequest } from '@/lib/dataverse/school';
 
@@ -24,20 +24,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'School name is required' }, { status: 400 });
     }
 
-    // Get existing school or create new one
-    let school;
-    try {
-      const existing = await getSchoolProfile();
-      school = existing ?? await createSchool(body);
-      if (existing) {
-        // Already exists — just use its id
-        school = existing;
-      }
-    } catch {
-      school = await createSchool(body);
-    }
+    // Always create a brand-new school record — never reuse an existing one.
+    const school = await createSchool(body);
 
-    // Re-issue session JWT carrying schoolId
+    // Re-issue session JWT scoped to the newly created school.
     const newToken = await createSessionToken({
       userid:   session.userid,
       email:    session.email,

@@ -395,7 +395,8 @@ export const schoolAPI = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     updateBranch:  (id: string, data: any) => apiClient.put(`/school/branches/${id}`, data),
     deleteBranch:  (id: string)          => apiClient.delete(`/school/branches/${id}`),
-    setMainBranch: (id: string)          => apiClient.put(`/school/branches/${id}`, { setMain: true }),
+    setMainBranch:   (id: string)                     => apiClient.put(`/school/branches/${id}`, { setMain: true }),
+    updateModules:   (id: string, enabledmodules: string[]) => apiClient.put(`/school/${id}`, { enabledmodules }),
 };
 
 // Report Cards API

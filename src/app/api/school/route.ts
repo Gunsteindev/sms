@@ -16,9 +16,10 @@ const upsertSchema = z.object({
     emiscode:  z.string().optional(),
     district:  z.string().optional(),
     region:    z.string().optional(),
-    logo:         z.string().optional(),
-    primarycolor: z.string().optional(),
-    sidebarcolor: z.string().optional(),
+    logo:           z.string().optional(),
+    primarycolor:   z.string().optional(),
+    sidebarcolor:   z.string().optional(),
+    enabledmodules: z.array(z.string()).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -49,7 +50,11 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'No school found to update' }, { status: 404 });
         }
 
-        const data = await updateSchool(schoolId, parsed.data);
+        // Only the super admin (bootstrap) may change module assignments
+        const { enabledmodules: _ignored, ...profileData } = parsed.data;
+        const payload = session?.userid === 'bootstrap' ? parsed.data : profileData;
+
+        const data = await updateSchool(schoolId, payload);
         return NextResponse.json({ success: true, data, message: 'School profile saved' });
     } catch (error) {
         return serverError(error);

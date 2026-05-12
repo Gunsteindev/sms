@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Save, School, Phone, Mail, Globe, MapPin, Hash, Building2,
-  Plus, Pencil, Trash2, Star, GitBranch, Loader2, X, ImageIcon, Palette, ChevronDown,
+  Plus, Pencil, Trash2, Star, GitBranch, Loader2, X, ImageIcon, Palette,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -54,6 +54,7 @@ const DEFAULT_DRAFT: Omit<SchoolProfile, 'schoolid'> = {
   address: '', phone: '', email: '', currency: 'GHS',
   website: '', emiscode: '', district: '', region: '', logo: '',
   primarycolor: '#2563eb', sidebarcolor: '#0f172a',
+  enabledmodules: [],
 };
 
 const COLOR_PRESETS: { name: string; primary: string; sidebar: string }[] = [
@@ -262,18 +263,16 @@ function BranchForm({ value, onChange }: { value: BranchDraft; onChange: (b: Bra
 
 export default function SchoolProfilePage() {
   const { colors, setColors, setSchool } = useBrand();
-  const [loading, setLoading]     = useState(true);
-  const [schoolId, setSchoolId]   = useState('');
-  const [schools, setSchools]     = useState<SchoolProfile[]>([]);
-  const [switching, setSwitching] = useState(false);
-  const [draft, setDraft]         = useState<Omit<SchoolProfile, 'schoolid'>>(() => ({
+  const [loading, setLoading]   = useState(true);
+  const [schoolId, setSchoolId] = useState('');
+  const [draft, setDraft]       = useState<Omit<SchoolProfile, 'schoolid'>>(() => ({
     ...DEFAULT_DRAFT,
     primarycolor: colors.primary,
     sidebarcolor: colors.sidebar,
   }));
   const [branches, setBranches] = useState<SchoolBranch[]>([]);
-  const [saving, setSaving]     = useState(false);
-  const [savedAt, setSavedAt]   = useState<Date | null>(null);
+  const [saving, setSaving]             = useState(false);
+  const [savedAt, setSavedAt]           = useState<Date | null>(null);
 
   const [modalOpen, setModalOpen]       = useState(false);
   const [editingBranch, setEditing]     = useState<SchoolBranch | null>(null);
@@ -281,30 +280,22 @@ export default function SchoolProfilePage() {
   const [toDelete, setToDelete]         = useState<string | null>(null);
   const [branchSaving, setBranchSaving] = useState(false);
 
-  const loadSchool = async (id?: string) => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const [profileRes, branchRes] = await Promise.all([
-        id ? fetch(`/api/school?id=${id}`).then(r => r.json()) : schoolAPI.getProfile(),
-        schoolAPI.getBranches(id),
-      ]) as any[];
-      if (profileRes?.data) {
-        const p: SchoolProfile = profileRes.data;
-        setSchoolId(p.schoolid);
-        setDraft({ name: p.name, motto: p.motto, type: p.type, level: p.level, address: p.address, phone: p.phone, email: p.email, currency: p.currency, website: p.website, emiscode: p.emiscode, district: p.district, region: p.region, logo: p.logo ?? '', primarycolor: p.primarycolor || colors.primary, sidebarcolor: p.sidebarcolor || colors.sidebar });
-      }
-      if (branchRes?.data) setBranches(branchRes.data as SchoolBranch[]);
-    } catch {
-      toast.error('Failed to load school profile');
-    }
-  };
-
   useEffect(() => {
     (async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [, listRes] = await Promise.all([loadSchool(), schoolAPI.listSchools()]) as any[];
-        if (listRes?.data) setSchools(listRes.data as SchoolProfile[]);
+        const [profileRes, branchRes] = await Promise.all([
+          schoolAPI.getProfile(),
+          schoolAPI.getBranches(),
+        ]) as any[];
+        if (profileRes?.data) {
+          const p: SchoolProfile = profileRes.data;
+          setSchoolId(p.schoolid);
+          setDraft({ name: p.name, motto: p.motto, type: p.type, level: p.level, address: p.address, phone: p.phone, email: p.email, currency: p.currency, website: p.website, emiscode: p.emiscode, district: p.district, region: p.region, logo: p.logo ?? '', primarycolor: p.primarycolor || colors.primary, sidebarcolor: p.sidebarcolor || colors.sidebar, enabledmodules: p.enabledmodules });
+        }
+        if (branchRes?.data) setBranches(branchRes.data as SchoolBranch[]);
+      } catch {
+        toast.error('Failed to load school profile');
       } finally {
         setLoading(false);
       }
@@ -327,26 +318,6 @@ export default function SchoolProfilePage() {
       toast.error('Failed to save school profile');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSwitchSchool = async (id: string) => {
-    if (id === schoolId) return;
-    setSwitching(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await schoolAPI.switchSchool(id) as any;
-      setSavedAt(null);
-      await loadSchool(id);
-      setSchoolId(id);
-      // Sync sidebar branding to the newly-active school
-      const target = schools.find(s => s.schoolid === id);
-      if (target) setSchool({ name: target.name, motto: target.motto, logo: target.logo ?? '' });
-      toast.success(`Switched to ${target?.name ?? 'school'}`);
-    } catch {
-      toast.error('Failed to switch school');
-    } finally {
-      setSwitching(false);
     }
   };
 
@@ -431,26 +402,6 @@ export default function SchoolProfilePage() {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
               Saved {savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
-          )}
-          {schools.length > 1 && (
-            <div className="relative">
-              <SelectRoot value={schoolId} onValueChange={v => v && handleSwitchSchool(v)} disabled={switching}>
-                <SelectTrigger className="h-9 min-w-[200px] bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 text-sm">
-                  <div className="flex items-center gap-2">
-                    {switching && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
-                    <SelectValue>{schools.find(s => s.schoolid === schoolId)?.name ?? 'Select school'}</SelectValue>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-slate-400 ml-1 flex-shrink-0" />
-                </SelectTrigger>
-                <SelectContent>
-                  {schools.map(s => (
-                    <SelectItem key={s.schoolid} value={s.schoolid}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </SelectRoot>
-            </div>
           )}
           <Button onClick={save} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
