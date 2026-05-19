@@ -618,7 +618,11 @@ export default function InventoryPage() {
                             </div>
 
                             <SelectRoot value={movItemFilter} onValueChange={v => setMovItemFilter(v ?? '')}>
-                                <SelectTrigger className={`w-48 ${SF}`}><SelectValue placeholder="All Items" /></SelectTrigger>
+                                <SelectTrigger className={`w-48 ${SF}`}>
+                                    <SelectValue placeholder="All Items">
+                                        {(v: string) => v ? (items.find(i => i.itemid === v)?.name ?? v) : 'All Items'}
+                                    </SelectValue>
+                                </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">All Items</SelectItem>
                                     {items.map(i => <SelectItem key={i.itemid} value={i.itemid}>{i.name}</SelectItem>)}
@@ -626,7 +630,11 @@ export default function InventoryPage() {
                             </SelectRoot>
 
                             <SelectRoot value={movTypeFilter} onValueChange={v => setMovTypeFilter(v ?? '')}>
-                                <SelectTrigger className={`w-40 ${SF}`}><SelectValue placeholder="All Types" /></SelectTrigger>
+                                <SelectTrigger className={`w-40 ${SF}`}>
+                                    <SelectValue placeholder="All Types">
+                                        {(v: string) => v ? (MOV_TYPES[Number(v)]?.label ?? v) : 'All Types'}
+                                    </SelectValue>
+                                </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="">All Types</SelectItem>
                                     {Object.entries(MOV_TYPES).map(([v, t]) => (

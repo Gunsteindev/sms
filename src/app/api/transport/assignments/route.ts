@@ -26,10 +26,8 @@ export async function POST(request: NextRequest) {
     return withSchool(request, async () => {
         try {
             const body = await request.json();
-            if (!body.studentid)   return NextResponse.json({ success: false, error: 'studentid is required' }, { status: 400 });
-            if (!body.studentname) return NextResponse.json({ success: false, error: 'studentname is required' }, { status: 400 });
-            if (!body.vehicleid)   return NextResponse.json({ success: false, error: 'vehicleid is required' }, { status: 400 });
-            if (!body.vehiclename) return NextResponse.json({ success: false, error: 'vehiclename is required' }, { status: 400 });
+            if (!body.studentid) return NextResponse.json({ success: false, error: 'studentid is required' }, { status: 400 });
+            if (!body.vehicleid) return NextResponse.json({ success: false, error: 'vehicleid is required' }, { status: 400 });
             const data = await createRouteAssignment(body);
             return NextResponse.json({ success: true, data }, { status: 201 });
         } catch (error) {
