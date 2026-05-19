@@ -65,7 +65,8 @@ export const MODULE_GROUPS: ModuleGroup[] = [
   {
     group: 'Facilities',
     modules: [
-      { key: 'pool', label: 'Swimming Pool', desc: 'Pool sessions and rentals' },
+      { key: 'pool',    label: 'Swimming Pool',    desc: 'Pool sessions and rentals' },
+      { key: 'kitchen', label: 'Kitchen / Cafeteria', desc: 'Daily menus and meal order tracking' },
     ],
   },
 ];
@@ -103,6 +104,7 @@ export const ROUTE_MODULE_MAP: Array<[string, string]> = [
   ['/finance/fee-payments',      'fees'        ],
   ['/finance/scholarships',      'scholarships'],
   ['/pool',                      'pool'        ],
+  ['/kitchen',                   'kitchen'     ],
 ];
 
 export function moduleForPath(pathname: string): string | null {

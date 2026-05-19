@@ -18,23 +18,32 @@ const createSchema = z.object({
     email:            z.string().email().optional().or(z.literal('')),
     rollnumber:       z.string().optional(),
     parentid:         z.string().optional(),
+    profilepicture:   z.string().optional(),
 });
 
 export async function GET(request: NextRequest) {
     return withSchool(request, async () => {
         try {
             const p          = request.nextUrl.searchParams;
-            const search     = p.get('search')  || undefined;
-            const status     = p.get('status')  ? parseInt(p.get('status')!) : undefined;
-            const classid    = p.get('classid') || undefined;
+            const search     = p.get('search')   || undefined;
+            const status     = p.get('status')   ? parseInt(p.get('status')!)   : undefined;
+            const classid    = p.get('classid')  || undefined;
+            const page       = p.get('page')     ? parseInt(p.get('page')!)     : 1;
+            const pageSize   = p.get('pageSize') ? parseInt(p.get('pageSize')!) : 20;
 
             if (p.get('stats') === 'true') {
                 const data = await getStudentStats();
                 return NextResponse.json({ success: true, data });
             }
 
-            const result = await getStudents({ search, status, classid });
-            return NextResponse.json({ success: true, data: result.items, totalCount: result.totalCount });
+            const result = await getStudents({ search, status, classid, page, pageSize });
+            return NextResponse.json({
+                success: true,
+                data: result.items,
+                totalCount: result.totalCount,
+                page: result.page,
+                pageSize: result.pageSize,
+            });
         } catch (error) {
             return serverError(error);
         }

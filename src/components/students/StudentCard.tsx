@@ -2,23 +2,13 @@
 
 import { Mail, Phone, MapPin, User, Calendar, GraduationCap, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import {
+  STUDENT_STATUS_LABEL,
+  STUDENT_STATUS_VARIANT,
+  ENROLLMENT_STATUS_LABEL,
+  GENDER_LABEL,
+} from '@/lib/constants';
 import type { Student } from '@/lib/dataverse/students';
-
-const STUDENT_STATUS: Record<number, { label: string; variant: 'success' | 'info' | 'warning' | 'error' }> = {
-  1: { label: 'Active',      variant: 'success' },
-  2: { label: 'Graduated',   variant: 'info' },
-  3: { label: 'Transferred', variant: 'warning' },
-  4: { label: 'Suspended',   variant: 'error' },
-};
-
-const ENROLLMENT_STATUS: Record<number, string> = {
-  1: 'Enrolled',
-  2: 'Completed',
-  3: 'Dropped',
-  4: 'On Hold',
-};
-
-const GENDER: Record<number, string> = { 1: 'Male', 2: 'Female' };
 
 function formatDate(d: Date | string | undefined) {
   if (!d) return '—';
@@ -41,8 +31,12 @@ function Row({ icon: Icon, label, value }: { icon: React.ElementType; label: str
 }
 
 export function StudentCard({ student }: { student: Student }) {
-  const status     = STUDENT_STATUS[student.studentstatus    || 1] ?? { label: 'Unknown', variant: 'default' as const };
-  const enrStatus  = ENROLLMENT_STATUS[student.enrollmentstatus || 1];
+  const statusCode = student.studentstatus || 1;
+  const status     = {
+    label:   STUDENT_STATUS_LABEL[statusCode]   ?? 'Unknown',
+    variant: STUDENT_STATUS_VARIANT[statusCode] ?? ('default' as const),
+  };
+  const enrStatus  = ENROLLMENT_STATUS_LABEL[student.enrollmentstatus];
   const parentName = student.parentname || student.guardianname;
   const fullName   = `${student.firstname} ${student.lastname}`.trim();
   const initials   = `${student.firstname?.[0] ?? ''}${student.lastname?.[0] ?? ''}`.toUpperCase();
@@ -63,9 +57,18 @@ export function StudentCard({ student }: { student: Student }) {
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
       {/* Header */}
       <div className={`bg-gradient-to-br ${gradient} px-6 py-8 text-white text-center`}>
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
-          {initials}
-        </div>
+        {student.profilepicture ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={student.profilepicture}
+            alt={fullName}
+            className="mx-auto h-16 w-16 rounded-full object-cover border-2 border-white/40 shadow-md"
+          />
+        ) : (
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/20 text-2xl font-bold">
+            {initials}
+          </div>
+        )}
         <h2 className="mt-3 text-xl font-bold">{fullName}</h2>
         {student.rollnumber && (
           <p className="text-sm text-white/70 mt-1">Roll No. {student.rollnumber}</p>
@@ -85,7 +88,7 @@ export function StudentCard({ student }: { student: Student }) {
       {/* Details */}
       <div className="px-5 py-3">
         <Row icon={GraduationCap} label="Class"         value={student.classname || '—'} />
-        <Row icon={User}          label="Gender"        value={GENDER[student.gender] ?? '—'} />
+        <Row icon={User}          label="Gender"        value={GENDER_LABEL[student.gender] ?? '—'} />
         <Row icon={Calendar}      label="Date of Birth" value={formatDate(student.dateofbirth)} />
         <Row icon={Calendar}      label="Enrolled"      value={formatDate(student.enrollmentdate)} />
         {parentName && (

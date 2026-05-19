@@ -19,9 +19,18 @@ export function badRequest(error: string) {
 export function serverError(error: unknown) {
   const isDev = process.env.NODE_ENV === 'development';
   const msg = error instanceof Error ? error.message : 'Internal server error';
-  console.error('[API Error]', msg);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const axErr = error as any;
+  const dvDetail = axErr?.response?.data != null ? axErr.response.data : null;
+  const dvMsg: string = dvDetail?.error?.message ?? dvDetail?.message ?? '';
+  console.error('[API Error]', msg, dvMsg || JSON.stringify(dvDetail ?? ''));
   return NextResponse.json(
-    { success: false, error: isDev ? msg : 'Internal server error' },
+    {
+      success: false,
+      error: isDev ? msg : 'Internal server error',
+      ...(isDev && dvMsg   ? { dvMessage: dvMsg }     : {}),
+      ...(isDev && dvDetail ? { detail: dvDetail }     : {}),
+    },
     { status: 500 }
   );
 }

@@ -3,14 +3,8 @@
 import { Users, Eye, Pencil, Trash2, UserPlus, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { STUDENT_STATUS_LABEL, STUDENT_STATUS_VARIANT } from '@/lib/constants';
 import type { Student } from '@/lib/dataverse/students';
-
-const STATUS: Record<number, { label: string; variant: 'success' | 'info' | 'warning' | 'error' | 'default' }> = {
-  1: { label: 'Active',      variant: 'success' },
-  2: { label: 'Graduated',   variant: 'info' },
-  3: { label: 'Transferred', variant: 'warning' },
-  4: { label: 'Suspended',   variant: 'error' },
-};
 
 const AVATAR_COLORS = [
   'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
@@ -75,7 +69,11 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete, onAs
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
           {students.map((s) => {
-            const status   = STATUS[s.studentstatus] ?? { label: 'Unknown', variant: 'default' as const };
+            const sc       = s.studentstatus ?? 1;
+            const status   = {
+              label:   STUDENT_STATUS_LABEL[sc]   ?? 'Unknown',
+              variant: STUDENT_STATUS_VARIANT[sc] ?? ('default' as const),
+            };
             const initials = `${s.firstname?.[0] ?? ''}${s.lastname?.[0] ?? ''}`.toUpperCase();
             const ac       = avatarColor(`${s.firstname}${s.lastname}`);
             const parent   = s.parentname || s.guardianname || '';
@@ -86,9 +84,18 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete, onAs
                 {/* Student */}
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
-                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${ac}`}>
-                      {initials}
-                    </div>
+                    {s.profilepicture ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={s.profilepicture}
+                        alt={`${s.firstname} ${s.lastname}`}
+                        className="h-9 w-9 flex-shrink-0 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                      />
+                    ) : (
+                      <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${ac}`}>
+                        {initials}
+                      </div>
+                    )}
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{s.firstname} {s.lastname}</p>
                       {s.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[160px]">{s.email}</p>}

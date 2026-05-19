@@ -4,7 +4,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { Camera, UserCircle2, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,7 @@ const schema = z.object({
   parentid:         z.string().optional(),
   studentstatus:    z.string().optional(),
   enrollmentstatus: z.string().optional(),
+  profilepicture:   z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -40,6 +42,75 @@ interface Props {
   defaultValues?: Partial<FormData & { parentname: string }>;
   onSubmit: (data: FormData) => Promise<void>;
   onCancel: () => void;
+}
+
+function ProfilePictureUploader({ value, onChange }: { value: string; onChange: (b64: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 240;
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+        const out = Math.min(side, MAX);
+        const canvas = document.createElement('canvas');
+        canvas.width = out; canvas.height = out;
+        canvas.getContext('2d')!.drawImage(img, sx, sy, side, side, 0, 0, out, out);
+        onChange(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <input
+        ref={inputRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ''; }}
+      />
+      <div className="relative group">
+        {value ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={value} alt="Profile"
+              className="h-20 w-20 rounded-full object-cover border-2 border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer"
+              onClick={() => inputRef.current?.click()}
+            />
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="h-20 w-20 rounded-full flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
+          >
+            <UserCircle2 className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-700 transition-colors"
+          title="Upload photo"
+        >
+          <Camera className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <p className="text-[10px] text-slate-400 dark:text-slate-500">Click to upload photo</p>
+    </div>
+  );
 }
 
 function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
@@ -68,7 +139,6 @@ function ParentPicker({ value, initialName, onChange }: {
   const timerRef                  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef              = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -79,7 +149,6 @@ function ParentPicker({ value, initialName, onChange }: {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Debounced search
   useEffect(() => {
     if (!query.trim()) { setResults([]); setOpen(false); return; }
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -171,6 +240,11 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
 
+      {/* ── Profile Picture ── */}
+      <Controller control={control} name="profilepicture" render={({ field }) => (
+        <ProfilePictureUploader value={field.value ?? ''} onChange={field.onChange} />
+      )} />
+
       {/* ── Personal Info ── */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Personal Info</p>
@@ -190,9 +264,7 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
             <Controller control={control} name="gender" render={({ field }) => (
               <SelectRoot value={field.value ?? ''} onValueChange={v => field.onChange(v)}>
                 <SelectTrigger id="gender" className={SELECT_TRIGGER}>
-                  <SelectValue>
-                    {field.value || 'Select gender'}
-                  </SelectValue>
+                  <SelectValue>{field.value || 'Select gender'}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Male">Male</SelectItem>
@@ -242,9 +314,7 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
             <Controller control={control} name="studentstatus" render={({ field }) => (
               <SelectRoot value={field.value ?? 'Active'} onValueChange={v => field.onChange(v)}>
                 <SelectTrigger id="studentstatus" className={SELECT_TRIGGER}>
-                  <SelectValue>
-                    {field.value || 'Select status'}
-                  </SelectValue>
+                  <SelectValue>{field.value || 'Select status'}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Active">Active</SelectItem>
@@ -259,9 +329,7 @@ export function StudentForm({ defaultValues, onSubmit, onCancel }: Props) {
             <Controller control={control} name="enrollmentstatus" render={({ field }) => (
               <SelectRoot value={field.value ?? 'Enrolled'} onValueChange={v => field.onChange(v)}>
                 <SelectTrigger id="enrollmentstatus" className={SELECT_TRIGGER}>
-                  <SelectValue>
-                    {field.value || 'Select status'}
-                  </SelectValue>
+                  <SelectValue>{field.value || 'Select status'}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Enrolled">Enrolled</SelectItem>

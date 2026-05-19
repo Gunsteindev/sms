@@ -102,3 +102,11 @@ export const updateParent = async (id: string, data: Partial<CreateParentRequest
 export const deleteParent = async (id: string): Promise<void> => {
     await dataverseClient.delete(`${TABLE}(${id})`);
 };
+
+export const getParentByEmail = async (email: string): Promise<Parent | null> => {
+    const filter = encodeURIComponent(`sms_email eq '${email}'`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
+    const items = r.value ?? [];
+    return items.length ? mapParent(items[0]) : null;
+};
