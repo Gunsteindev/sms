@@ -2,7 +2,9 @@ import { dataverseClient } from './client';
 
 const TABLE = 'sms_vehiclemaintenances';
 
-const SELECT = 'sms_vehiclemaintenanceid,sms_name,sms_vehicleid,sms_vehiclename,sms_maintenancetype,sms_description,sms_scheduleddate,sms_completeddate,sms_cost,sms_technicianname,sms_status,sms_notes,createdon';
+// _sms_vehicle_value = GUID of the Lookup; name comes from FormattedValue annotation
+// sms_maintenancestatus = Picklist (not sms_status)
+const SELECT = 'sms_vehiclemaintenanceid,sms_name,_sms_vehicle_value,sms_maintenancetype,sms_description,sms_scheduleddate,sms_completeddate,sms_cost,sms_technicianname,sms_maintenancestatus,sms_notes,createdon';
 
 export const MAINT_TYPES: Record<number, string> = {
     1: 'Routine Service',
@@ -36,7 +38,6 @@ export interface VehicleMaintenance {
 
 export interface CreateMaintenanceRequest {
     vehicleid:        string;
-    vehiclename:      string;
     maintenancetype?: number;
     description?:     string;
     scheduleddate?:   string;
@@ -51,15 +52,15 @@ export interface CreateMaintenanceRequest {
 function mapMaintenance(item: any): VehicleMaintenance {
     return {
         maintenanceid:   item.sms_vehiclemaintenanceid,
-        vehicleid:       item.sms_vehicleid        ?? '',
-        vehiclename:     item.sms_vehiclename      ?? '',
+        vehicleid:       item._sms_vehicle_value ?? '',
+        vehiclename:     item['_sms_vehicle_value@OData.Community.Display.V1.FormattedValue'] ?? '',
         maintenancetype: item.sms_maintenancetype  ?? 1,
         description:     item.sms_description      ?? '',
         scheduleddate:   item.sms_scheduleddate     ? item.sms_scheduleddate.slice(0, 10) : '',
         completeddate:   item.sms_completeddate     ? item.sms_completeddate.slice(0, 10) : '',
         cost:            item.sms_cost             ?? 0,
         technicianname:  item.sms_technicianname   ?? '',
-        status:          item.sms_status           ?? 1,
+        status:          item.sms_maintenancestatus ?? 1,
         notes:           item.sms_notes            ?? '',
         createdon:       item.createdon            ?? '',
     };
@@ -67,7 +68,7 @@ function mapMaintenance(item: any): VehicleMaintenance {
 
 export const getMaintenanceRecords = async (vehicleid?: string) => {
     const parts = [`$select=${SELECT}`, '$orderby=createdon desc'];
-    if (vehicleid) parts.push(`$filter=${encodeURIComponent(`sms_vehicleid eq '${vehicleid}'`)}`);
+    if (vehicleid) parts.push(`$filter=${encodeURIComponent(`_sms_vehicle_value eq ${vehicleid}`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,11 +78,10 @@ export const getMaintenanceRecords = async (vehicleid?: string) => {
 export const createMaintenanceRecord = async (data: CreateMaintenanceRequest) => {
     const typeLabel = MAINT_TYPES[data.maintenancetype ?? 1];
     const payload: Record<string, unknown> = {
-        sms_name:            `${data.vehiclename} – ${typeLabel}`,
-        sms_vehicleid:       data.vehicleid,
-        sms_vehiclename:     data.vehiclename,
-        sms_maintenancetype: data.maintenancetype ?? 1,
-        sms_status:          data.status ?? 1,
+        sms_name:            `Vehicle – ${typeLabel}`,
+        'sms_vehicle@odata.bind': `/sms_vehicles(${data.vehicleid})`,
+        sms_maintenancetype:  data.maintenancetype ?? 1,
+        sms_maintenancestatus: data.status ?? 1,
     };
     if (data.description    !== undefined) payload.sms_description    = data.description;
     if (data.scheduleddate  !== undefined) payload.sms_scheduleddate  = data.scheduleddate;
@@ -94,14 +94,15 @@ export const createMaintenanceRecord = async (data: CreateMaintenanceRequest) =>
 
 export const updateMaintenanceRecord = async (id: string, data: Partial<CreateMaintenanceRequest>) => {
     const payload: Record<string, unknown> = {};
-    if (data.maintenancetype !== undefined) payload.sms_maintenancetype = data.maintenancetype;
-    if (data.description     !== undefined) payload.sms_description     = data.description;
-    if (data.scheduleddate   !== undefined) payload.sms_scheduleddate   = data.scheduleddate;
-    if (data.completeddate   !== undefined) payload.sms_completeddate   = data.completeddate;
-    if (data.cost            !== undefined) payload.sms_cost            = data.cost;
-    if (data.technicianname  !== undefined) payload.sms_technicianname  = data.technicianname;
-    if (data.status          !== undefined) payload.sms_status          = data.status;
-    if (data.notes           !== undefined) payload.sms_notes           = data.notes;
+    if (data.vehicleid       !== undefined) payload['sms_vehicle@odata.bind'] = `/sms_vehicles(${data.vehicleid})`;
+    if (data.maintenancetype !== undefined) payload.sms_maintenancetype  = data.maintenancetype;
+    if (data.description     !== undefined) payload.sms_description      = data.description;
+    if (data.scheduleddate   !== undefined) payload.sms_scheduleddate    = data.scheduleddate;
+    if (data.completeddate   !== undefined) payload.sms_completeddate    = data.completeddate;
+    if (data.cost            !== undefined) payload.sms_cost             = data.cost;
+    if (data.technicianname  !== undefined) payload.sms_technicianname   = data.technicianname;
+    if (data.status          !== undefined) payload.sms_maintenancestatus = data.status;
+    if (data.notes           !== undefined) payload.sms_notes            = data.notes;
     await dataverseClient.patch(`${TABLE}(${id})`, payload);
 };
 

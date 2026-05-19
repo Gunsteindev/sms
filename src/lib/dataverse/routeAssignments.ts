@@ -2,7 +2,10 @@ import { dataverseClient } from './client';
 
 const TABLE = 'sms_routeassignments';
 
-const SELECT = 'sms_routeassignmentid,sms_name,sms_studentid,sms_studentname,sms_vehicleid,sms_vehiclename,sms_routename,sms_pickuppoint,sms_pickuptime,sms_status,createdon';
+// _sms_student_value / _sms_vehicle_value = GUID of the lookup
+// sms_studentname / sms_vehiclename = auto-populated companion strings (read-only)
+// sms_routestatus = Picklist (not sms_status)
+const SELECT = 'sms_routeassignmentid,sms_name,_sms_student_value,_sms_vehicle_value,sms_routename,sms_pickuppoint,sms_pickuptime,sms_routestatus,createdon';
 
 export interface RouteAssignment {
     assignmentid: string;
@@ -19,9 +22,7 @@ export interface RouteAssignment {
 
 export interface CreateRouteAssignmentRequest {
     studentid:    string;
-    studentname:  string;
     vehicleid:    string;
-    vehiclename:  string;
     routename?:   string;
     pickuppoint?: string;
     pickuptime?:  string;
@@ -32,21 +33,21 @@ export interface CreateRouteAssignmentRequest {
 function mapAssignment(item: any): RouteAssignment {
     return {
         assignmentid: item.sms_routeassignmentid,
-        studentid:    item.sms_studentid   ?? '',
-        studentname:  item.sms_studentname ?? '',
-        vehicleid:    item.sms_vehicleid   ?? '',
-        vehiclename:  item.sms_vehiclename ?? '',
-        routename:    item.sms_routename   ?? '',
-        pickuppoint:  item.sms_pickuppoint ?? '',
-        pickuptime:   item.sms_pickuptime  ?? '',
-        status:       item.sms_status      ?? 1,
-        createdon:    item.createdon       ?? '',
+        studentid:    item._sms_student_value  ?? '',
+        studentname:  item['_sms_student_value@OData.Community.Display.V1.FormattedValue'] ?? '',
+        vehicleid:    item._sms_vehicle_value  ?? '',
+        vehiclename:  item['_sms_vehicle_value@OData.Community.Display.V1.FormattedValue'] ?? '',
+        routename:    item.sms_routename       ?? '',
+        pickuppoint:  item.sms_pickuppoint     ?? '',
+        pickuptime:   item.sms_pickuptime      ?? '',
+        status:       item.sms_routestatus     ?? 1,
+        createdon:    item.createdon           ?? '',
     };
 }
 
 export const getRouteAssignments = async (vehicleid?: string) => {
-    const parts = [`$select=${SELECT}`, '$orderby=sms_studentname asc'];
-    if (vehicleid) parts.push(`$filter=${encodeURIComponent(`sms_vehicleid eq '${vehicleid}'`)}`);
+    const parts = [`$select=${SELECT}`, '$orderby=sms_name asc'];
+    if (vehicleid) parts.push(`$filter=${encodeURIComponent(`_sms_vehicle_value eq ${vehicleid}`)}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,12 +56,9 @@ export const getRouteAssignments = async (vehicleid?: string) => {
 
 export const createRouteAssignment = async (data: CreateRouteAssignmentRequest) => {
     const payload: Record<string, unknown> = {
-        sms_name:        `${data.studentname} – ${data.vehiclename}`,
-        sms_studentid:   data.studentid,
-        sms_studentname: data.studentname,
-        sms_vehicleid:   data.vehicleid,
-        sms_vehiclename: data.vehiclename,
-        sms_status:      data.status ?? 1,
+        'sms_student@odata.bind': `/sms_students(${data.studentid})`,
+        'sms_vehicle@odata.bind': `/sms_vehicles(${data.vehicleid})`,
+        sms_routestatus: data.status ?? 1,
     };
     if (data.routename   !== undefined) payload.sms_routename   = data.routename;
     if (data.pickuppoint !== undefined) payload.sms_pickuppoint = data.pickuppoint;
@@ -70,11 +68,12 @@ export const createRouteAssignment = async (data: CreateRouteAssignmentRequest) 
 
 export const updateRouteAssignment = async (id: string, data: Partial<CreateRouteAssignmentRequest>) => {
     const payload: Record<string, unknown> = {};
-    if (data.vehicleid   !== undefined) { payload.sms_vehicleid = data.vehicleid; payload.sms_vehiclename = data.vehiclename; }
+    if (data.vehicleid   !== undefined) payload['sms_vehicle@odata.bind'] = `/sms_vehicles(${data.vehicleid})`;
+    if (data.studentid   !== undefined) payload['sms_student@odata.bind'] = `/sms_students(${data.studentid})`;
     if (data.routename   !== undefined) payload.sms_routename   = data.routename;
     if (data.pickuppoint !== undefined) payload.sms_pickuppoint = data.pickuppoint;
     if (data.pickuptime  !== undefined) payload.sms_pickuptime  = data.pickuptime;
-    if (data.status      !== undefined) payload.sms_status      = data.status;
+    if (data.status      !== undefined) payload.sms_routestatus = data.status;
     await dataverseClient.patch(`${TABLE}(${id})`, payload);
 };
 
