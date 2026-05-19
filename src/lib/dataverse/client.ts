@@ -118,6 +118,21 @@ class DataverseClient {
         return response.data;
     }
 
+    // Binary PUT — used for Dataverse Image columns (PUT entity(id)/column)
+    async putBinary(endpoint: string, data: Buffer, contentType: string): Promise<void> {
+        await this.client.put(endpoint, data, {
+            headers: { 'Content-Type': contentType },
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+        });
+    }
+
+    // Binary GET — used for Dataverse Image columns (GET entity(id)/column/$value)
+    async getBinary(endpoint: string): Promise<Buffer> {
+        const response = await this.client.get<ArrayBuffer>(endpoint, { responseType: 'arraybuffer' });
+        return Buffer.from(response.data);
+    }
+
     // Generic DELETE method
     async delete<T>(endpoint: string): Promise<T> {
         const response = await this.client.delete<T>(endpoint);

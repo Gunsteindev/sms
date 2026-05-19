@@ -26,10 +26,10 @@ const ONBOARDING_PATHS = ['/onboarding', '/api/onboarding'];
 // Roles NOT listed here means Admin-only.
 const ROLE_ACCESS: { path: string; roles: number[] }[] = [
     // Everyone authenticated can see the dashboard and their profile/settings
-    { path: '/dashboard',          roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, PARENT] },
-    { path: '/api/dashboard',      roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, PARENT] },
-    { path: '/profile',            roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, PARENT] },
-    { path: '/settings',           roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, PARENT] },
+    { path: '/dashboard',          roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, KITCHEN, PARENT] },
+    { path: '/api/dashboard',      roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, KITCHEN, PARENT] },
+    { path: '/profile',            roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, KITCHEN, PARENT] },
+    { path: '/settings',           roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, KITCHEN, PARENT] },
 
     // Student data — admin, teachers, finance (for billing), inventory
     { path: '/students',           roles: [ADMIN, TEACHER, FINANCE, INVENTORY] },
@@ -106,12 +106,17 @@ const ROLE_ACCESS: { path: string; roles: number[] }[] = [
     { path: '/pool',               roles: [ADMIN, POOL, KITCHEN] },
     { path: '/api/pool',           roles: [ADMIN, POOL, KITCHEN] },
 
+    // Kitchen / Cafeteria
+    { path: '/kitchen',            roles: [ADMIN, KITCHEN] },
+    { path: '/api/kitchen',        roles: [ADMIN, KITCHEN] },
+
     // Extracurricular Activities
     { path: '/activities',         roles: [ADMIN, TEACHER] },
     { path: '/api/activities',     roles: [ADMIN, TEACHER] },
 
     // Parent Portal
     { path: '/portal',             roles: [ADMIN, PARENT] },
+    { path: '/api/portal',         roles: [ADMIN, PARENT] },
 ];
 
 function isPublic(pathname: string) {
@@ -197,6 +202,8 @@ export const config = {
         '/activities/:path*',
         '/portal/:path*',
         '/pool/:path*',
+        '/kitchen',
+        '/kitchen/:path*',
         '/onboarding/:path*',
         '/api/onboarding/:path*',
     ],

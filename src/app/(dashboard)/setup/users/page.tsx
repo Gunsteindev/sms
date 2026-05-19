@@ -25,14 +25,14 @@ const createSchema = z.object({
     name:     z.string().min(1, 'Required'),
     email:    z.string().email('Invalid email'),
     password: z.string().min(8, 'Minimum 8 characters'),
-    userrole: z.number().int().min(1).max(7),
+    userrole: z.number().int().min(1).max(8),
 });
 
 const editSchema = z.object({
     name:     z.string().min(1, 'Required'),
     email:    z.string().email('Invalid email'),
     password: z.string().min(8, 'Minimum 8 characters').optional().or(z.literal('')),
-    userrole: z.number().int().min(1).max(7),
+    userrole: z.number().int().min(1).max(8),
     isactive: z.boolean(),
 });
 
@@ -47,6 +47,7 @@ const ROLE_COLORS: Record<number, string> = {
     5: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     6: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
     7: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+    8: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
 };
 
 function F({ id, label, error, children }: { id?: string; label: string; error?: string; children: React.ReactNode }) {

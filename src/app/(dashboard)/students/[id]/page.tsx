@@ -24,7 +24,15 @@ import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } fro
 import { DatePicker } from '@/components/ui/date-picker';
 import { StudentCard } from '@/components/students/StudentCard';
 import { StudentForm } from '@/components/students/StudentForm';
-import { studentsAPI, attendanceAPI, parentsAPI, studentParentsAPI, disciplinaryAPI, medicalAPI } from '@/lib/api-client';
+import { studentsAPI, parentsAPI, studentParentsAPI } from '@/lib/api/people';
+import { attendanceAPI, disciplinaryAPI } from '@/lib/api/operations';
+import { medicalAPI } from '@/lib/api/school-admin';
+import {
+  STUDENT_STATUS_OPTIONS,
+  ENROLLMENT_STATUS_OPTIONS,
+  GENDER_LABEL,
+  STUDENT_STATUS_LABEL,
+} from '@/lib/constants';
 import type { Student } from '@/lib/dataverse/students';
 import type { Parent } from '@/lib/dataverse/parents';
 import type { StudentParent } from '@/lib/dataverse/studentparents';
@@ -45,18 +53,9 @@ type ParentFormData = z.infer<typeof parentSchema>;
 
 /* ── Constants ────────────────────────────────────────────────────────────── */
 
-const STUDENT_STATUSES = [
-  { value: 1, label: 'Active',      variant: 'success' as const },
-  { value: 2, label: 'Graduated',   variant: 'info'    as const },
-  { value: 3, label: 'Transferred', variant: 'warning' as const },
-  { value: 4, label: 'Suspended',   variant: 'error'   as const },
-];
-
+const STUDENT_STATUSES  = STUDENT_STATUS_OPTIONS;
 const ENROLLMENT_STATUSES = [
-  { value: 1, label: 'Enrolled',  color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  { value: 2, label: 'Completed', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 3, label: 'Dropped',   color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  { value: 4, label: 'On Hold',   color: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+  { ...ENROLLMENT_STATUS_OPTIONS[0], color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
 ];
 
 const INCIDENT_TYPES = [
@@ -226,7 +225,7 @@ export default function StudentDetailPage() {
 
   // Status
   const [draftStudentStatus,    setDraftStudentStatus]    = useState(1);
-  const [draftEnrollmentStatus, setDraftEnrollmentStatus] = useState(1);
+  const [draftEnrollmentStatus, setDraftEnrollmentStatus] = useState(922330000);
   const [savingStatus, setSavingStatus] = useState(false);
 
   const load = async () => {
@@ -256,7 +255,7 @@ export default function StudentDetailPage() {
         vaccinationrecords: med.vaccinationrecords, lastcheckupdate: med.lastcheckupdate,
         emergencycontact: med.emergencycontact, emergencyphone: med.emergencyphone,
       } : {});
-      if (stu) { setDraftStudentStatus(stu.studentstatus || 1); setDraftEnrollmentStatus(stu.enrollmentstatus || 1); }
+      if (stu) { setDraftStudentStatus(stu.studentstatus || 1); setDraftEnrollmentStatus(922330000); }
     } catch {
       toast.error('Failed to load student');
     } finally {
@@ -268,9 +267,19 @@ export default function StudentDetailPage() {
 
   /* ── Handlers ─────────────────────────────────────────────────────────── */
 
+  const GENDER_MAP: Record<string, number>     = { Male: 1, Female: 2 };
+  const STATUS_MAP: Record<string, number>     = { Active: 1, Graduated: 2, Transferred: 3, Suspended: 4 };
+  const ENROLLMENT_MAP: Record<string, number> = { Enrolled: 922330000, Completed: 922330000, Dropped: 922330000, 'On Hold': 922330000 };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleStudentEdit = async (data: any) => {
-    try { await studentsAPI.update(id, data); toast.success('Student updated'); setEditOpen(false); load(); }
+    const payload = {
+      ...data,
+      gender:           GENDER_MAP[data.gender]               ?? 1,
+      studentstatus:    STATUS_MAP[data.studentstatus]        ?? 1,
+      enrollmentstatus: ENROLLMENT_MAP[data.enrollmentstatus] ?? 922330000,
+    };
+    try { await studentsAPI.update(id, payload); toast.success('Student updated'); setEditOpen(false); load(); }
     catch { toast.error('Failed to update student'); }
   };
 
@@ -381,8 +390,8 @@ export default function StudentDetailPage() {
   }
 
   const attRate          = attendance?.percentage ?? 0;
-  const studentStatusCfg = STUDENT_STATUSES.find(s => s.value === (student.studentstatus    || 1)) ?? STUDENT_STATUSES[0];
-  const enrollmentCfg    = ENROLLMENT_STATUSES.find(s => s.value === (student.enrollmentstatus || 1)) ?? ENROLLMENT_STATUSES[0];
+  const studentStatusCfg = STUDENT_STATUSES.find(s => s.value === (student.studentstatus || 1)) ?? STUDENT_STATUSES[0];
+  const enrollmentCfg    = ENROLLMENT_STATUSES[0];
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -739,13 +748,14 @@ export default function StudentDetailPage() {
             defaultValues={{
               firstname: student.firstname, lastname: student.lastname,
               dateofbirth: student.dateofbirth?.slice(0, 10),
-              gender: (({ 1: 'Male', 2: 'Female' } as Record<number, string>)[student.gender]) ?? 'Male',
+              gender: GENDER_LABEL[student.gender] ?? 'Male',
               email: student.email || undefined, phone: student.phone || undefined, address: student.address || undefined,
               enrollmentdate: student.enrollmentdate?.slice(0, 10), rollnumber: student.rollnumber || undefined,
               classid: student.classid || undefined, parentid: student.parentid || undefined,
               parentname: student.parentname || student.guardianname || undefined,
-              studentstatus: (({ 1: 'Active', 2: 'Graduated', 3: 'Transferred', 4: 'Suspended' } as Record<number, string>)[student.studentstatus]) ?? 'Active',
-              enrollmentstatus: (({ 1: 'Enrolled', 2: 'Completed', 3: 'Dropped', 4: 'On Hold' } as Record<number, string>)[student.enrollmentstatus]) ?? 'Enrolled',
+              studentstatus: STUDENT_STATUS_LABEL[student.studentstatus] ?? 'Active',
+              enrollmentstatus: 'Enrolled',
+              profilepicture: student.profilepicture || undefined,
             }}
             onSubmit={handleStudentEdit} onCancel={() => setEditOpen(false)}
           />

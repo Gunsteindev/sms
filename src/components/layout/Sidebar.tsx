@@ -10,7 +10,7 @@ import {
   GraduationCap, CalendarRange, Layers, Award, BookOpenCheck, TrendingUp,
   ChevronLeft, ChevronRight, HeartPulse, ShieldAlert, UserPlus, Medal,
   School, Home, UserCog, Package, ShoppingCart, CalendarOff,
-  Megaphone, Bus, Trophy, Bell, Waves,
+  Megaphone, Bus, Trophy, Bell, Waves, UtensilsCrossed,
 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { useSession } from '@/contexts/AuthContext';
@@ -116,6 +116,13 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       roles: [ADMIN, POOL, KITCHEN],
       items: [
         { href: '/pool', label: t.nav.swimmingPool ?? 'Swimming Pool', icon: Waves, roles: [ADMIN, POOL, KITCHEN], module: 'pool' },
+      ],
+    },
+    {
+      label: 'Kitchen / Cafeteria',
+      roles: [ADMIN, KITCHEN],
+      items: [
+        { href: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, roles: [ADMIN, KITCHEN], module: 'kitchen' },
       ],
     },
     {

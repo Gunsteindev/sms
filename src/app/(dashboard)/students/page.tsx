@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw, Download } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw, Download, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -12,9 +12,21 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StudentTable } from '@/components/students/StudentTable';
 import { StudentForm } from '@/components/students/StudentForm';
 import { useStudents } from '@/hooks/useStudents';
-import { studentsAPI, parentsAPI } from '@/lib/api-client';
+import { studentsAPI, parentsAPI } from '@/lib/api/people';
+import {
+  GENDER,
+  GENDER_LABEL,
+  STUDENT_STATUS,
+  STUDENT_STATUS_LABEL,
+  ENROLLMENT_STATUS_CODE,
+  ENROLLMENT_STATUS_LABEL,
+  ENROLLMENT_STATUS_OPTIONS,
+  STUDENT_STATUS_OPTIONS,
+} from '@/lib/constants';
 import { AISummary } from '@/components/ui/AISummary';
 import { exportToCSV } from '@/lib/csv';
+import { ImportModal, batchImport } from '@/components/ui/ImportModal';
+import { STUDENT_FIELDS, mapStudentRow } from '@/lib/csv-import';
 import type { Student } from '@/lib/dataverse/students';
 
 const STATUS_OPTIONS = [
@@ -148,19 +160,8 @@ function AssignParentModal({ student, onClose, onSaved }: {
   );
 }
 
-const STUDENT_STATUSES = [
-  { value: 1, label: 'Active'      },
-  { value: 2, label: 'Graduated'   },
-  { value: 3, label: 'Transferred' },
-  { value: 4, label: 'Suspended'   },
-];
-
-const ENROLLMENT_STATUSES = [
-  { value: 1, label: 'Enrolled'  },
-  { value: 2, label: 'Completed' },
-  { value: 3, label: 'Dropped'   },
-  { value: 4, label: 'On Hold'   },
-];
+const STUDENT_STATUSES  = STUDENT_STATUS_OPTIONS;
+const ENROLLMENT_STATUSES = ENROLLMENT_STATUS_OPTIONS;
 
 function UpdateStatusModal({ student, onClose, onSaved }: {
   student: Student;
@@ -170,9 +171,7 @@ function UpdateStatusModal({ student, onClose, onSaved }: {
   const [studentStatus,    setStudentStatus]    = useState(
     STUDENT_STATUSES.find(s => s.value === (student.studentstatus || 1))?.label ?? 'Active'
   );
-  const [enrollmentStatus, setEnrollmentStatus] = useState(
-    ENROLLMENT_STATUSES.find(s => s.value === (student.enrollmentstatus || 1))?.label ?? 'Enrolled'
-  );
+  const [enrollmentStatus, setEnrollmentStatus] = useState('Enrolled');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -251,8 +250,9 @@ export default function StudentsPage() {
   const [toDelete, setToDelete]       = useState<string | null>(null);
   const [assigningParent, setAssigningParent] = useState<Student | null>(null);
   const [updatingStatus, setUpdatingStatus]   = useState<Student | null>(null);
+  const [importOpen, setImportOpen]   = useState(false);
 
-  const _STATUS_MAP: Record<string,number> = { Active:1, Graduated:2, Transferred:3, Suspended:4 };
+  const _STATUS_MAP: Record<string,number> = { Active: STUDENT_STATUS.Active, Graduated: STUDENT_STATUS.Graduated, Transferred: STUDENT_STATUS.Transferred, Suspended: STUDENT_STATUS.Suspended };
   const { students, loading, error, pagination, refetch } = useStudents(
     page, PAGE_SIZE, debouncedSearch || undefined, statusFilter ? _STATUS_MAP[statusFilter] : undefined
   );
@@ -271,14 +271,25 @@ export default function StudentsPage() {
     setPage(1);
   };
 
+  const GENDER_MAP:  Record<string, number> = { ...GENDER };
+  const STATUS_MAP:  Record<string, number> = { ...STUDENT_STATUS };
+  // sms_enrollmentstatus only has one valid Dataverse value; all UI options map to it
+  const ENROLLMENT_MAP: Record<string, number> = { Enrolled: ENROLLMENT_STATUS_CODE, Completed: ENROLLMENT_STATUS_CODE, Dropped: ENROLLMENT_STATUS_CODE, 'On Hold': ENROLLMENT_STATUS_CODE };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSubmit = async (data: any) => {
+    const payload = {
+      ...data,
+      gender:           GENDER_MAP[data.gender]           ?? 1,
+      studentstatus:    STATUS_MAP[data.studentstatus]    ?? 1,
+      enrollmentstatus: ENROLLMENT_MAP[data.enrollmentstatus] ?? 922330000,
+    };
     try {
       if (editing) {
-        await studentsAPI.update(editing.studentid, data);
+        await studentsAPI.update(editing.studentid, payload);
         toast.success('Student updated');
       } else {
-        await studentsAPI.create(data);
+        await studentsAPI.create(payload);
         toast.success('Student added');
       }
       setModalOpen(false);
@@ -324,17 +335,20 @@ export default function StudentsPage() {
                 'Guardian Name', 'Guardian Phone', 'Enrollment Date',
               ], all.map(s => [
                 s.rollnumber, s.firstname, s.lastname,
-                s.gender === 1 ? 'Male' : s.gender === 2 ? 'Female' : '',
+                GENDER_LABEL[s.gender] ?? '',
                 s.dateofbirth?.slice(0,10),
                 s.classname,
                 s.email, s.phone, s.address,
-                ['','Active','Graduated','Transferred','Suspended'][s.studentstatus] ?? '',
-                ['','Enrolled','Completed','Dropped','On Hold'][s.enrollmentstatus] ?? '',
+                STUDENT_STATUS_LABEL[s.studentstatus] ?? '',
+                ENROLLMENT_STATUS_LABEL[s.enrollmentstatus] ?? '',
                 s.guardianname, s.guardianphone, s.enrollmentdate?.slice(0,10),
               ]));
             } catch { toast.error('Export failed'); }
           }}>
             <Download className="h-4 w-4 mr-1.5" /> Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1.5" /> Import CSV
           </Button>
           <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
             <Plus className="h-4 w-4 mr-1.5" /> Add Student
@@ -428,7 +442,7 @@ export default function StudentsPage() {
             firstname:        editing.firstname,
             lastname:         editing.lastname,
             dateofbirth:      editing.dateofbirth?.slice(0, 10),
-            gender:           (({ 1:'Male', 2:'Female' } as Record<number,string>)[editing.gender]) ?? 'Male',
+            gender:           GENDER_LABEL[editing.gender] ?? 'Male',
             email:            editing.email || undefined,
             phone:            editing.phone || undefined,
             address:          editing.address || undefined,
@@ -437,8 +451,9 @@ export default function StudentsPage() {
             classid:          editing.classid || undefined,
             parentid:         editing.parentid || undefined,
             parentname:       editing.parentname || editing.guardianname || undefined,
-            studentstatus:    (({ 1:'Active', 2:'Graduated', 3:'Transferred', 4:'Suspended' } as Record<number,string>)[editing.studentstatus]) ?? 'Active',
-            enrollmentstatus: (({ 1:'Enrolled', 2:'Completed', 3:'Dropped', 4:'On Hold' } as Record<number,string>)[editing.enrollmentstatus]) ?? 'Enrolled',
+            studentstatus:    STUDENT_STATUS_LABEL[editing.studentstatus] ?? 'Active',
+            enrollmentstatus: 'Enrolled',
+            profilepicture:   editing.profilepicture || undefined,
           } : undefined}
           onSubmit={handleSubmit}
           onCancel={() => { setModalOpen(false); setEditing(null); }}
@@ -483,6 +498,26 @@ export default function StudentsPage() {
         open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}
         title="Delete student?" description="This will permanently remove the student record."
         onConfirm={() => { if (toDelete) { handleDelete(toDelete); setToDelete(null); } }}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import Students"
+        fields={STUDENT_FIELDS}
+        templateFilename="students_template.csv"
+        onDone={() => refetch()}
+        onImport={async (rows) => {
+          let done = 0;
+          return batchImport(
+            rows,
+            async (r) => {
+              await studentsAPI.create(mapStudentRow(r.data));
+              done++;
+            },
+            undefined,
+          );
+        }}
       />
     </div>
   );

@@ -174,6 +174,14 @@ export const getStudentAttendanceReport = async (studentId: string, startDate: s
     return (r.value ?? []).map((item: any) => mapAttendance(item));
 };
 
+export const getStudentAttendance = async (studentId: string, top = 100): Promise<Attendance[]> => {
+    const filter = encodeURIComponent(`_sms_student_value eq ${studentId}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_date desc&$top=${top}`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (r.value ?? []).map((item: any) => mapAttendance(item));
+};
+
 export const getAttendanceTrends = async (days = 30) => {
     const endDate   = new Date();
     const startDate = new Date();

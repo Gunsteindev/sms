@@ -41,6 +41,11 @@ export async function PUT(
         message: 'Student updated successfully'
       });
     } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const axErr = error as any;
+      if (axErr?.response?.data) {
+        console.error('[PUT /students] Dataverse error body:', JSON.stringify(axErr.response.data));
+      }
       return serverError(error);
     }
   });

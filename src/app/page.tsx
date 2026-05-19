@@ -157,7 +157,7 @@ function DashboardMock() {
   return (
     <div className="relative mx-auto w-full max-w-sm select-none lg:mx-0">
       {/* Ambient glow */}
-      <div className="absolute -inset-8 rounded-3xl bg-gradient-to-br from-cyan-500/20 via-blue-500/10 to-violet-500/20 blur-3xl pointer-events-none" />
+      <div className="absolute -inset-8 rounded-3xl bg-linear-to-br from-cyan-500/20 via-blue-500/10 to-violet-500/20 blur-3xl pointer-events-none" />
 
       {/* Main card */}
       <div className="relative rounded-2xl border border-white/12 bg-white/8 p-5 shadow-2xl backdrop-blur-md">
@@ -180,7 +180,7 @@ function DashboardMock() {
             { n: '94.2%', l: 'Attendance', c: 'from-emerald-500/25 to-teal-500/15'  },
             { n: '42',    l: 'Classes',    c: 'from-violet-500/25 to-purple-500/15' },
           ].map(({ n, l, c }) => (
-            <div key={l} className={`rounded-xl bg-gradient-to-br ${c} p-2.5 border border-white/8`}>
+            <div key={l} className={`rounded-xl bg-linear-to-br ${c} p-2.5 border border-white/8`}>
               <p className="text-base font-black text-white leading-none">{n}</p>
               <p className="text-[9px] text-white/45 mt-1 leading-none">{l}</p>
             </div>
@@ -197,7 +197,7 @@ function DashboardMock() {
             {BAR_HEIGHTS.map((h, i) => (
               <div
                 key={i}
-                className="flex-1 rounded-t bg-gradient-to-t from-blue-500/65 to-cyan-400/65"
+                className="flex-1 rounded-t bg-linear-to-t from-blue-500/65 to-cyan-400/65"
                 style={{ height: `${h}%` }}
               />
             ))}
@@ -209,7 +209,7 @@ function DashboardMock() {
 
         {/* Bottom row */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 p-2.5 border border-white/8">
+          <div className="rounded-xl bg-linear-to-br from-orange-500/20 to-amber-500/10 p-2.5 border border-white/8">
             <p className="text-[9px] text-white/40">Fee Collection</p>
             <p className="text-sm font-black text-white mt-0.5">GH₵ 48 250</p>
             <div className="flex items-center gap-1 mt-1">
@@ -217,7 +217,7 @@ function DashboardMock() {
               <span className="text-[9px] text-emerald-400 font-semibold">+12% month</span>
             </div>
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-cyan-500/20 to-sky-500/10 p-2.5 border border-white/8">
+          <div className="rounded-xl bg-linear-to-br from-cyan-500/20 to-sky-500/10 p-2.5 border border-white/8">
             <p className="text-[9px] text-white/40">Outstanding</p>
             <p className="text-sm font-black text-white mt-0.5">GH₵ 12 400</p>
             <div className="flex items-center gap-1 mt-1">
@@ -229,7 +229,7 @@ function DashboardMock() {
       </div>
 
       {/* Floating grade card */}
-      <div className="absolute -right-4 -top-5 rounded-xl border border-white/12 bg-gradient-to-br from-violet-500/25 to-purple-500/12 p-3 shadow-xl backdrop-blur-md w-40">
+      <div className="absolute -right-4 -top-5 rounded-xl border border-white/12 bg-linear-to-br from-violet-500/25 to-purple-500/12 p-3 shadow-xl backdrop-blur-md w-40">
         <p className="text-[9px] text-white/45">GES Grade Average</p>
         <p className="text-sm font-black text-white mt-0.5">B2 — 72.4%</p>
         <div className="flex items-center gap-1 mt-1">
@@ -239,7 +239,7 @@ function DashboardMock() {
       </div>
 
       {/* Floating fleet card */}
-      <div className="absolute -left-4 -bottom-5 rounded-xl border border-white/12 bg-gradient-to-br from-emerald-500/20 to-teal-500/12 p-3 shadow-xl backdrop-blur-md w-40">
+      <div className="absolute -left-4 -bottom-5 rounded-xl border border-white/12 bg-linear-to-br from-emerald-500/20 to-teal-500/12 p-3 shadow-xl backdrop-blur-md w-40">
         <p className="text-[9px] text-white/45">Fleet Status</p>
         <p className="text-sm font-black text-white mt-0.5">8 / 10 Active</p>
         <div className="flex items-center gap-1 mt-1">
@@ -267,7 +267,7 @@ export default function LandingPage() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/6 bg-slate-950/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/30">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/30">
               <School className="h-5 w-5 text-white" />
             </div>
             <span className="text-base font-bold text-white tracking-tight">SchoolMS</span>
@@ -283,7 +283,7 @@ export default function LandingPage() {
 
           <Link
             href="/auth/login"
-            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:from-blue-500 hover:to-cyan-500 hover:shadow-lg hover:shadow-blue-500/35"
+            className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-blue-600 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:from-blue-500 hover:to-cyan-500 hover:shadow-lg hover:shadow-blue-500/35"
           >
             Sign in <ArrowRight className="h-3.5 w-3.5" />
           </Link>
@@ -315,8 +315,8 @@ export default function LandingPage() {
 
           {/* Ambient orbs */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute top-1/4 right-1/4 h-[500px] w-[500px] rounded-full bg-blue-600/8  blur-3xl" />
-            <div className="absolute bottom-1/3 left-1/3  h-[400px] w-[400px] rounded-full bg-violet-600/8 blur-3xl" />
+            <div className="absolute top-1/4 right-1/4 h-125 w-125 rounded-full bg-blue-600/8  blur-3xl" />
+            <div className="absolute bottom-1/3 left-1/3  h-100 w-100 rounded-full bg-violet-600/8 blur-3xl" />
           </div>
 
           {/* Content */}
@@ -394,7 +394,7 @@ export default function LandingPage() {
           </div>
 
           {/* Gradient fade to next section */}
-          <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-slate-900 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 inset-x-0 h-24 bg-linear-to-t from-slate-900 to-transparent pointer-events-none" />
         </section>
 
         {/* ── Stats bar ──────────────────────────────────────────────────── */}
@@ -454,9 +454,9 @@ export default function LandingPage() {
                   className="group relative flex flex-col rounded-2xl border border-white/8 bg-white/4 p-6 transition-all duration-300 hover:border-white/14 hover:bg-white/7 hover:-translate-y-1"
                 >
                   {/* Top accent */}
-                  <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${color} opacity-0 transition-opacity duration-300 group-hover:opacity-60 rounded-t-2xl`} />
+                  <div className={`absolute inset-x-0 top-0 h-px bg-linear-to-r ${color} opacity-0 transition-opacity duration-300 group-hover:opacity-60 rounded-t-2xl`} />
 
-                  <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${color} shadow-lg ${glow}`}>
+                  <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br ${color} shadow-lg ${glow}`}>
                     <Icon className="h-6 w-6 text-white" />
                   </div>
 
@@ -495,21 +495,21 @@ export default function LandingPage() {
               <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5 blur-2xl" />
 
               <div className="relative flex flex-col items-center gap-8 sm:flex-row">
-                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-white/15 border border-white/20">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 border border-white/20">
                   <GraduationCap className="h-8 w-8 text-white" />
                 </div>
                 <div className="text-center sm:text-left flex-1">
-                  <p className="text-xl font-black">Built for Ghana's Schools</p>
+                  <p className="text-xl font-black">Built for Ghana&apos;s Schools</p>
                   <p className="text-sm text-blue-100 mt-2 leading-relaxed max-w-xl">
                     GES grading formula baked in — Classwork + Homework + Mid-Term (30%) added
                     to End-of-Term (70%) automatically. Grades A1–F9 with GES remarks. BECE and
                     WASSCE candidate tracking. Report cards formatted to national standards.
                   </p>
                 </div>
-                <div className="flex-shrink-0 flex flex-col gap-2">
+                <div className="shrink-0 flex flex-col gap-2">
                   {['A1–F9 Auto-graded', 'BECE / WASSCE Ready', 'GES Report Cards'].map(t => (
                     <div key={t} className="flex items-center gap-2 text-sm text-blue-100">
-                      <CheckCircle2 className="h-4 w-4 text-cyan-300 flex-shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
                       {t}
                     </div>
                   ))}
@@ -558,7 +558,7 @@ export default function LandingPage() {
                     <span className={`inline-flex items-center rounded-full border px-3.5 py-1 text-xs font-bold uppercase tracking-widest ${pill}`}>
                       {label}
                     </span>
-                    <div className={`flex-1 h-px bg-gradient-to-r ${accent} opacity-20`} />
+                    <div className={`flex-1 h-px bg-linear-to-r ${accent} opacity-20`} />
                     <span className="text-xs text-slate-600">{modules.length} modules</span>
                   </div>
 
@@ -569,7 +569,7 @@ export default function LandingPage() {
                         className="group relative overflow-hidden rounded-2xl border border-white/7 bg-white/4 p-5 transition-all duration-300 hover:border-white/14 hover:bg-white/7 hover:-translate-y-0.5"
                       >
                         {/* Top accent bar */}
-                        <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${accent} opacity-0 transition-opacity duration-300 group-hover:opacity-60`} />
+                        <div className={`absolute inset-x-0 top-0 h-px bg-linear-to-r ${accent} opacity-0 transition-opacity duration-300 group-hover:opacity-60`} />
 
                         <div
                           className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl text-white/80"
@@ -623,7 +623,7 @@ export default function LandingPage() {
               {ROLES.map(({ icon: Icon, label, desc, color, border }) => (
                 <div
                   key={label}
-                  className={`group flex flex-col gap-3 rounded-2xl border ${border} bg-gradient-to-br ${color} p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
+                  className={`group flex flex-col gap-3 rounded-2xl border ${border} bg-linear-to-br ${color} p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/10">
                     <Icon className="h-5 w-5 text-white/80" />
@@ -686,9 +686,9 @@ export default function LandingPage() {
               ].map(({ step, title, desc, color, glow }, i) => (
                 <div key={step} className="relative flex flex-col items-center text-center">
                   {i < 2 && (
-                    <div className="absolute left-[calc(50%+2.5rem)] top-7 hidden h-px w-[calc(100%-5rem)] bg-gradient-to-r from-white/15 to-transparent sm:block" />
+                    <div className="absolute left-[calc(50%+2.5rem)] top-7 hidden h-px w-[calc(100%-5rem)] bg-linear-to-r from-white/15 to-transparent sm:block" />
                   )}
-                  <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${color} text-lg font-black text-white shadow-xl ${glow}`}>
+                  <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br ${color} text-lg font-black text-white shadow-xl ${glow}`}>
                     {step}
                   </div>
                   <h3 className="mt-5 text-base font-bold text-white">{title}</h3>
@@ -737,7 +737,7 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Link
                 href="/auth/login"
-                className="inline-flex items-center gap-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 px-9 py-4 text-sm font-bold text-white shadow-xl shadow-blue-500/25 transition-all hover:from-blue-500 hover:to-cyan-500 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.99]"
+                className="inline-flex items-center gap-2.5 rounded-xl bg-linear-to-r from-blue-600 to-cyan-600 px-9 py-4 text-sm font-bold text-white shadow-xl shadow-blue-500/25 transition-all hover:from-blue-500 hover:to-cyan-500 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.99]"
               >
                 Sign in to SchoolMS
                 <ArrowRight className="h-4 w-4" />
@@ -771,7 +771,7 @@ export default function LandingPage() {
             {/* Brand */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-500 to-cyan-500">
                   <School className="h-4 w-4 text-white" />
                 </div>
                 <span className="text-sm font-bold text-white">SchoolMS</span>
