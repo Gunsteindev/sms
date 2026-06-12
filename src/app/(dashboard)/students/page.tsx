@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw, Download, Upload } from 'lucide-react';
+import { Plus, Search, AlertCircle, UserPlus, X, ShieldCheck, RefreshCw, Download, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
@@ -402,34 +402,12 @@ export default function StudentsPage() {
         onDelete={id => setToDelete(id)}
         onAssignParent={s => setAssigningParent(s)}
         onUpdateStatus={s => setUpdatingStatus(s)}
+        page={page}
+        totalPages={Math.max(1, Math.ceil(pagination.totalCount / PAGE_SIZE))}
+        total={pagination.totalCount}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
       />
-
-      {/* Pagination */}
-      {!loading && pagination.totalCount > 0 && (() => {
-        const totalPages = Math.max(1, Math.ceil(pagination.totalCount / PAGE_SIZE));
-        const rangeStart = (page - 1) * PAGE_SIZE + 1;
-        const rangeEnd   = Math.min(page * PAGE_SIZE, pagination.totalCount);
-        const pageNums   = Array.from({ length: totalPages }, (_, i) => i + 1);
-        return (
-          <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
-            <span>Showing {rangeStart}–{rangeEnd} of {pagination.totalCount} students</span>
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              {pageNums.map(n => (
-                <Button key={n} variant={n === page ? 'default' : 'outline'} size="sm"
-                  className="w-8 px-0" onClick={() => setPage(n)}>
-                  {n}
-                </Button>
-              ))}
-              <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNextPage}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Add / Edit modal */}
       <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) { setModalOpen(false); setEditing(null); } }}>

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { announcementsAPI } from '@/lib/api-client';
+import { announcementsAPI, portalAPI } from '@/lib/api-client';
 import { useSession } from '@/contexts/AuthContext';
 import type { Announcement } from '@/lib/dataverse/announcements';
 
@@ -129,8 +129,8 @@ export default function PortalPage() {
     const loadChildren = useCallback(async () => {
         setLoadingChildren(true);
         try {
-            const res  = await fetch('/api/portal/children');
-            const json = await res.json();
+            const res  = await portalAPI.getChildren();
+            const json = res.data as { data?: ChildInfo[]; parentFound?: boolean };
             const kids: ChildInfo[] = json.data ?? [];
             setChildren(kids);
             setParentFound(json.parentFound ?? false);
@@ -142,8 +142,9 @@ export default function PortalPage() {
         setLoadingChild(true);
         setChildData(null);
         try {
-            const res  = await fetch(`/api/portal/children/${sid}`);
-            const json = await res.json();
+            const res  = await portalAPI.getChildData(sid);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const json = res.data as any;
             if (json.success) setChildData(json.data);
         } catch { /* silent */ } finally { setLoadingChild(false); }
     }, []);
@@ -173,7 +174,7 @@ export default function PortalPage() {
     const isRefreshing = loadingNotices || loadingChildren || loadingChild;
 
     return (
-        <div className="space-y-6 max-w-3xl">
+        <div className="space-y-6 max-w-3xl mx-auto">
 
             {/* Welcome */}
             <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-5">

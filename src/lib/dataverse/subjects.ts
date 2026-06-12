@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_subjects';
 
@@ -78,15 +78,13 @@ export const getSubjects = async (search?: string, top = 200) => {
         const q = search.replace(/'/g, "''");
         parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${q}') or contains(sms_code,'${q}')`)}`);
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapSubject(item));
 };
 
 export const getSubjectById = async (id: string): Promise<Subject> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapSubject(r);
 };
 

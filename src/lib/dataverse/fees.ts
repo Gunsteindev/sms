@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 // Actual Dataverse fields:
 // sms_feestructure: sms_feestructureid, sms_name, sms_feetype, sms_amount, sms_duedate,
@@ -151,15 +151,13 @@ export const getFeeStructures = async (gradelevelid?: string) => {
     const conditions: string[] = [];
     if (gradelevelid) conditions.push(`_sms_gradelevel_value eq ${gradelevelid}`);
     const filter = conditions.length ? `&$filter=${encodeURIComponent(conditions.join(' and '))}` : '';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_STRUCTURE_TABLE}?$select=${FS_SELECT}&$expand=${FS_EXPAND}&$orderby=sms_name asc${filter}`);
+    const r = await dataverseClient.get<DvList>(`${FEE_STRUCTURE_TABLE}?$select=${FS_SELECT}&$expand=${FS_EXPAND}&$orderby=sms_name asc${filter}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapFeeStructure(item));
 };
 
 export const getFeeStructureById = async (id: string): Promise<FeeStructure> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_STRUCTURE_TABLE}(${id})?$select=${FS_SELECT}&$expand=${FS_EXPAND}`);
+    const r = await dataverseClient.get<DvList>(`${FEE_STRUCTURE_TABLE}(${id})?$select=${FS_SELECT}&$expand=${FS_EXPAND}`);
     return mapFeeStructure(r);
 };
 
@@ -173,8 +171,7 @@ export const getFeePayments = async (filters?: FeePaymentFilters) => {
     if (filters?.status !== undefined) conditions.push(`sms_paymentstatus eq ${filters.status}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_PAYMENT_TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${FEE_PAYMENT_TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = (r.value ?? []).map((item: any) => mapFeePayment(item));
     return {
@@ -217,8 +214,7 @@ export const deleteFeePayment = async (id: string): Promise<void> => {
 
 export const getFeeSummaryForStudent = async (studentid: string) => {
     const filter = encodeURIComponent(`_sms_student_value eq ${studentid}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_PAYMENT_TABLE}?$select=sms_amount,sms_paymentstatus&$filter=${filter}`);
+    const r = await dataverseClient.get<DvList>(`${FEE_PAYMENT_TABLE}?$select=sms_amount,sms_paymentstatus&$filter=${filter}`);
     const payments = r.value ?? [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalPaid = payments.filter((p: any) => p.sms_paymentstatus === 1).reduce((s: number, p: any) => s + (p.sms_amount || 0), 0);
@@ -235,8 +231,7 @@ export const getCurrentMonthRevenue = async () => {
     const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
     const endDate = `${year}-${month}-${lastDay}`;
     const filter = encodeURIComponent(`sms_paymentdate ge ${startDate} and sms_paymentdate le ${endDate} and sms_paymentstatus eq 1`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_PAYMENT_TABLE}?$select=sms_amount&$filter=${filter}`);
+    const r = await dataverseClient.get<DvList>(`${FEE_PAYMENT_TABLE}?$select=sms_amount&$filter=${filter}`);
     const payments = r.value ?? [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalRevenue = payments.reduce((s: number, p: any) => s + (p.sms_amount || 0), 0);
@@ -245,9 +240,8 @@ export const getCurrentMonthRevenue = async () => {
 
 export const getTotalRevenue = async () => {
     const filter = encodeURIComponent(`sms_paymentstatus eq 1`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${FEE_PAYMENT_TABLE}?$select=sms_amount,sms_paymentdate&$filter=${filter}&$top=2000`);
-    const payments: Array<{ sms_amount: number; sms_paymentdate: string }> = r.value ?? [];
+    const r = await dataverseClient.get<DvList<{ sms_amount: number; sms_paymentdate: string }>>(`${FEE_PAYMENT_TABLE}?$select=sms_amount,sms_paymentdate&$filter=${filter}&$top=2000`);
+    const payments = r.value ?? [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalRevenue = payments.reduce((s, p) => s + (p.sms_amount || 0), 0);
     const now = new Date();

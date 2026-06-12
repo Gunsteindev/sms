@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_activityparticipants';
 
@@ -51,10 +51,9 @@ function mapParticipant(item: any): ActivityParticipant {
 
 export const getParticipantsByActivity = async (activityid: string): Promise<ActivityParticipant[]> => {
     const filter = encodeURIComponent(`sms_activityid eq '${activityid}'`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=createdon asc&$top=500`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=createdon asc&$top=500`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapParticipant(i));
+    return (r.value ?? []).map(mapParticipant);
 };
 
 export const createParticipant = async (data: CreateParticipantRequest): Promise<ActivityParticipant> => {

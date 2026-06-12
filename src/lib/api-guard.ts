@@ -44,6 +44,37 @@ export async function withSchool<T>(req: NextRequest, fn: () => Promise<T>): Pro
   return withTenant(schoolId, fn);
 }
 
+/**
+ * Returns an `isTableMissing(e)` checker scoped to a Dataverse table name.
+ * Handles all known "table not found" error shapes from Dataverse + OData 404s.
+ *
+ * @example
+ * const isTableMissing = makeTableGuard('sms_routeassignment');
+ */
+export function makeTableGuard(...tableNames: string[]) {
+    return function isTableMissing(e: unknown): boolean {
+        const err = e as Record<string, unknown>;
+        const resp = err?.response as Record<string, unknown> | undefined;
+        const errData = resp?.data as Record<string, unknown> | undefined;
+        const errInfo = errData?.error as Record<string, unknown> | undefined;
+        const msg: string  = (errInfo?.message as string)  ?? (err?.message as string) ?? '';
+        const code: string = (errInfo?.code   as string)  ?? '';
+        const status       = resp?.status as number | undefined;
+
+        const nameMatch = tableNames.length === 0 ||
+            tableNames.some(t => msg.toLowerCase().includes(t.toLowerCase()));
+
+        return nameMatch && (
+            msg.includes('Could not find') ||
+            msg.includes('does not exist') ||
+            msg.includes('Invalid entity')  ||
+            msg.includes('Resource not found') ||
+            code === '0x80060888' ||
+            status === 404
+        );
+    };
+}
+
 export async function parseBody<T>(req: NextRequest, schema: ZodSchema<T>): Promise<{ data: T } | { response: NextResponse }> {
   let body: unknown;
   try {

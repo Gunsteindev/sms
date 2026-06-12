@@ -90,3 +90,8 @@ export const medicalAPI = {
     update:       (id: string, data: any)=> apiClient.put(`/medical/${id}`, data),
     delete:       (id: string)           => apiClient.delete(`/medical/${id}`),
 };
+
+export const portalAPI = {
+    getChildren:   ()               => apiClient.get('/portal/children'),
+    getChildData:  (studentId: string) => apiClient.get(`/portal/children/${studentId}`),
+};

@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_vehicles';
 
@@ -58,15 +58,13 @@ function mapVehicle(item: any): Vehicle {
 export const getVehicles = async (status?: number) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_name asc`];
     if (status) parts.push(`$filter=${encodeURIComponent(`sms_status eq ${status}`)}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapVehicle(i));
+    return (r.value ?? []).map(mapVehicle);
 };
 
 export const getVehicleById = async (id: string): Promise<Vehicle> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapVehicle(r);
 };
 

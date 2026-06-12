@@ -173,7 +173,7 @@ export default function UsersPage() {
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
+                <div className="relative max-w-sm w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input className="pl-9" placeholder="Search by name or email…" value={search}
                         onChange={e => setSearch(e.target.value)} />
@@ -253,7 +253,7 @@ export default function UsersPage() {
                                     </TableCell>
                                     <TableCell className="text-slate-400 text-xs">{u.createdon ? new Date(u.createdon).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                                        <div className="flex items-center gap-1 justify-end">
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600"
                                                 title={u.isactive ? 'Deactivate' : 'Activate'}
                                                 onClick={() => handleToggleActive(u)}>

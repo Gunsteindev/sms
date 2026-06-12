@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_fees';
 // Fields: sms_feeid, sms_name, sms_amount, sms_duedate,
@@ -84,15 +84,13 @@ export const getFeeInvoices = async (filters?: FeeInvoiceFilters) => {
     if (filters?.academicyearid) conditions.push(`_sms_academicyear_value eq ${filters.academicyearid}`);
     if (filters?.termid)         conditions.push(`_sms_term_value eq ${filters.termid}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapInvoice(item));
 };
 
 export const getFeeInvoiceById = async (id: string): Promise<FeeInvoice> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapInvoice(r);
 };
 

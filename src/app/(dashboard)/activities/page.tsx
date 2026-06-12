@@ -2,7 +2,7 @@
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { Plus, Search, Pencil, Trash2, Activity, RefreshCw, Download, Users, Trophy, Music, Drama, FlaskConical, BookOpen, Globe2, MoreHorizontal, UserPlus, UserMinus } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Activity, RefreshCw, Download, Users, Trophy, Music, Drama, FlaskConical, BookOpen, Globe2, MoreHorizontal, UserPlus, UserMinus, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -496,7 +496,7 @@ export default function ActivitiesPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                {['Activity', 'Category', 'Coordinator', 'Schedule', 'Enrollment', 'Status', ''].map(h => (
+                                {['Activity', 'Venue', 'Category', 'Coordinator', 'Schedule', 'Enrollment', 'Status', ''].map(h => (
                                     <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
@@ -515,7 +515,16 @@ export default function ActivitiesPage() {
                                                 </div>
                                                 <span className="font-medium text-slate-900 dark:text-slate-100">{a.name}</span>
                                             </div>
-                                            {a.venue && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 pl-8">{a.venue}</p>}
+                                        </TableCell>
+                                        <TableCell>
+                                            {a.venue ? (
+                                                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                                    <MapPin className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                                    <span className="truncate max-w-[140px]">{a.venue}</span>
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400 dark:text-slate-600">—</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${CAT_COLOR[a.category]}`}>

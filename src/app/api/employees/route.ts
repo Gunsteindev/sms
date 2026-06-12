@@ -1,7 +1,8 @@
-// src/app/api/employees/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getEmployees, createEmployee, getEmployeeStats } from '@/lib/dataverse/employees';
-import { serverError, withSchool } from '@/lib/api-guard';
+import { serverError, withSchool, makeTableGuard } from '@/lib/api-guard';
+
+const isTableMissing = makeTableGuard('sms_employee');
 
 // GET /api/employees - Get all employees
 export async function GET(request: NextRequest) {
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
         total: employees.length
       });
     } catch (error) {
+      if (isTableMissing(error)) return NextResponse.json({ success: true, data: [], total: 0, setup_required: true });
       return serverError(error);
     }
   });
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
         message: 'Employee created successfully'
       }, { status: 201 });
     } catch (error) {
+      if (isTableMissing(error)) return NextResponse.json({ success: false, error: 'sms_employees table not created yet', setup_required: true }, { status: 503 });
       return serverError(error);
     }
   });

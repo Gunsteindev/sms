@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_gradelevels';
 // Verified Dataverse fields (EntityDefinitions metadata 2026-04-23):
@@ -42,15 +42,13 @@ function mapGradeLevel(item: any): GradeLevel {
 export const getGradeLevels = async (search?: string, top = 200) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_ordernumber asc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}')`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapGradeLevel(item));
 };
 
 export const getGradeLevelById = async (id: string): Promise<GradeLevel> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapGradeLevel(r);
 };
 

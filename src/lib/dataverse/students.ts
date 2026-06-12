@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_students';
 
@@ -133,8 +133,7 @@ export const getStudents = async (filters?: StudentFilters) => {
     ];
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const response = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const all = (response.value ?? []).map((r: any) => mapStudent(r));
     return {
@@ -146,8 +145,7 @@ export const getStudents = async (filters?: StudentFilters) => {
 };
 
 export const getStudentById = async (id: string): Promise<Student> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapStudent(r);
 };
 
@@ -226,15 +224,13 @@ export const searchStudents = async (query: string) => {
     const filter = encodeURIComponent(
         `contains(sms_firstname,'${q}') or contains(sms_lastname,'${q}') or contains(sms_studentnumber,'${q}')`
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${LIST_SELECT}&$filter=${filter}&$top=20`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${LIST_SELECT}&$filter=${filter}&$top=20`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapStudent(item));
 };
 
 export const getNextPage = async (nextLink: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(nextLink);
+    const r = await dataverseClient.get<DvList>(nextLink);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = (r.value ?? []).map((row: any) => mapStudent(row));
     return { items, hasNextPage: !!r['@odata.nextLink'], nextLink: r['@odata.nextLink'] ?? null };

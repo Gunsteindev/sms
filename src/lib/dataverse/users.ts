@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 // sms_users fields: sms_userid, sms_name, sms_email, sms_userrole (choice),
 //   sms_password, sms_isactive, sms_relatedrecord, createdon
@@ -73,22 +73,19 @@ function mapUser(item: any): SmsUser {
 export const getUsers = async (role?: number): Promise<SmsUser[]> => {
     const parts: string[] = [`$select=${SELECT}`, `$orderby=sms_name asc`];
     if (role !== undefined) parts.push(`$filter=${encodeURIComponent(`sms_userrole eq ${role}`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((u: any) => mapUser(u));
 };
 
 export const getUserById = async (id: string): Promise<SmsUser> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapUser(r);
 };
 
 export const getUserByEmail = async (email: string): Promise<SmsUser | null> => {
     const filter = encodeURIComponent(`sms_email eq '${email}'`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
     const items = r.value ?? [];
     return items.length ? mapUser(items[0]) : null;
 };
@@ -96,11 +93,10 @@ export const getUserByEmail = async (email: string): Promise<SmsUser | null> => 
 // For login only — fetches password hash alongside user record
 export const getUserForAuth = async (email: string): Promise<(SmsUser & { passwordhash: string }) | null> => {
     const filter = encodeURIComponent(`sms_email eq '${email}' and sms_isactive eq true`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT_WITH_PWD}&$filter=${filter}&$top=1`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT_WITH_PWD}&$filter=${filter}&$top=1`);
     const items = r.value ?? [];
     if (!items.length) return null;
-    return { ...mapUser(items[0]), passwordhash: items[0].sms_password ?? '' };
+    return { ...mapUser(items[0]), passwordhash: (items[0].sms_password as string) ?? '' };
 };
 
 export const createUser = async (data: CreateUserRequest): Promise<SmsUser> => {
@@ -136,7 +132,7 @@ export const deleteUser = async (id: string): Promise<void> => {
 
 export const getUserStats = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r   = await dataverseClient.get<any>(`${TABLE}?$select=sms_userrole,sms_isactive`);
+    const r   = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_userrole,sms_isactive`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const all: SmsUser[] = (r.value ?? []).map((u: any) => mapUser(u));
     return {

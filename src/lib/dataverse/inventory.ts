@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_inventoryitems';
 
@@ -55,15 +55,13 @@ function mapItem(item: any): InventoryItem {
 export const getInventoryItems = async (category?: string) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_name asc`];
     if (category) parts.push(`$filter=${encodeURIComponent(`sms_category eq '${category}'`)}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapItem(i));
+    return (r.value ?? []).map(mapItem);
 };
 
 export const getInventoryItemById = async (id: string): Promise<InventoryItem> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapItem(r);
 };
 

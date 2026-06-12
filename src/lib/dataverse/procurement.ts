@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_expenditures';
 
@@ -58,15 +58,13 @@ export const getExpenditures = async (category?: number, status?: number) => {
     if (category) conditions.push(`sms_category eq ${category}`);
     if (status)   conditions.push(`sms_status eq ${status}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapExpenditure(i));
+    return (r.value ?? []).map(mapExpenditure);
 };
 
 export const getExpenditureById = async (id: string): Promise<Expenditure> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapExpenditure(r);
 };
 

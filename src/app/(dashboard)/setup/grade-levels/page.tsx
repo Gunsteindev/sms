@@ -296,9 +296,9 @@ export default function GradeLevelsPage() {
                                             : <span className="italic text-slate-300 dark:text-slate-600 text-xs">—</span>}
                                     </TableCell>
 
-                                    {/* Actions — visible on hover */}
+                                    {/* Actions */}
                                     <TableCell className="px-4 py-3.5">
-                                        <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-end gap-0.5">
                                             <Button variant="ghost" size="icon"
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
                                                 onClick={() => openEdit(r)}>

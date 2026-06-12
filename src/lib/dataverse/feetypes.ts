@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 // Dataverse table: sms_feetypes
 // Fields:
@@ -68,15 +68,13 @@ export const getFeeTypes = async (category?: FeeTypeCategory): Promise<FeeTypeRe
     if (category) {
         parts.push(`$filter=${encodeURIComponent(`sms_category eq ${CATEGORY_VALUES[category]}`)}`);
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapFeeType(item));
 };
 
 export const getFeeTypeById = async (id: string): Promise<FeeTypeRecord> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapFeeType(r);
 };
 

@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_routeassignments';
 
@@ -48,10 +48,9 @@ function mapAssignment(item: any): RouteAssignment {
 export const getRouteAssignments = async (vehicleid?: string) => {
     const parts = [`$select=${SELECT}`, '$orderby=sms_name asc'];
     if (vehicleid) parts.push(`$filter=${encodeURIComponent(`_sms_vehicle_value eq ${vehicleid}`)}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapAssignment(i));
+    return (r.value ?? []).map(mapAssignment);
 };
 
 export const createRouteAssignment = async (data: CreateRouteAssignmentRequest) => {

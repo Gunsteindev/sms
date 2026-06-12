@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteOrder } from '@/lib/dataverse/mealOrders';
-import { serverError, withSchool } from '@/lib/api-guard';
+import { serverError, withSchool, makeTableGuard } from '@/lib/api-guard';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isTableMissing(e: any) {

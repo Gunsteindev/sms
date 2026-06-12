@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_terms';
 // Verified Dataverse fields (sms_terms) — table was empty during discovery 2026-04-22
@@ -47,15 +47,13 @@ export const getTerms = async (search?: string, academicyearid?: string, top = 2
     if (search)         conditions.push(`contains(sms_name,'${search}')`);
     if (academicyearid) conditions.push(`_sms_academicyear_value eq ${academicyearid}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapTerm(item));
 };
 
 export const getTermById = async (id: string): Promise<Term> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapTerm(r);
 };
 

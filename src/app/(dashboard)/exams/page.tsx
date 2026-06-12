@@ -551,7 +551,7 @@ export default function ExamsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    {['Exam', 'Type', 'Class / Subject', 'Academic Year', 'Dates', 'Marks', 'Actions'].map(h => (
+                                    {['Code', 'Exam Name', 'Class', 'Subject', 'Start Date', 'End Date', 'Type', 'Academic Year', 'Marks', 'Actions'].map(h => (
                                         <TableHead key={h}>{h}</TableHead>
                                     ))}
                                 </TableRow>
@@ -560,19 +560,36 @@ export default function ExamsPage() {
                                 {paginatedExams.map(e => (
                                     <TableRow key={e.examid} className="group">
                                         <TableCell>
+                                            {e.examcode
+                                                ? <span className="inline-flex items-center gap-1 font-mono text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded px-1.5 py-0.5">
+                                                    <Hash className="h-2.5 w-2.5" />{e.examcode}
+                                                  </span>
+                                                : <span className="text-slate-400 dark:text-slate-600">—</span>}
+                                        </TableCell>
+                                        <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300">
                                                     <FileText className="h-4 w-4" />
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-slate-900 dark:text-slate-100">{e.name}</p>
-                                                    {e.examcode && (
-                                                        <span className="inline-flex items-center gap-0.5 font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                                                            <Hash className="h-2.5 w-2.5" />{e.examcode}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                <p className="font-semibold text-slate-900 dark:text-slate-100">{e.name}</p>
                                             </div>
+                                        </TableCell>
+                                        <TableCell className="text-slate-600 dark:text-slate-300 text-xs">
+                                            {e.classname || <span className="text-slate-400 dark:text-slate-600">—</span>}
+                                        </TableCell>
+                                        <TableCell className="text-slate-600 dark:text-slate-300 text-xs">
+                                            {e.subjectname || <span className="text-slate-400 dark:text-slate-600">—</span>}
+                                        </TableCell>
+                                        <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                                            {formatDate(e.startdate)}
+                                        </TableCell>
+                                        <TableCell className="text-xs text-slate-500 dark:text-slate-400">
+                                            {formatDate(e.enddate)}
+                                            {e.venue && (
+                                                <p className="flex items-center gap-0.5 text-slate-400 dark:text-slate-500 mt-0.5">
+                                                    <MapPin className="h-2.5 w-2.5" />{e.venue}
+                                                </p>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant={EXAM_TYPE_VARIANT[e.examtype] ?? 'default'}>
@@ -580,28 +597,9 @@ export default function ExamsPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-slate-600 dark:text-slate-300 text-xs">
-                                            {e.classname
-                                                ? <p className="font-medium">{e.classname}</p>
-                                                : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                            {e.subjectname && (
-                                                <p className="text-slate-400 dark:text-slate-500 mt-0.5">{e.subjectname}</p>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 dark:text-slate-300 text-xs">
                                             {e.academicyearname
                                                 ? <span className="inline-block bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">{e.academicyearname}</span>
                                                 : <span className="text-slate-400 dark:text-slate-600">—</span>}
-                                        </TableCell>
-                                        <TableCell className="text-xs text-slate-500 dark:text-slate-400">
-                                            <p>{formatDate(e.startdate)}</p>
-                                            {e.enddate !== e.startdate && (
-                                                <p className="text-slate-400 dark:text-slate-600 mt-0.5">→ {formatDate(e.enddate)}</p>
-                                            )}
-                                            {e.venue && (
-                                                <p className="flex items-center gap-0.5 text-slate-400 dark:text-slate-500 mt-0.5">
-                                                    <MapPin className="h-2.5 w-2.5" />{e.venue}
-                                                </p>
-                                            )}
                                         </TableCell>
                                         <TableCell className="text-xs">
                                             {e.totalmarks !== null ? (
@@ -617,7 +615,7 @@ export default function ExamsPage() {
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex gap-1">
                                                 <Button variant="ghost" size="icon"
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
                                                     onClick={() => { setEditingExam(e); setExamModal(true); }}>
@@ -692,7 +690,7 @@ export default function ExamsPage() {
                                             {r.remarks || '—'}
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex gap-1">
                                                 <Button variant="ghost" size="icon"
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
                                                     onClick={() => { setEditingResult(r); setResultModal(true); }}>

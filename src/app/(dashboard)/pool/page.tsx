@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -255,7 +256,13 @@ export default function PoolPage() {
 
     const switchTab = (t: typeof tab) => { setTab(t); setPageOverview(1); setPageRentals(1); setPageSales(1); setPageHistory(1); };
     const TAB_CLS = (t: typeof tab) =>
-        `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'}`;
+        `px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === t ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`;
+    const TAB_LABELS: Record<typeof tab, string> = {
+        overview: `Overview${sessions.length > 0 ? ` (${sessions.length})` : ''}`,
+        rentals:  `Rentals${rentals.length > 0 ? ` (${rentals.length})` : ''}`,
+        sales:    `Sales${todayTx.length > 0 ? ` (${todayTx.length})` : ''}`,
+        history:  `History${transactions.length > 0 ? ` (${transactions.length})` : ''}`,
+    };
 
     if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>;
 
@@ -273,9 +280,9 @@ export default function PoolPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-fit">
+            <div className="flex border-b border-slate-200 dark:border-slate-700">
                 {(['overview', 'rentals', 'sales', 'history'] as const).map(t => (
-                    <button key={t} onClick={() => switchTab(t)} className={TAB_CLS(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
+                    <button key={t} type="button" onClick={() => switchTab(t)} className={TAB_CLS(t)}>{TAB_LABELS[t]}</button>
                 ))}
             </div>
 
@@ -518,11 +525,11 @@ export default function PoolPage() {
                     <div className="flex items-end gap-3 flex-wrap">
                         <div className="space-y-1.5">
                             <Label>From</Label>
-                            <Input type="date" value={histFrom} onChange={e => setHistFrom(e.target.value)} className="h-10" />
+                            <DatePicker value={histFrom} onChange={setHistFrom} className="h-10 w-44" />
                         </div>
                         <div className="space-y-1.5">
                             <Label>To</Label>
-                            <Input type="date" value={histTo} onChange={e => setHistTo(e.target.value)} className="h-10" />
+                            <DatePicker value={histTo} onChange={setHistTo} className="h-10 w-44" />
                         </div>
                         <Button variant="outline" onClick={loadHistory}>Apply</Button>
                         <Button variant="outline" onClick={() => { setHistFrom(''); setHistTo(''); loadAll(); }}>Clear</Button>

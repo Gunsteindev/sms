@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_parents';
 // Verified Dataverse fields (sms_parent) — probed 2026-04-24:
@@ -60,15 +60,13 @@ function mapParent(item: any): Parent {
 export const getParents = async (search?: string, top = 200) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_lastname asc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_firstname,'${search}') or contains(sms_lastname,'${search}')`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapParent(item));
 };
 
 export const getParentById = async (id: string): Promise<Parent> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapParent(r);
 };
 
@@ -105,8 +103,7 @@ export const deleteParent = async (id: string): Promise<void> => {
 
 export const getParentByEmail = async (email: string): Promise<Parent | null> => {
     const filter = encodeURIComponent(`sms_email eq '${email}'`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
     const items = r.value ?? [];
     return items.length ? mapParent(items[0]) : null;
 };

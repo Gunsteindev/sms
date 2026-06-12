@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_pooltransactions';
 
@@ -73,15 +73,13 @@ export const getTransactions = async (params?: GetTransactionsParams): Promise<P
     const parts = [`$select=${SELECT}`, `$orderby=createdon desc`];
     if (filters.length) parts.push(`$filter=${encodeURIComponent(filters.join(' and '))}`);
 
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapTransaction(i));
+    return (r.value ?? []).map(mapTransaction);
 };
 
 export const getTransactionById = async (id: string): Promise<PoolTransaction> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapTransaction(r);
 };
 

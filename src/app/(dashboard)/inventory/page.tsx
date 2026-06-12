@@ -546,6 +546,7 @@ export default function InventoryPage() {
                                     <TableHeader>
                                         <TableRow>
                                             <TableHead>Item</TableHead>
+                                            <TableHead>Description</TableHead>
                                             <TableHead>Category</TableHead>
                                             <TableHead>Qty</TableHead>
                                             <TableHead>Value</TableHead>
@@ -566,7 +567,11 @@ export default function InventoryPage() {
                                                             <Package className="h-4 w-4 text-blue-400 flex-shrink-0" />
                                                             <span className="font-medium text-slate-900 dark:text-slate-100">{i.name}</span>
                                                         </div>
-                                                        {i.description && <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate max-w-[160px]">{i.description}</p>}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {i.description
+                                                            ? <span className="text-slate-600 dark:text-slate-300 truncate max-w-[200px] block">{i.description}</span>
+                                                            : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                                     </TableCell>
                                                     <TableCell className="text-slate-500 dark:text-slate-400 text-xs">{i.category || '—'}</TableCell>
                                                     <TableCell className="font-semibold text-slate-900 dark:text-slate-100">

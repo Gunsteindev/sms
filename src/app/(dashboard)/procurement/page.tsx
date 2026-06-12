@@ -257,7 +257,7 @@ export default function ProcurementPage() {
                     <Table className="w-full text-sm">
                         <TableHeader>
                             <TableRow>
-                                {['Description', 'Amount', 'Category', 'Date', 'Supplier', 'Reference', 'Status', ''].map(h => (
+                                {['Item', 'Description', 'Amount', 'Category', 'Date', 'Supplier', 'Reference', 'Status', 'Approved By', ''].map(h => (
                                     <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
@@ -267,7 +267,11 @@ export default function ProcurementPage() {
                                 <TableRow key={r.expenditureid}>
                                     <TableCell>
                                         <p className="font-medium text-slate-900 dark:text-slate-100">{r.name}</p>
-                                        {r.approvedby && <p className="text-xs text-slate-400 dark:text-slate-500">Approved by: {r.approvedby}</p>}
+                                    </TableCell>
+                                    <TableCell>
+                                        {r.notes
+                                            ? <span className="text-slate-600 dark:text-slate-300 truncate max-w-[200px] block">{r.notes}</span>
+                                            : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                     </TableCell>
                                     <TableCell className="px-4 py-3 font-mono font-semibold text-slate-900 dark:text-slate-100">{fmt(r.amount)}</TableCell>
                                     <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{CATEGORIES[r.category] ?? '—'}</TableCell>
@@ -279,6 +283,7 @@ export default function ProcurementPage() {
                                     <TableCell>
                                         <Badge variant={STATUS_VARIANT[r.status] ?? 'default'}>{STATUSES[r.status] ?? 'Unknown'}</Badge>
                                     </TableCell>
+                                    <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{r.approvedby || '—'}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-end gap-1">
                                             <Button variant="ghost" size="icon" onClick={() => { setEditing(r); setModalOpen(true); }}>

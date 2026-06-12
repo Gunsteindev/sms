@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_activities';
 
@@ -65,15 +65,13 @@ export const getActivities = async (category?: number, status?: number) => {
     if (category) conds.push(`sms_category eq ${category}`);
     if (status)   conds.push(`sms_status eq ${status}`);
     if (conds.length) parts.push(`$filter=${encodeURIComponent(conds.join(' and '))}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapActivity(i));
+    return (r.value ?? []).map(mapActivity);
 };
 
 export const getActivityById = async (id: string): Promise<Activity> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapActivity(r);
 };
 

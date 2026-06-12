@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_timetables';
 
@@ -96,15 +96,13 @@ export const getTimetable = async (dayofweek?: number, classid?: string) => {
     if (dayofweek) conditions.push(`sms_dayofweek eq ${dayofweek}`);
     if (classid)   conditions.push(`_sms_class_value eq ${classid}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapEntry(item));
 };
 
 export const getTimetableEntryById = async (id: string): Promise<TimetableEntry> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapEntry(r);
 };
 

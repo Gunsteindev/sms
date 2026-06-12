@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 import { updateStudent } from "./students";
 import { getClassById } from "./classes";
 
@@ -104,16 +104,14 @@ export const getPromotions = async (filters?: PromotionFilters) => {
     ];
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const response = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = (response.value ?? []).map((r: any) => mapPromotion(r));
     return { items, totalCount: (response['@odata.count'] as number) ?? items.length };
 };
 
 export const getPromotionById = async (id: string): Promise<Promotion> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapPromotion(r);
 };
 

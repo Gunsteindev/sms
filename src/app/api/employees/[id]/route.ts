@@ -1,7 +1,8 @@
-// src/app/api/employees/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getEmployeeById, updateEmployee, deleteEmployee } from '@/lib/dataverse/employees';
-import { serverError, withSchool } from '@/lib/api-guard';
+import { serverError, withSchool, makeTableGuard } from '@/lib/api-guard';
+
+const isTableMissing = makeTableGuard('sms_employee');
 
 export async function GET(
   request: NextRequest,
@@ -24,6 +25,7 @@ export async function GET(
         data: employee
       });
     } catch (error) {
+      if (isTableMissing(error)) return NextResponse.json({ success: false, error: 'Employee not found', setup_required: true }, { status: 404 });
       return serverError(error);
     }
   });
@@ -45,6 +47,7 @@ export async function PUT(
         message: 'Employee updated successfully'
       });
     } catch (error) {
+      if (isTableMissing(error)) return NextResponse.json({ success: false, error: 'sms_employees table not created yet', setup_required: true }, { status: 503 });
       return serverError(error);
     }
   });
@@ -64,6 +67,7 @@ export async function DELETE(
         message: 'Employee deleted successfully'
       });
     } catch (error) {
+      if (isTableMissing(error)) return NextResponse.json({ success: false, error: 'sms_employees table not created yet', setup_required: true }, { status: 503 });
       return serverError(error);
     }
   });

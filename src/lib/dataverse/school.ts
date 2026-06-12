@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 // sms_school:       sms_schoolid, sms_name, sms_motto, sms_type (choice), sms_level (choice),
 //                   sms_address, sms_phone, sms_email, sms_currency, sms_website,
@@ -162,23 +162,20 @@ function buildSchoolPayload(data: Partial<UpsertSchoolRequest>): Record<string, 
 /* ── School profile ─────────────────────────────────────────────────────── */
 
 export const getSchoolProfile = async (): Promise<SchoolProfile | null> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}?$select=${SCHOOL_SELECT}&$top=1`);
+    const r = await dataverseClient.get<DvList>(`${SCHOOL_TABLE}?$select=${SCHOOL_SELECT}&$top=1`);
     const items = r.value ?? [];
     return items.length > 0 ? mapSchool(items[0]) : null;
 };
 
 export const getSchoolById = async (id: string): Promise<SchoolProfile | null> => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}(${id})?$select=${SCHOOL_SELECT}`);
+        const r = await dataverseClient.get<DvList>(`${SCHOOL_TABLE}(${id})?$select=${SCHOOL_SELECT}`);
         return mapSchool(r);
     } catch { return null; }
 };
 
 export const getAllSchools = async (): Promise<SchoolProfile[]> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}?$select=${SCHOOL_SELECT}&$orderby=sms_name asc`);
+    const r = await dataverseClient.get<DvList>(`${SCHOOL_TABLE}?$select=${SCHOOL_SELECT}&$orderby=sms_name asc`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapSchool(item));
 };
@@ -192,8 +189,7 @@ export const createSchool = async (data: UpsertSchoolRequest): Promise<SchoolPro
 
 export const updateSchool = async (id: string, data: Partial<UpsertSchoolRequest>): Promise<SchoolProfile> => {
     await dataverseClient.patch(`${SCHOOL_TABLE}(${id})`, buildSchoolPayload(data));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${SCHOOL_TABLE}(${id})?$select=${SCHOOL_SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${SCHOOL_TABLE}(${id})?$select=${SCHOOL_SELECT}`);
     return mapSchool(r);
 };
 
@@ -201,15 +197,13 @@ export const updateSchool = async (id: string, data: Partial<UpsertSchoolRequest
 
 export const getBranches = async (schoolid?: string): Promise<SchoolBranch[]> => {
     const filter = schoolid ? `&$filter=_sms_school_value eq ${schoolid}` : '';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${BRANCH_TABLE}?$select=${BRANCH_SELECT}&$orderby=sms_name asc${filter}`);
+    const r = await dataverseClient.get<DvList>(`${BRANCH_TABLE}?$select=${BRANCH_SELECT}&$orderby=sms_name asc${filter}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapBranch(item));
 };
 
 export const getBranchById = async (id: string): Promise<SchoolBranch> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${BRANCH_TABLE}(${id})?$select=${BRANCH_SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${BRANCH_TABLE}(${id})?$select=${BRANCH_SELECT}`);
     return mapBranch(r);
 };
 

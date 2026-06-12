@@ -314,7 +314,8 @@ export default function LandingPage() {
           />
 
           {/* Ambient orbs */}
-          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden"
+          >
             <div className="absolute top-1/4 right-1/4 h-125 w-125 rounded-full bg-blue-600/8  blur-3xl" />
             <div className="absolute bottom-1/3 left-1/3  h-100 w-100 rounded-full bg-violet-600/8 blur-3xl" />
           </div>

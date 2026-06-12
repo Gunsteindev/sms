@@ -283,11 +283,10 @@ export default function AttendancePage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Input
-                        type="date"
+                    <DatePicker
                         value={dateFilter}
-                        onChange={e => { setDateFilter(e.target.value); setStatusFilter('all'); setSearch(''); }}
-                        className="w-40"
+                        onChange={v => { setDateFilter(v); setStatusFilter('all'); setSearch(''); }}
+                        className="h-10 w-44"
                     />
                     <Button variant="outline" size="sm" onClick={() => load(dateFilter)} disabled={loading}>
                         <RefreshCw className={`h-4 w-4 mr-1.5${loading ? ' animate-spin' : ''}`} /> Refresh
@@ -347,18 +346,19 @@ export default function AttendancePage() {
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
-                    {([['all', 'All'], [1, 'Present'], [2, 'Absent'], [3, 'Late'], [4, 'Excused']] as [number | 'all', string][]).map(([val, lbl]) => (
-                        <button key={String(val)} onClick={() => setStatusFilter(val)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                                statusFilter === val
-                                    ? 'bg-violet-600 text-white'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                            }`}>
-                            {lbl}
-                        </button>
-                    ))}
-                </div>
+                <SelectRoot value={String(statusFilter)} onValueChange={v => setStatusFilter(!v || v === 'all' ? 'all' : Number(v))}>
+                    <SelectTrigger className="w-40 h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100">
+                        <SelectValue placeholder="All">
+                            {(v: string) => !v || v === 'all' ? 'All' : (STATUSES[Number(v)]?.label ?? v)}
+                        </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {Object.entries(STATUSES).map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </SelectRoot>
             </div>
 
             {/* Table */}
