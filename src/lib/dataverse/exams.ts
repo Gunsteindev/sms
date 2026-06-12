@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_exams';
 // Verified Dataverse fields (sms_exams) — discovered 2026-04-22:
@@ -97,15 +97,13 @@ function mapExam(item: any): Exam {
 export const getExams = async (search?: string, top = 200) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_startdate desc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}') or contains(sms_examcode,'${search}')`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapExam(item));
 };
 
 export const getExamById = async (id: string): Promise<Exam> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapExam(r);
 };
 

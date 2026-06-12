@@ -253,7 +253,7 @@ export default function StaffLeavePage() {
                     <Table className="w-full text-sm">
                         <TableHeader>
                             <TableRow>
-                                {['Employee', 'Leave Type', 'Period', 'Days', 'Reason', 'Status', ''].map(h => (
+                                {['Employee', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Reason', 'Status', 'Approved By', ''].map(h => (
                                     <TableHead key={h}>{h}</TableHead>
                                 ))}
                             </TableRow>
@@ -265,18 +265,16 @@ export default function StaffLeavePage() {
                                     <TableRow key={r.leaveid}>
                                         <TableCell>
                                             <p className="font-medium text-slate-900 dark:text-slate-100">{r.employeename || '—'}</p>
-                                            {r.approvedby && <p className="text-xs text-slate-400 dark:text-slate-500">Approved by: {r.approvedby}</p>}
                                         </TableCell>
                                         <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400">{LEAVE_TYPES[r.leavetype] ?? '—'}</TableCell>
-                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">
-                                            <div>{r.startdate?.slice(0, 10)}</div>
-                                            <div className="text-slate-400 dark:text-slate-500">→ {r.enddate?.slice(0, 10)}</div>
-                                        </TableCell>
+                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">{r.startdate?.slice(0, 10) || '—'}</TableCell>
+                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 font-mono text-xs">{r.enddate?.slice(0, 10) || '—'}</TableCell>
                                         <TableCell className="px-4 py-3 text-slate-900 dark:text-slate-100 font-semibold">{days}</TableCell>
                                         <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-[160px] truncate">{r.reason || '—'}</TableCell>
                                         <TableCell>
                                             <Badge variant={STATUS_VARIANT[r.status] ?? 'default'}>{STATUSES[r.status] ?? 'Unknown'}</Badge>
                                         </TableCell>
+                                        <TableCell className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">{r.approvedby || '—'}</TableCell>
                                         <TableCell>
                                             <div className="flex justify-end gap-1">
                                                 {r.status === 1 && (

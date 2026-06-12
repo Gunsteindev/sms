@@ -1,6 +1,15 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
 import { getAccessToken } from "./auth";
 
+/** Shape returned by every Dataverse OData collection endpoint */
+export type DvList<T = Record<string, unknown>> = {
+    value: T[];
+    '@odata.count'?:    number;
+    '@odata.nextLink'?: string;
+};
+/** A raw Dataverse entity row before mapping to a domain type */
+export type DvRow = Record<string, unknown>;
+
 // Tables that represent the school/tenant itself — no school filter applied
 const NO_TENANT_TABLES = ['sms_schools', 'sms_schoolbranchs'];
 

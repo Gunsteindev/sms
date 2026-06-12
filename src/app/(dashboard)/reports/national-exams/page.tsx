@@ -164,12 +164,13 @@ export default function NationalExamsPage() {
       </div>
 
       {/* Exam type tabs */}
-      <div className="flex gap-2">
+      <div className="flex items-center border-b border-slate-200 dark:border-slate-700">
         {(['bece', 'wassce'] as const).map(t => (
           <button
             key={t}
+            type="button"
             onClick={() => setExamType(t)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${examType === t ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300'}`}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${examType === t ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
           >
             {t.toUpperCase()}
           </button>

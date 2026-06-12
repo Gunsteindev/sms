@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 // sms_announcement fields:
 //   sms_announcementid, sms_name, sms_message, sms_audience, sms_ispinned,
@@ -66,15 +66,13 @@ export const getAnnouncements = async (opts?: { audience?: number; limit?: numbe
     if (opts?.pinned   !== undefined) conds.push(`sms_ispinned eq ${opts.pinned}`);
     if (conds.length) parts.push(`$filter=${encodeURIComponent(conds.join(' and '))}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((a: any) => mapAnnouncement(a));
 };
 
 export const getAnnouncementById = async (id: string): Promise<Announcement> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapAnnouncement(r);
 };
 

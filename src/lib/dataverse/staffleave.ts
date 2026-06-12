@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_staffleaves';
 
@@ -61,15 +61,13 @@ export const getStaffLeaves = async (status?: number, employeeid?: string) => {
     if (status)     conditions.push(`sms_status eq ${status}`);
     if (employeeid) conditions.push(`sms_employeeid eq '${employeeid}'`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapLeave(i));
+    return (r.value ?? []).map(mapLeave);
 };
 
 export const getStaffLeaveById = async (id: string): Promise<StaffLeave> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapLeave(r);
 };
 

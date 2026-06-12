@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMaintenanceRecords, createMaintenanceRecord } from '@/lib/dataverse/vehicleMaintenance';
-import { serverError, withSchool } from '@/lib/api-guard';
+import { serverError, withSchool, makeTableGuard } from '@/lib/api-guard';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isTableMissing(e: any) {
-    const msg: string = e?.response?.data?.error?.message ?? e?.message ?? '';
-    const code: string = e?.response?.data?.error?.code ?? '';
-    return msg.includes('sms_vehiclemaintenance') && (msg.includes('Could not find') || msg.includes('does not exist') || msg.includes('Invalid entity') || msg.includes('Resource not found') || code === '0x80060888');
-}
-
+const isTableMissing = makeTableGuard('sms_vehiclemaintenance');
 export async function GET(request: NextRequest) {
     return withSchool(request, async () => {
         try {

@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_kitchenmenus';
 
@@ -55,15 +55,13 @@ export const getMenus = async (params?: { date?: string; mealtype?: number; stat
     if (params?.status)   conds.push(`sms_kitchenmenustatus eq ${params.status}`);
     const parts = [`$select=${SELECT}`, `$orderby=sms_menudate desc,sms_mealtype asc`, `$top=500`];
     if (conds.length) parts.push(`$filter=${encodeURIComponent(conds.join(' and '))}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapMenu(i));
+    return (r.value ?? []).map(mapMenu);
 };
 
 export const getMenuById = async (id: string): Promise<KitchenMenu> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapMenu(r);
 };
 

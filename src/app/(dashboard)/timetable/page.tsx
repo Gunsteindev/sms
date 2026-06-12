@@ -459,7 +459,7 @@ export default function TimetablePage() {
                                             : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-end gap-0.5">
                                             <Button variant="ghost" size="icon" onClick={() => openEdit(r)}
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                                                 <Pencil className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />

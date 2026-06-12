@@ -579,7 +579,7 @@ export default function LibraryPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {['Title / Author', 'Genre / Subject', 'ISBN', 'Shelf', 'Copies', 'Available', 'Actions'].map(h => (
+                                        {['Title', 'Author', 'Genre', 'Subject', 'ISBN', 'Shelf', 'Copies', 'Available', 'Actions'].map(h => (
                                             <TableHead key={h}>{h}</TableHead>
                                         ))}
                                     </TableRow>
@@ -592,15 +592,26 @@ export default function LibraryPage() {
                                                     <div className={`${avatarColor(b.name)} h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                                                         {initials(b.name)}
                                                     </div>
-                                                    <div>
-                                                        <div className="font-medium text-slate-900 dark:text-slate-100 leading-tight">{b.name}</div>
-                                                        {b.author && <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><User className="h-3 w-3" />{b.author}</div>}
-                                                    </div>
+                                                    <span className="font-medium text-slate-900 dark:text-slate-100">{b.name}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {b.genre ? <Badge variant="default">{b.genre}</Badge> : <span className="text-slate-400">—</span>}
-                                                {b.subject && <div className="text-xs text-slate-500 mt-0.5">{b.subject}</div>}
+                                                {b.author ? (
+                                                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                                        <User className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                                                        <span className="truncate max-w-[160px]">{b.author}</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-400 dark:text-slate-600">—</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {b.genre ? <Badge variant="default">{b.genre}</Badge> : <span className="text-slate-400 dark:text-slate-600">—</span>}
+                                            </TableCell>
+                                            <TableCell>
+                                                {b.subject
+                                                    ? <span className="text-slate-600 dark:text-slate-300">{b.subject}</span>
+                                                    : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                             </TableCell>
                                             <TableCell className="font-mono text-xs text-slate-600 dark:text-slate-400">{b.isbn || '—'}</TableCell>
                                             <TableCell>

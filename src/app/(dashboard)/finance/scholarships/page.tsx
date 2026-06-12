@@ -355,7 +355,7 @@ export default function ScholarshipsPage() {
                     <Table className="w-full text-sm">
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
-                                {['Scholarship', 'Type', 'Value', 'Sponsored By', 'Student', 'Period', 'Acad. Year', ''].map(h => (
+                                {['Scholarship', 'Terms / Conditions', 'Type', 'Value', 'Sponsored By', 'Student', 'Period', 'Acad. Year', ''].map(h => (
                                     <TableHead key={h}>
                                         {h}
                                     </TableHead>
@@ -366,21 +366,21 @@ export default function ScholarshipsPage() {
                             {paginated.map(r => (
                                 <TableRow key={r.scholarshipid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 
-                                    {/* Name + condition */}
+                                    {/* Name */}
                                     <TableCell className="px-4 py-3.5">
-                                        <div className="flex items-start gap-2.5">
-                                            <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0 mt-0.5">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
                                                 <Award className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                                             </div>
-                                            <div>
-                                                <p className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">{r.name}</p>
-                                                {r.condition && (
-                                                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[220px] mt-0.5" title={r.condition}>
-                                                        {r.condition}
-                                                    </p>
-                                                )}
-                                            </div>
+                                            <p className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">{r.name}</p>
                                         </div>
+                                    </TableCell>
+
+                                    {/* Terms / Conditions */}
+                                    <TableCell className="px-4 py-3.5">
+                                        {r.condition
+                                            ? <span className="text-slate-600 dark:text-slate-300 truncate max-w-[220px] block" title={r.condition}>{r.condition}</span>
+                                            : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                     </TableCell>
 
                                     {/* Type */}
@@ -420,9 +420,9 @@ export default function ScholarshipsPage() {
                                         {r.academicyearname || <span className="text-slate-300 dark:text-slate-600">—</span>}
                                     </TableCell>
 
-                                    {/* Actions — visible on hover */}
+                                    {/* Actions */}
                                     <TableCell className="px-4 py-3.5">
-                                        <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-end gap-0.5">
                                             <Button variant="ghost" size="icon"
                                                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
                                                 onClick={() => openEdit(r)}>

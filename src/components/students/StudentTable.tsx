@@ -1,8 +1,10 @@
 'use client';
 
 import { Users, Eye, Pencil, Trash2, UserPlus, ChevronDown } from 'lucide-react';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Pagination } from '@/components/ui/Pagination';
 import { STUDENT_STATUS_LABEL, STUDENT_STATUS_VARIANT } from '@/lib/constants';
 import type { Student } from '@/lib/dataverse/students';
 
@@ -30,45 +32,45 @@ interface Props {
   onDelete?:         (id: string) => void;
   onAssignParent?:   (student: Student) => void;
   onUpdateStatus?:   (student: Student) => void;
+  page?:             number;
+  totalPages?:       number;
+  total?:            number;
+  pageSize?:         number;
+  onPageChange?:     (page: number) => void;
 }
 
-export function StudentTable({ students, loading, onView, onEdit, onDelete, onAssignParent, onUpdateStatus }: Props) {
+export function StudentTable({ students, loading, onView, onEdit, onDelete, onAssignParent, onUpdateStatus, page, totalPages, total, pageSize, onPageChange }: Props) {
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-        <div className="flex items-center justify-center py-24">
-          <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-slate-200 dark:border-slate-700 border-t-blue-600" />
-        </div>
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
       </div>
     );
   }
 
   if (!students.length) {
     return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm flex flex-col items-center justify-center py-24">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
-          <Users className="h-7 w-7 text-slate-400 dark:text-slate-500 opacity-50" />
-        </div>
-        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">No students found</p>
-        <p className="text-xs mt-1 text-slate-400 dark:text-slate-500">Add a student to get started</p>
+      <div className="flex flex-col items-center justify-center py-24 text-slate-400 dark:text-slate-600">
+        <Users className="h-10 w-10 mb-3 opacity-40" />
+        <p className="text-sm font-medium">No students found</p>
+        <p className="text-xs mt-1">Add a student to get started</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-            {['Student', 'Roll No.', 'Class', 'Parent / Guardian', 'Status', ''].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-          {students.map((s) => {
+    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="overflow-x-auto">
+        <Table className="w-full text-sm">
+          <TableHeader>
+            <TableRow>
+              {['Student', 'Roll No.', 'Class', 'Parent / Guardian', 'Status', ''].map((h) => (
+                <TableHead key={h}>{h}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {students.map((s) => {
             const sc       = s.studentstatus ?? 1;
             const status   = {
               label:   STUDENT_STATUS_LABEL[sc]   ?? 'Unknown',
@@ -79,10 +81,10 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete, onAs
             const parent   = s.parentname || s.guardianname || '';
 
             return (
-              <tr key={s.studentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+              <TableRow key={s.studentid}>
 
                 {/* Student */}
-                <td className="px-4 py-3.5">
+                <TableCell>
                   <div className="flex items-center gap-3">
                     {s.profilepicture ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -92,29 +94,29 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete, onAs
                         className="h-9 w-9 flex-shrink-0 rounded-full object-cover border border-slate-200 dark:border-slate-700"
                       />
                     ) : (
-                      <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${ac}`}>
+                      <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${ac}`}>
                         {initials}
                       </div>
                     )}
                     <div>
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{s.firstname} {s.lastname}</p>
+                      <p className="font-medium text-slate-900 dark:text-slate-100">{s.firstname} {s.lastname}</p>
                       {s.email && <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[160px]">{s.email}</p>}
                     </div>
                   </div>
-                </td>
+                </TableCell>
 
                 {/* Roll No. */}
-                <td className="px-4 py-3.5">
+                <TableCell>
                   <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5">
                     {s.rollnumber || '—'}
                   </span>
-                </td>
+                </TableCell>
 
                 {/* Class */}
-                <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300">{s.classname || '—'}</td>
+                <TableCell className="text-slate-600 dark:text-slate-300">{s.classname || '—'}</TableCell>
 
                 {/* Parent / Guardian */}
-                <td className="px-4 py-3.5">
+                <TableCell>
                   {parent ? (
                     <button
                       type="button"
@@ -134,10 +136,10 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete, onAs
                       <span>Assign</span>
                     </button>
                   )}
-                </td>
+                </TableCell>
 
                 {/* Status */}
-                <td className="px-4 py-3.5">
+                <TableCell>
                   <button
                     type="button"
                     onClick={() => onUpdateStatus?.(s)}
@@ -147,30 +149,32 @@ export function StudentTable({ students, loading, onView, onEdit, onDelete, onAs
                     <Badge variant={status.variant}>{status.label}</Badge>
                     <ChevronDown className="h-3 w-3 text-slate-400 opacity-0 group-hover/status:opacity-100 transition-opacity" />
                   </button>
-                </td>
+                </TableCell>
 
                 {/* Actions */}
-                <td className="px-4 py-3.5">
-                  <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" onClick={() => onView?.(s.studentid)} title="View"
-                      className="h-8 w-8 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400">
-                      <Eye className="h-3.5 w-3.5" />
+                <TableCell>
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => onView?.(s.studentid)} title="View">
+                      <Eye className="h-4 w-4 text-slate-400 hover:text-blue-600" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onEdit?.(s)} title="Edit"
-                      className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200">
-                      <Pencil className="h-3.5 w-3.5" />
+                    <Button variant="ghost" size="icon" onClick={() => onEdit?.(s)} title="Edit">
+                      <Pencil className="h-4 w-4 text-slate-400 hover:text-blue-600" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete?.(s.studentid)} title="Delete"
-                      className="h-8 w-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400">
-                      <Trash2 className="h-3.5 w-3.5" />
+                    <Button variant="ghost" size="icon" onClick={() => onDelete?.(s.studentid)} title="Delete">
+                      <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
                     </Button>
                   </div>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+          </TableBody>
+        </Table>
+      </div>
+
+      {page !== undefined && totalPages !== undefined && total !== undefined && pageSize !== undefined && onPageChange && (
+        <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} label="student" onChange={onPageChange} />
+      )}
     </div>
   );
 }

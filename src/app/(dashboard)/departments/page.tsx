@@ -317,7 +317,7 @@ export default function DepartmentsPage() {
                     <Table className="w-full text-sm">
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800">
-                                {['Department', 'Head of Department', 'Status', 'Created', ''].map(h => (
+                                {['Department', 'Description', 'Head of Department', 'Status', 'Created', ''].map(h => (
                                     <TableHead key={h}>
                                         {h}
                                     </TableHead>
@@ -331,21 +331,21 @@ export default function DepartmentsPage() {
                                 return (
                                     <TableRow key={r.departmentid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
 
-                                        {/* Department + description subtitle */}
+                                        {/* Department */}
                                         <TableCell className="px-4 py-3.5">
-                                            <div className="flex items-start gap-2.5">
-                                                <div className={`h-9 w-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${color}`}>
+                                            <div className="flex items-center gap-2.5">
+                                                <div className={`h-9 w-9 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${color}`}>
                                                     {initials}
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">{r.name}</p>
-                                                    {r.description && (
-                                                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[280px] mt-0.5" title={r.description}>
-                                                            {r.description}
-                                                        </p>
-                                                    )}
-                                                </div>
+                                                <p className="font-semibold text-slate-900 dark:text-slate-100 leading-snug">{r.name}</p>
                                             </div>
+                                        </TableCell>
+
+                                        {/* Description */}
+                                        <TableCell className="px-4 py-3.5">
+                                            {r.description
+                                                ? <span className="text-slate-600 dark:text-slate-300 truncate max-w-[220px] block" title={r.description}>{r.description}</span>
+                                                : <span className="text-slate-400 dark:text-slate-600">—</span>}
                                         </TableCell>
 
                                         {/* HoD with mini avatar */}
@@ -381,9 +381,9 @@ export default function DepartmentsPage() {
                                             )}
                                         </TableCell>
 
-                                        {/* Actions — visible on row hover */}
+                                        {/* Actions */}
                                         <TableCell className="px-4 py-3.5">
-                                            <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex justify-end gap-0.5">
                                                 <Button
                                                     variant="ghost" size="icon"
                                                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"

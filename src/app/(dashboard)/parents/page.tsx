@@ -263,7 +263,7 @@ export default function ParentsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {['Parent', 'Relationship', 'Phone', 'Occupation', 'Address', ''].map(h => (
+                {['Parent', 'Email', 'Relationship', 'Phone', 'Occupation', 'Address', ''].map(h => (
                   <TableHead key={h}>{h}</TableHead>
                 ))}
               </TableRow>
@@ -276,15 +276,18 @@ export default function ParentsPage() {
                       <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor(p.fullname || `${p.firstname}${p.lastname}`)}`}>
                         {initials(p.fullname || `${p.firstname} ${p.lastname}`)}
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-slate-100">{p.fullname || `${p.firstname} ${p.lastname}`.trim()}</p>
-                        {p.email && (
-                          <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                            <Mail className="h-3 w-3" />{p.email}
-                          </p>
-                        )}
-                      </div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{p.fullname || `${p.firstname} ${p.lastname}`.trim()}</p>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {p.email ? (
+                      <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                        <Mail className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                        <span className="truncate max-w-[180px]">{p.email}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 dark:text-slate-600">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {p.relationship && PARENT_RELATIONSHIPS[p.relationship]
@@ -309,7 +312,7 @@ export default function ParentsPage() {
                       : <span className="text-slate-400 dark:text-slate-600">—</span>}
                   </TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-0.5">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <Pencil className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                       </Button>

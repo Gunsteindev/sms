@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_vehiclemaintenances';
 
@@ -69,10 +69,9 @@ function mapMaintenance(item: any): VehicleMaintenance {
 export const getMaintenanceRecords = async (vehicleid?: string) => {
     const parts = [`$select=${SELECT}`, '$orderby=createdon desc'];
     if (vehicleid) parts.push(`$filter=${encodeURIComponent(`_sms_vehicle_value eq ${vehicleid}`)}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapMaintenance(i));
+    return (r.value ?? []).map(mapMaintenance);
 };
 
 export const createMaintenanceRecord = async (data: CreateMaintenanceRequest) => {

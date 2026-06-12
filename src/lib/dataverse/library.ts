@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_librarybooks';
 // Verified Dataverse fields (sms_librarybooks) — discovered 2026-04-23
@@ -68,15 +68,13 @@ export const getBooks = async (search?: string, genre?: string) => {
     if (search) conditions.push(`(contains(sms_name,'${search}') or contains(sms_author,'${search}') or contains(sms_isbn,'${search}'))`);
     if (genre)  conditions.push(`sms_genre eq '${genre}'`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapBook(item));
 };
 
 export const getBookById = async (id: string): Promise<LibraryBook> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapBook(r);
 };
 

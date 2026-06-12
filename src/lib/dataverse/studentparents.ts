@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_studentparents';
 // Fields: sms_studentparentid, sms_isprimary
@@ -50,16 +50,14 @@ function mapStudentParent(item: any): StudentParent {
 
 export const getStudentParents = async (studentid: string): Promise<StudentParent[]> => {
     const filter = encodeURIComponent(`_sms_student_value eq ${studentid}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$expand=${EXPAND}&$filter=${filter}&$orderby=sms_isprimary desc`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$expand=${EXPAND}&$filter=${filter}&$orderby=sms_isprimary desc`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapStudentParent(item));
 };
 
 export const getParentStudents = async (parentid: string): Promise<StudentParent[]> => {
     const filter = encodeURIComponent(`_sms_parent_value eq ${parentid}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$expand=${EXPAND}&$filter=${filter}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$expand=${EXPAND}&$filter=${filter}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapStudentParent(item));
 };

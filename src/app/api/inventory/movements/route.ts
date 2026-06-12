@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMovements, createMovement } from '@/lib/dataverse/inventoryMovements';
 import { getInventoryItemById, updateInventoryItem } from '@/lib/dataverse/inventory';
-import { serverError, badRequest, withSchool, getSession } from '@/lib/api-guard';
+import { serverError, badRequest, withSchool, getSession, makeTableGuard } from '@/lib/api-guard';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isTableMissing(error: any): boolean {
-    const msg: string = error?.response?.data?.error?.message ?? '';
-    return error?.response?.status === 404 && msg.includes('Resource not found for the segment');
-}
+const isTableMissing = makeTableGuard('sms_inventorymovement');
 
 export async function GET(request: NextRequest) {
     return withSchool(request, async () => {

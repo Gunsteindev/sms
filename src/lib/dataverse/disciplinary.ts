@@ -1,6 +1,6 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
-const TABLE = 'sms_disciplinary';
+const TABLE = 'sms_disciplinaries';
 
 // Incident type: 1=Warning, 2=Detention, 3=Suspension, 4=Expulsion
 export type IncidentType = 1 | 2 | 3 | 4;
@@ -79,15 +79,13 @@ export const getDisciplinaryRecords = async (studentid?: string) => {
     ];
     if (studentid) parts.push(`$filter=${encodeURIComponent(`_sms_student_value eq ${studentid}`)}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapRecord(item));
 };
 
 export const getDisciplinaryById = async (id: string): Promise<DisciplinaryRecord> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapRecord(r);
 };
 

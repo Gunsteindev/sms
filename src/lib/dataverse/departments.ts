@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_departments';
 // Fields: sms_departmentid, sms_name, sms_description
@@ -38,15 +38,13 @@ function mapDepartment(item: any): Department {
 export const getDepartments = async (search?: string) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_name asc`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}')`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapDepartment(item));
 };
 
 export const getDepartmentById = async (id: string): Promise<Department> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapDepartment(r);
 };
 

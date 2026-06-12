@@ -289,7 +289,7 @@ export default function TeachersPage() {
             <Table className="w-full text-sm">
               <TableHeader>
                 <TableRow>
-                  {['Teacher', 'Specialization', 'Class', 'Hired', 'Status', ''].map((h) => (
+                  {['Teacher', 'Email', 'Phone', 'Specialization', 'Qualification', 'Class', 'Hired', 'Status', ''].map((h) => (
                     <TableHead key={h}>
                       {h}
                     </TableHead>
@@ -307,28 +307,33 @@ export default function TeachersPage() {
                           <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarColor(fullName)}`}>
                             {t.firstname?.[0]}{t.lastname?.[0]}
                           </div>
-                          <div>
-                            <p className="font-medium text-slate-900 dark:text-slate-100">{fullName}</p>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              {t.email && (
-                                <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-                                  <Mail className="h-3 w-3" />{t.email}
-                                </span>
-                              )}
-                              {t.phone && (
-                                <span className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
-                                  <Phone className="h-3 w-3" />{t.phone}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                          <p className="font-medium text-slate-900 dark:text-slate-100">{fullName}</p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <p className="text-slate-700 dark:text-slate-300">{t.specialization || '—'}</p>
-                        {t.qualification && (
-                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{t.qualification}</p>
+                        {t.email ? (
+                          <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                            <Mail className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                            <span className="truncate max-w-[180px]">{t.email}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {t.phone ? (
+                          <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                            <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />{t.phone}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-slate-700 dark:text-slate-300">{t.specialization || '—'}</p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-slate-700 dark:text-slate-300">{t.qualification || '—'}</p>
                       </TableCell>
                       <TableCell>
                         {t.classname ? (

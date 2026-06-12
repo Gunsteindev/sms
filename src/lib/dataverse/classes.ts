@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_classes';
 
@@ -74,8 +74,7 @@ function mapClass(item: any): Class {
 }
 
 export const getClasses = async (top = 200) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await dataverseClient.get<any>(
+    const response = await dataverseClient.get<DvList>(
         `${TABLE}?$select=${SELECT}&$orderby=sms_name asc&$top=${top}`
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,8 +82,7 @@ export const getClasses = async (top = 200) => {
 };
 
 export const getClassById = async (id: string): Promise<Class> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapClass(r);
 };
 
@@ -125,8 +123,7 @@ export const deleteClass = async (id: string): Promise<void> => {
 };
 
 export const getClassesCount = async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(
+    const r = await dataverseClient.get<DvList>(
         `${TABLE}?$select=sms_classid,sms_capacity,_sms_gradelevel_value&$count=true`
     );
     const classes = r.value ?? [];
@@ -149,8 +146,7 @@ export const getClassesCount = async () => {
 
 export const getClassesByGradeLevel = async (gradelevelid: string) => {
     const filter = encodeURIComponent(`_sms_gradelevel_value eq ${gradelevelid}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(
+    const r = await dataverseClient.get<DvList>(
         `${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_name asc`
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

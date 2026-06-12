@@ -165,7 +165,7 @@ export default function HealthPage() {
     return q
       ? students.filter((s: any) =>
           (s.fullname || `${s.firstname} ${s.lastname}`).toLowerCase().includes(q))
-      : students.slice(0, 20);
+      : students;
   }, [studentSearch, students]);
 
   const selectedStudent = useMemo(() =>

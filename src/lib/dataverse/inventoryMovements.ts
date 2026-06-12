@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_inventorymovements';
 
@@ -69,15 +69,13 @@ export const getMovements = async (params?: GetMovementsParams): Promise<Invento
     const parts = [`$select=${SELECT}`, `$orderby=createdon desc`, `$top=200`];
     if (filters.length) parts.push(`$filter=${encodeURIComponent(filters.join(' and '))}`);
 
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapMovement(i));
+    return (r.value ?? []).map(mapMovement);
 };
 
 export const getMovementById = async (id: string): Promise<InventoryMovement> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapMovement(r);
 };
 

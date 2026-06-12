@@ -1,4 +1,4 @@
-import { dataverseClient } from './client';
+import { dataverseClient, type DvList } from './client';
 
 const TABLE = 'sms_mealorders';
 
@@ -62,10 +62,9 @@ export const getOrders = async (params?: { menuid?: string; date?: string; payme
     if (params?.paymentstatus) conds.push(`sms_paymentstatus eq ${params.paymentstatus}`);
     const parts = [`$select=${SELECT}`, `$orderby=createdon desc`, `$top=500`];
     if (conds.length) parts.push(`$filter=${encodeURIComponent(conds.join(' and '))}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (r.value ?? []).map((i: any) => mapOrder(i));
+    return (r.value ?? []).map(mapOrder);
 };
 
 export const createOrder = async (data: CreateOrderRequest): Promise<MealOrder> => {

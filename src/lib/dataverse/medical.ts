@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_medical';
 
@@ -61,15 +61,13 @@ function mapMedical(item: any): MedicalRecord {
 
 export const getMedicalByStudent = async (studentid: string): Promise<MedicalRecord | null> => {
     const filter = encodeURIComponent(`_sms_student_value eq ${studentid}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$top=1`);
     const items = r.value ?? [];
     return items.length > 0 ? mapMedical(items[0]) : null;
 };
 
 export const getMedicalById = async (id: string): Promise<MedicalRecord> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapMedical(r);
 };
 

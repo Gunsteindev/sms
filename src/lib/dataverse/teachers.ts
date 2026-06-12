@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_teachers';
 
@@ -99,8 +99,7 @@ export const getTeachers = async (filters?: TeacherFilters) => {
     if (filters?.status !== undefined) conditions.push(`sms_teacherstatus eq ${filters.status}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const response = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = (response.value ?? []).map((r: any) => mapTeacher(r));
     return {
@@ -114,8 +113,7 @@ export const getTeachers = async (filters?: TeacherFilters) => {
 };
 
 export const getTeacherById = async (id: string): Promise<Teacher> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapTeacher(r);
 };
 
@@ -159,8 +157,7 @@ export const deleteTeacher = async (id: string): Promise<void> => {
 };
 
 export const getTeacherStats = async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_teacherid,sms_teacherstatus,sms_specialization&$count=true`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_teacherid,sms_teacherstatus,sms_specialization&$count=true`);
     const teachers = r.value ?? [];
 
     const bySpecialization: Record<string, number> = {};
@@ -184,8 +181,7 @@ export const getTeacherStats = async () => {
 };
 
 export const getTeacherClasses = async (teacherId: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(
+    const r = await dataverseClient.get<DvList>(
         `sms_classes?$select=sms_classid,sms_name,sms_gradelevel,sms_roomnumber&$filter=_sms_classteacher_value eq ${teacherId}&$orderby=sms_name asc`
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,8 +196,7 @@ export const getTeacherClasses = async (teacherId: string) => {
 export const searchTeachers = async (query: string) => {
     const q = query.replace(/'/g, "''");
     const filter = encodeURIComponent(`contains(sms_firstname,'${q}') or contains(sms_lastname,'${q}')`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_teacherid,sms_firstname,sms_lastname,sms_email&$filter=${filter}&$top=20`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_teacherid,sms_firstname,sms_lastname,sms_email&$filter=${filter}&$top=20`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => ({
         teacherid: item.sms_teacherid,

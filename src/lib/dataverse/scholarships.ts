@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_scholarships';
 // Actual Dataverse fields (verified via EntityDefinitions metadata):
@@ -72,15 +72,13 @@ function mapScholarship(item: any): Scholarship {
 export const getScholarships = async (search?: string): Promise<Scholarship[]> => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_name asc`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}')`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapScholarship(item));
 };
 
 export const getScholarshipById = async (id: string): Promise<Scholarship> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapScholarship(r);
 };
 

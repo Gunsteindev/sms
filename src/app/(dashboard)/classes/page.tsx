@@ -351,7 +351,7 @@ export default function ClassesPage() {
                   </TableCell>
                   {/* Actions */}
                   <TableCell className="px-4 py-3.5">
-                    <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-0.5">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(c)}
                         className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <Pencil className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />

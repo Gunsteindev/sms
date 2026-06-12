@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 // Verified Dataverse fields (sms_attendance):
 // sms_attendanceid, sms_name, sms_date (DateOnly),
@@ -81,15 +81,13 @@ export const getAttendance = async (date?: string, top = 200) => {
     if (date) {
         parts.push(`$filter=${encodeURIComponent(`sms_date eq ${date.slice(0, 10)}`)}`);
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapAttendance(item));
 };
 
 export const getAttendanceById = async (id: string): Promise<Attendance> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapAttendance(r);
 };
 
@@ -111,8 +109,7 @@ export const markAttendance = async (records: CreateAttendanceRequest[]) => {
 
         // Check for existing record on same student + date to avoid duplicates
         const filter = encodeURIComponent(`_sms_student_value eq ${record.studentid} and sms_date eq ${record.date.slice(0, 10)}`);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const existing = await dataverseClient.get<any>(`${TABLE}?$select=sms_attendanceid&$filter=${filter}&$top=1`);
+        const existing = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_attendanceid&$filter=${filter}&$top=1`);
         const existingId = existing.value?.[0]?.sms_attendanceid;
 
         if (existingId) {
@@ -147,8 +144,7 @@ export const deleteAttendance = async (id: string): Promise<void> => {
 
 export const getAttendanceSummary = async (date: string): Promise<AttendanceSummary> => {
     const filter = encodeURIComponent(`sms_date eq ${date.slice(0, 10)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_attendancestatus&$filter=${filter}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_attendancestatus&$filter=${filter}`);
     const records = r.value ?? [];
     const total   = records.length;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,16 +164,14 @@ export const getStudentAttendanceReport = async (studentId: string, startDate: s
     const filter = encodeURIComponent(
         `sms_student/sms_studentid eq ${studentId} and sms_date ge ${start} and sms_date le ${end}`
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_date asc`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_date asc`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapAttendance(item));
 };
 
 export const getStudentAttendance = async (studentId: string, top = 100): Promise<Attendance[]> => {
     const filter = encodeURIComponent(`_sms_student_value eq ${studentId}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_date desc&$top=${top}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=${SELECT}&$filter=${filter}&$orderby=sms_date desc&$top=${top}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapAttendance(item));
 };
@@ -189,8 +183,7 @@ export const getAttendanceTrends = async (days = 30) => {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr   = endDate.toISOString().split('T')[0];
     const filter   = encodeURIComponent(`sms_date ge ${startStr} and sms_date le ${endStr}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_date,sms_attendancestatus&$filter=${filter}&$orderby=sms_date asc`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_date,sms_attendancestatus&$filter=${filter}&$orderby=sms_date asc`);
     const records = r.value ?? [];
 
     const dailyMap = new Map<string, { total: number; present: number }>();

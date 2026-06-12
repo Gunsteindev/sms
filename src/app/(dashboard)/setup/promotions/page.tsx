@@ -163,15 +163,16 @@ export default function PromotionsPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1 w-fit">
+            <div className="flex border-b border-slate-200 dark:border-slate-700">
                 {([['promote', pr.applyTab], ['history', pr.historyTab]] as [Tab, string][]).map(([tabKey, label]) => (
                     <button
                         key={tabKey}
+                        type="button"
                         onClick={() => setTab(tabKey)}
-                        className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors
+                        className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors
                             ${tab === tabKey
-                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
                             }`}
                     >
                         {label}

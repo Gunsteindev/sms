@@ -6,7 +6,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import {
     Plus, Search, Pencil, Trash2, Bus, RefreshCw, Download,
-    CheckCircle2, Wrench, XCircle, Users, Info, MapPin, Clock,
+    CheckCircle2, Wrench, XCircle, Users, Info, MapPin, Clock, Phone,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
@@ -22,6 +22,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Pagination } from '@/components/ui/Pagination';
 import { exportToCSV } from '@/lib/csv';
 import { transportAPI, routeAssignmentsAPI, vehicleMaintenanceAPI } from '@/lib/api/facilities';
+import { studentsAPI } from '@/lib/api-client';
 import type { Vehicle } from '@/lib/dataverse/transport';
 import type { RouteAssignment } from '@/lib/dataverse/routeAssignments';
 import type { VehicleMaintenance } from '@/lib/dataverse/vehicleMaintenance';
@@ -479,9 +480,9 @@ export default function TransportPage() {
         if (!q.trim()) { setStuResults([]); return; }
         setStuSearching(true);
         try {
+            const res = await studentsAPI.getAll({ search: q, pageSize: 10 });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res: any = await fetch(`/api/students?search=${encodeURIComponent(q)}&pageSize=10`).then(r => r.json());
-            setStuResults(res.data ?? []);
+            setStuResults((res.data as any)?.data ?? []);
         } catch { setStuResults([]); }
         finally { setStuSearching(false); }
     }, []);
@@ -691,7 +692,7 @@ export default function TransportPage() {
                         <Table className="w-full text-sm">
                             <TableHeader>
                                 <TableRow>
-                                    {['Vehicle', 'Plate', 'Type', 'Capacity', 'Driver', 'Year / Colour', 'Status', ''].map(h => (
+                                    {['Vehicle', 'Plate', 'Type', 'Capacity', 'Driver', 'Phone', 'Year / Colour', 'Status', ''].map(h => (
                                         <TableHead key={h}>{h}</TableHead>
                                     ))}
                                 </TableRow>
@@ -710,7 +711,15 @@ export default function TransportPage() {
                                         <TableCell className="text-slate-900 dark:text-slate-100 font-semibold text-center">{r.capacity || '—'}</TableCell>
                                         <TableCell>
                                             <p className="text-sm text-slate-900 dark:text-slate-100">{r.driver || '—'}</p>
-                                            {r.driverphone && <p className="text-xs text-slate-400 dark:text-slate-500">{r.driverphone}</p>}
+                                        </TableCell>
+                                        <TableCell>
+                                            {r.driverphone ? (
+                                                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                                                    <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />{r.driverphone}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400 dark:text-slate-600">—</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-slate-500 dark:text-slate-400 text-xs">
                                             {r.year ? `${r.year}` : '—'}{r.color ? ` · ${r.color}` : ''}

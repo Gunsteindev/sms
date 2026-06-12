@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_academicyears';
 // Verified Dataverse fields (sms_academicyears) — discovered 2026-04-22:
@@ -50,21 +50,18 @@ function mapAcademicYear(item: any): AcademicYear {
 export const getAcademicYears = async (search?: string, top = 200) => {
     const parts = [`$select=${SELECT}`, `$orderby=sms_startdate desc`, `$top=${top}`];
     if (search) parts.push(`$filter=${encodeURIComponent(`contains(sms_name,'${search}')`)}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapAcademicYear(item));
 };
 
 export const getAcademicYearById = async (id: string): Promise<AcademicYear> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapAcademicYear(r);
 };
 
 async function clearCurrentYears(excludeId?: string) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?$select=sms_academicyearid&$filter=sms_iscurrent eq true`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?$select=sms_academicyearid&$filter=sms_iscurrent eq true`);
     const others: string[] = (r.value ?? [])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((y: any) => y.sms_academicyearid as string)

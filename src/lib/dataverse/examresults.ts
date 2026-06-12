@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_examresults';
 // Verified Dataverse fields (sms_examresult) — discovered 2026-04-22:
@@ -79,15 +79,13 @@ export const getExamResults = async (filters?: ExamResultFilters) => {
     if (filters?.examid)    conditions.push(`_sms_exam_value eq ${filters.examid}`);
     if (filters?.studentid) conditions.push(`_sms_student_value eq ${filters.studentid}`);
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (r.value ?? []).map((item: any) => mapResult(item));
 };
 
 export const getExamResultById = async (id: string): Promise<ExamResult> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapResult(r);
 };
 

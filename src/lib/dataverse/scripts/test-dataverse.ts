@@ -323,7 +323,7 @@ async function testClasses() {
     const classes = await getClasses();
     console.log(`  Found ${classes.length} classes`);
     if (classes.length > 0) {
-      console.log(`  Sample class: ${classes[0].classname} (Grade ${classes[0].gradelevel})`);
+      console.log(`  Sample class: ${classes[0].classname} (Grade ${classes[0].gradelevelid})`);
     }
     return { count: classes.length };
   });

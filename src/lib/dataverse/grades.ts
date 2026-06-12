@@ -1,4 +1,4 @@
-import { dataverseClient } from "./client";
+import { dataverseClient, type DvList } from "./client";
 
 const TABLE = 'sms_grades';
 
@@ -116,8 +116,7 @@ export const getGrades = async (filters?: GradeFilters) => {
     ];
     if (conditions.length) parts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await dataverseClient.get<any>(`${TABLE}?${parts.join('&')}`);
+    const response = await dataverseClient.get<DvList>(`${TABLE}?${parts.join('&')}`);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const items = (response.value ?? []).map((r: any) => mapGrade(r));
     return {
@@ -127,8 +126,7 @@ export const getGrades = async (filters?: GradeFilters) => {
 };
 
 export const getGradeById = async (id: string): Promise<Grade> => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = await dataverseClient.get<any>(`${TABLE}(${id})?$select=${SELECT}`);
+    const r = await dataverseClient.get<DvList>(`${TABLE}(${id})?$select=${SELECT}`);
     return mapGrade(r);
 };
 
