@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         userrole: 1,
         schoolId: undefined,
       });
-      const res = NextResponse.json({ ok: true });
+      const res = NextResponse.json({ ok: true, userrole: 1 });
       res.cookies.set(SESSION_COOKIE, token, COOKIE_OPTS);
       return res;
     }
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
           userrole: dbUser.userrole,
           schoolId: dbUser.schoolid ?? undefined,
         });
-        const res = NextResponse.json({ ok: true });
+        const res = NextResponse.json({ ok: true, userrole: dbUser.userrole });
         res.cookies.set(SESSION_COOKIE, token, COOKIE_OPTS);
         return res;
       }

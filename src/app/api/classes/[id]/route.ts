@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getClassById, updateClass, deleteClass } from '@/lib/dataverse/classes';
 import { serverError, withSchool } from '@/lib/api-guard';
 
@@ -10,16 +11,11 @@ export async function GET(
         try {
             const { id } = await params;
             const classData = await getClassById(id);
-
-            if (!classData) {
-                return NextResponse.json(
-                    { success: false, error: 'Class not found' },
-                    { status: 404 }
-                );
-            }
-
             return NextResponse.json({ success: true, data: classData });
         } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Class not found' }, { status: 404 });
+            }
             return serverError(error);
         }
     });
@@ -41,6 +37,9 @@ export async function PUT(
                 message: 'Class updated successfully'
             });
         } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Class not found' }, { status: 404 });
+            }
             return serverError(error);
         }
     });
@@ -60,6 +59,9 @@ export async function DELETE(
                 message: 'Class deleted successfully'
             });
         } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Class not found' }, { status: 404 });
+            }
             return serverError(error);
         }
     });

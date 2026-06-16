@@ -119,6 +119,7 @@ export const getTeacherById = async (id: string): Promise<Teacher> => {
 
 export const createTeacher = async (data: CreateTeacherRequest) => {
     const payload: Record<string, unknown> = {
+        sms_name:           `${data.firstname} ${data.lastname}`.trim(),
         sms_firstname:      data.firstname,
         sms_lastname:       data.lastname,
         sms_gender:         data.gender,
@@ -139,6 +140,10 @@ export const updateTeacher = async (id: string, data: Partial<CreateTeacherReque
     const payload: Record<string, unknown> = {};
     if (data.firstname      !== undefined) payload.sms_firstname      = data.firstname;
     if (data.lastname       !== undefined) payload.sms_lastname       = data.lastname;
+    if (data.firstname !== undefined || data.lastname !== undefined) {
+        const existing = await getTeacherById(id);
+        payload.sms_name = `${data.firstname ?? existing.firstname} ${data.lastname ?? existing.lastname}`.trim();
+    }
     if (data.dateofbirth    !== undefined) payload.sms_dateofbirth    = data.dateofbirth;
     if (data.gender         !== undefined) payload.sms_gender         = data.gender;
     if (data.email          !== undefined) payload.sms_email          = data.email;

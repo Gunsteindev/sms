@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { z } from 'zod';
 import { getBranchById, updateBranch, deleteBranch, setMainBranch } from '@/lib/dataverse/school';
 import { parseBody, serverError } from '@/lib/api-guard';
@@ -20,6 +21,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         const data = await getBranchById(id);
         return NextResponse.json({ success: true, data });
     } catch (error) {
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+            return NextResponse.json({ success: false, error: 'Branch not found' }, { status: 404 });
+        }
         return serverError(error);
     }
 }

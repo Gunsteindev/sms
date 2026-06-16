@@ -109,8 +109,8 @@ export const updateScholarship = async (id: string, data: Partial<CreateScholars
     if (data.percentage      !== undefined) payload.sms_percentage  = data.percentage;
     if (data.startdate       !== undefined) payload.sms_startdate   = data.startdate;
     if (data.enddate         !== undefined) payload.sms_enddate     = data.enddate;
-    if (data.studentid       !== undefined) payload['sms_student@odata.bind']      = `/sms_students(${data.studentid})`;
-    if (data.academicyearid  !== undefined) payload['sms_academicyear@odata.bind'] = `/sms_academicyears(${data.academicyearid})`;
+    if (data.studentid       !== undefined) payload['sms_student@odata.bind']      = data.studentid      ? `/sms_students(${data.studentid})`           : null;
+    if (data.academicyearid  !== undefined) payload['sms_academicyear@odata.bind'] = data.academicyearid ? `/sms_academicyears(${data.academicyearid})` : null;
     await dataverseClient.patch(`${TABLE}(${id})`, payload);
     return getScholarshipById(id);
 };

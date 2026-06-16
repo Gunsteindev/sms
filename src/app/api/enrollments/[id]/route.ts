@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getEnrollmentById, updateEnrollment, deleteEnrollment } from '@/lib/dataverse/enrollments';
 import { serverError, withSchool } from '@/lib/api-guard';
 
@@ -7,7 +8,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         try {
             const { id } = await params;
             return NextResponse.json({ success: true, data: await getEnrollmentById(id) });
-        } catch (error) { return serverError(error); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Enrollment not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }
 
@@ -16,7 +22,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         try {
             const { id } = await params;
             return NextResponse.json({ success: true, data: await updateEnrollment(id, await request.json()) });
-        } catch (error) { return serverError(error); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Enrollment not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }
 
@@ -26,6 +37,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
             const { id } = await params;
             await deleteEnrollment(id);
             return NextResponse.json({ success: true });
-        } catch (error) { return serverError(error); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Enrollment not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }

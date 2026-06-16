@@ -72,6 +72,7 @@ export const getParentById = async (id: string): Promise<Parent> => {
 
 export const createParent = async (data: CreateParentRequest) => {
     const payload: Record<string, unknown> = {
+        sms_name:      `${data.firstname} ${data.lastname}`.trim(),
         sms_firstname: data.firstname,
         sms_lastname:  data.lastname,
     };
@@ -88,6 +89,10 @@ export const updateParent = async (id: string, data: Partial<CreateParentRequest
     const payload: Record<string, unknown> = {};
     if (data.firstname    !== undefined) payload.sms_firstname    = data.firstname;
     if (data.lastname     !== undefined) payload.sms_lastname     = data.lastname;
+    if (data.firstname !== undefined || data.lastname !== undefined) {
+        const existing = await getParentById(id);
+        payload.sms_name = `${data.firstname ?? existing.firstname} ${data.lastname ?? existing.lastname}`.trim();
+    }
     if (data.email        !== undefined) payload.sms_email        = data.email;
     if (data.phone        !== undefined) payload.sms_phone        = data.phone;
     if (data.relationship !== undefined) payload.sms_relationship = data.relationship;

@@ -52,14 +52,16 @@ export const getGradeLevelById = async (id: string): Promise<GradeLevel> => {
     return mapGradeLevel(r);
 };
 
-export const createGradeLevel = async (data: CreateGradeLevelRequest) => {
+export const createGradeLevel = async (data: CreateGradeLevelRequest): Promise<GradeLevel> => {
     const payload: Record<string, unknown> = {
         sms_name:        data.name,
         sms_ordernumber: data.ordernumber,
     };
     if (data.code)        payload.sms_code        = data.code;
     if (data.description) payload.sms_description = data.description;
-    return dataverseClient.post(TABLE, payload);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await dataverseClient.post<any>(TABLE, payload);
+    return mapGradeLevel(result);
 };
 
 export const updateGradeLevel = async (id: string, data: Partial<CreateGradeLevelRequest>) => {

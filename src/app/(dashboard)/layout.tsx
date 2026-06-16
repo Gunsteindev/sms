@@ -61,7 +61,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (status === 'unauthenticated') {
       router.replace('/auth/login');
     }
-  }, [status, router]);
+    // Parents use the standalone /parent portal, never the admin dashboard shell
+    if (status === 'authenticated' && sessionData?.user?.userrole === 7) {
+      router.replace('/parent');
+    }
+  }, [status, sessionData, router]);
 
   if (status === 'loading') {
     return (

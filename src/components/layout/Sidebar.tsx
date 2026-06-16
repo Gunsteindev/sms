@@ -10,7 +10,7 @@ import {
   GraduationCap, CalendarRange, Layers, Award, BookOpenCheck, TrendingUp,
   ChevronLeft, ChevronRight, HeartPulse, ShieldAlert, UserPlus, Medal,
   School, Home, UserCog, Package, ShoppingCart, CalendarOff,
-  Megaphone, Bus, Trophy, Bell, Waves, UtensilsCrossed,
+  Megaphone, Bus, Trophy, Waves, UtensilsCrossed, CreditCard, MessageSquare,
 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { useSession } from '@/contexts/AuthContext';
@@ -23,7 +23,6 @@ const FINANCE   = 3;
 const INVENTORY = 4;
 const TRANSPORT = 5;
 const POOL      = 6;
-const PARENT    = 7;
 const KITCHEN   = 8;
 
 export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
@@ -96,6 +95,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
         { href: '/procurement',            label: t.nav.procurement  ?? 'Procurement',            icon: ShoppingCart, roles: [ADMIN, FINANCE],               module: 'procurement'   },
         { href: '/staff-leave',            label: t.nav.staffLeave   ?? 'Staff Leave',            icon: CalendarOff,  roles: [ADMIN],                        module: 'staff-leave'   },
         { href: '/announcements',          label: t.nav.announcements ?? 'Announcements',         icon: Megaphone,    roles: [ADMIN, TEACHER, FINANCE],      module: 'announcements' },
+        { href: '/feedback',               label: t.nav.feedback ?? 'Parent Feedback',            icon: MessageSquare, roles: [ADMIN] },
         { href: '/transport',              label: t.nav.transport    ?? 'Transport & Fleet',      icon: Bus,          roles: [ADMIN, TRANSPORT],             module: 'transport'     },
         { href: '/activities',             label: t.nav.activities   ?? 'Activities',             icon: Trophy,       roles: [ADMIN, TEACHER],               module: 'activities'    },
         { href: '/reports',                label: t.nav.reports,                      icon: BarChart3, exact: true, roles: [ADMIN, TEACHER, FINANCE],       module: 'reports'       },
@@ -107,8 +107,9 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       label: t.nav.finance,
       roles: [ADMIN, FINANCE],
       items: [
-        { href: '/fees',                 label: t.nav.fees,         icon: DollarSign, module: 'fees'         },
-        { href: '/finance/scholarships', label: t.nav.scholarships, icon: Award,      module: 'scholarships' },
+        { href: '/fees',                 label: t.nav.fees,                              icon: DollarSign, module: 'fees'         },
+        { href: '/finance/fee-payments', label: t.nav.feePayments ?? 'Fee Payments',     icon: CreditCard, module: 'fees'         },
+        { href: '/finance/scholarships', label: t.nav.scholarships,                      icon: Award,      module: 'scholarships' },
       ],
     },
     {
@@ -123,13 +124,6 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       roles: [ADMIN, KITCHEN],
       items: [
         { href: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, roles: [ADMIN, KITCHEN], module: 'kitchen' },
-      ],
-    },
-    {
-      label: t.nav.parentPortal ?? 'Parent Portal',
-      roles: [PARENT],
-      items: [
-        { href: '/portal', label: t.nav.portal ?? 'Notices & Updates', icon: Bell, roles: [PARENT] },
       ],
     },
     {

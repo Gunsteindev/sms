@@ -151,7 +151,7 @@ export default function ReportsPage() {
       const [statsRes, trendsRes, stuRes, clsRes]: any[] = await Promise.all([
         dashboardAPI.getStats(),
         attendanceAPI.getTrends(days),
-        studentsAPI.getAll(),
+        studentsAPI.getAll({ pageSize: 2000 }),
         classesAPI.getAll(),
       ]);
       setStats(statsRes.data ?? null);
@@ -161,7 +161,7 @@ export default function ReportsPage() {
     } catch { toast.error('Failed to load report data'); }
 
     const [fpRes, psRes, vRes, actRes] = await Promise.allSettled([
-      feePaymentsAPI.getAll(),
+      feePaymentsAPI.getAll({ pageSize: 5000 }),
       poolSessionsAPI.getAll(),
       transportAPI.getAll(),
       activitiesAPI.getAll(),

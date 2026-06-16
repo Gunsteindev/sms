@@ -199,6 +199,8 @@ export const createFeePayment = async (data: CreateFeePaymentRequest) => {
 
 export const updateFeePayment = async (id: string, data: Partial<CreateFeePaymentRequest>) => {
     const payload: Record<string, unknown> = {};
+    if (data.studentid     !== undefined) payload['sms_student@odata.bind'] = `/sms_students(${data.studentid})`;
+    if (data.feeid         !== undefined) payload['sms_fee@odata.bind']     = `/sms_fees(${data.feeid})`;
     if (data.amount        !== undefined) payload.sms_amount        = data.amount;
     if (data.paymentdate   !== undefined) payload.sms_paymentdate   = data.paymentdate;
     if (data.paymentmethod !== undefined) payload.sms_paymentmethod = data.paymentmethod;

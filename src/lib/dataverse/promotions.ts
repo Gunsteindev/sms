@@ -115,7 +115,7 @@ export const getPromotionById = async (id: string): Promise<Promotion> => {
     return mapPromotion(r);
 };
 
-export const createPromotion = async (data: CreatePromotionRequest) => {
+export const createPromotion = async (data: CreatePromotionRequest): Promise<Promotion> => {
     const payload: Record<string, unknown> = {
         sms_name:   `Promotion - ${new Date().toISOString().slice(0, 10)}`,
         sms_status: data.status,
@@ -128,7 +128,9 @@ export const createPromotion = async (data: CreatePromotionRequest) => {
     if (data.fromclassid)      payload['sms_fromclass@odata.bind']          = `/sms_classes(${data.fromclassid})`;
     if (data.toclassid)        payload['sms_toclass@odata.bind']            = `/sms_classes(${data.toclassid})`;
     if (data.academicyearid)   payload['sms_academicyear@odata.bind']       = `/sms_academicyears(${data.academicyearid})`;
-    return dataverseClient.post(TABLE, payload);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await dataverseClient.post<any>(TABLE, payload);
+    return mapPromotion(result);
 };
 
 export const updatePromotion = async (id: string, data: Partial<CreatePromotionRequest>) => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getStudentById, updateStudent, deleteStudent } from '@/lib/dataverse/students';
 import { serverError, withSchool } from '@/lib/api-guard';
 
@@ -10,16 +11,11 @@ export async function GET(
     try {
       const { id } = await params;
       const student = await getStudentById(id);
-
-      if (!student) {
-        return NextResponse.json(
-          { success: false, error: 'Student not found' },
-          { status: 404 }
-        );
-      }
-
       return NextResponse.json({ success: true, data: student });
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return NextResponse.json({ success: false, error: 'Student not found' }, { status: 404 });
+      }
       return serverError(error);
     }
   });
@@ -41,6 +37,9 @@ export async function PUT(
         message: 'Student updated successfully'
       });
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return NextResponse.json({ success: false, error: 'Student not found' }, { status: 404 });
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axErr = error as any;
       if (axErr?.response?.data) {
@@ -65,6 +64,9 @@ export async function DELETE(
         message: 'Student deleted successfully'
       });
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return NextResponse.json({ success: false, error: 'Student not found' }, { status: 404 });
+      }
       return serverError(error);
     }
   });

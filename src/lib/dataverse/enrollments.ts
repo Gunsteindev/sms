@@ -1,4 +1,5 @@
 import { dataverseClient, type DvList } from "./client";
+import { getStudentById } from "./students";
 
 const TABLE = 'sms_enrollments';
 // Fields: sms_enrollmentid, sms_name, sms_rollnumber, sms_enrollmentdate,
@@ -70,7 +71,9 @@ export const getEnrollmentById = async (id: string): Promise<Enrollment> => {
 };
 
 export const createEnrollment = async (data: CreateEnrollmentRequest) => {
+    const student = await getStudentById(data.studentid);
     const payload: Record<string, unknown> = {
+        sms_name:                      student.fullname,
         'sms_student@odata.bind':      `/sms_students(${data.studentid})`,
         'sms_class@odata.bind':        `/sms_classes(${data.classid})`,
         'sms_academicyear@odata.bind': `/sms_academicyears(${data.academicyearid})`,
@@ -86,7 +89,10 @@ export const updateEnrollment = async (id: string, data: Partial<CreateEnrollmen
     if (data.enrollmentdate   !== undefined) payload.sms_enrollmentdate   = data.enrollmentdate;
     if (data.enrollmentstatus !== undefined) payload.sms_enrollmentstatus = data.enrollmentstatus;
     if (data.rollnumber       !== undefined) payload.sms_rollnumber       = data.rollnumber;
-    if (data.studentid        !== undefined) payload['sms_student@odata.bind']      = `/sms_students(${data.studentid})`;
+    if (data.studentid        !== undefined) {
+        payload['sms_student@odata.bind'] = `/sms_students(${data.studentid})`;
+        payload.sms_name = (await getStudentById(data.studentid)).fullname;
+    }
     if (data.classid          !== undefined) payload['sms_class@odata.bind']        = `/sms_classes(${data.classid})`;
     if (data.academicyearid   !== undefined) payload['sms_academicyear@odata.bind'] = `/sms_academicyears(${data.academicyearid})`;
     await dataverseClient.patch(`${TABLE}(${id})`, payload);

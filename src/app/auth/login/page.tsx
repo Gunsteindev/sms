@@ -29,8 +29,10 @@ export default function LoginPage() {
       body: JSON.stringify({ email, password }),
     });
     setLoading(false);
-    if (!res.ok) setError('Invalid email or password. Please try again.');
-    else window.location.replace('/dashboard');
+    if (!res.ok) { setError('Invalid email or password. Please try again.'); return; }
+    const json = await res.json().catch(() => ({}));
+    // Parents (role 7) get their own portal; everyone else goes to the admin dashboard
+    window.location.replace(json?.userrole === 7 ? '/parent' : '/dashboard');
   };
 
   return (

@@ -98,6 +98,10 @@ const ROLE_ACCESS: { path: string; roles: number[] }[] = [
     { path: '/announcements',      roles: [ADMIN, TEACHER, FINANCE] },
     { path: '/api/announcements',  roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, PARENT] },
 
+    // Parent feedback — admin reviews & responds (parents submit via /api/portal/feedback)
+    { path: '/feedback',           roles: [ADMIN] },
+    { path: '/api/feedback',       roles: [ADMIN] },
+
     // Transport
     { path: '/transport',          roles: [ADMIN, TRANSPORT] },
     { path: '/api/transport',      roles: [ADMIN, TRANSPORT] },
@@ -114,9 +118,13 @@ const ROLE_ACCESS: { path: string; roles: number[] }[] = [
     { path: '/activities',         roles: [ADMIN, TEACHER] },
     { path: '/api/activities',     roles: [ADMIN, TEACHER] },
 
-    // Parent Portal
+    // Parent Portal (standalone parent-facing experience)
+    { path: '/parent',             roles: [ADMIN, PARENT] },
     { path: '/portal',             roles: [ADMIN, PARENT] },
     { path: '/api/portal',         roles: [ADMIN, PARENT] },
+
+    // School profile (read) — needed by every role for branding (logo/name)
+    { path: '/api/school',         roles: [ADMIN, TEACHER, FINANCE, INVENTORY, TRANSPORT, POOL, KITCHEN, PARENT] },
 ];
 
 function isPublic(pathname: string) {
@@ -153,13 +161,19 @@ export async function proxy(request: NextRequest) {
     }
     // Allow admins to visit /onboarding at any time (to switch school or add a new one)
 
+    // The old in-dashboard /portal moved to the standalone /parent experience
+    if (pathname === '/portal' || pathname.startsWith('/portal/')) {
+        return NextResponse.redirect(new URL('/parent', request.url));
+    }
+
     // Role check
     const allowedRoles = getAllowedRoles(pathname);
     if (allowedRoles !== null && !allowedRoles.includes(user.userrole)) {
         if (pathname.startsWith('/api/')) {
             return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
         }
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        // Parents have their own home; everyone else falls back to the dashboard
+        return NextResponse.redirect(new URL(user.userrole === PARENT ? '/parent' : '/dashboard', request.url));
     }
 
     // Inject school context header for route handlers
@@ -198,9 +212,13 @@ export const config = {
         '/procurement/:path*',
         '/staff-leave/:path*',
         '/announcements/:path*',
+        '/feedback',
+        '/feedback/:path*',
         '/transport/:path*',
         '/activities/:path*',
         '/portal/:path*',
+        '/parent',
+        '/parent/:path*',
         '/pool/:path*',
         '/kitchen',
         '/kitchen/:path*',

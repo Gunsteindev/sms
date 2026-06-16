@@ -49,7 +49,7 @@ export default function ReportCardSelectorPage() {
     useEffect(() => {
         if (!selClass) { setStudents([]); setSelStudent(''); return; }
         setLoading(true);
-        studentsAPI.getAll({ classid: selClass }).then((r: any) => {
+        studentsAPI.getAll({ classid: selClass, pageSize: 1000 }).then((r: any) => {
             setStudents(r.data ?? []);
         }).finally(() => setLoading(false));
     }, [selClass]);

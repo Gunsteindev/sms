@@ -57,14 +57,16 @@ export const getTermById = async (id: string): Promise<Term> => {
     return mapTerm(r);
 };
 
-export const createTerm = async (data: CreateTermRequest) => {
+export const createTerm = async (data: CreateTermRequest): Promise<Term> => {
     const payload: Record<string, unknown> = {
         sms_name:      data.name,
         sms_startdate: data.startdate,
         sms_enddate:   data.enddate,
     };
     if (data.academicyearid) payload['sms_academicyear@odata.bind'] = `/sms_academicyears(${data.academicyearid})`;
-    return dataverseClient.post(TABLE, payload);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await dataverseClient.post<any>(TABLE, payload);
+    return mapTerm(result);
 };
 
 export const updateTerm = async (id: string, data: Partial<CreateTermRequest>) => {

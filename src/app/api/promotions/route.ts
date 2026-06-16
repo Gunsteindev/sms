@@ -10,13 +10,8 @@ export async function GET(request: NextRequest) {
             const fromgradelevelid = p.get('fromgradelevelid') || undefined;
             const studentid        = p.get('studentid')        || undefined;
 
-            try {
-                const result = await getPromotions({ academicyearid, fromgradelevelid, studentid });
-                return NextResponse.json({ success: true, data: result.items, totalCount: result.totalCount });
-            } catch {
-                // Table may not exist yet — return empty list rather than a 500
-                return NextResponse.json({ success: true, data: [], totalCount: 0 });
-            }
+            const result = await getPromotions({ academicyearid, fromgradelevelid, studentid });
+            return NextResponse.json({ success: true, data: result.items, totalCount: result.totalCount });
         } catch (error: unknown) {
             return serverError(error);
         }

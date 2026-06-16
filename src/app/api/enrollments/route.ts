@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getEnrollments, createEnrollment } from '@/lib/dataverse/enrollments';
-import { serverError, withSchool } from '@/lib/api-guard';
+import { parseBody, serverError, withSchool } from '@/lib/api-guard';
+
+const createSchema = z.object({
+    studentid:        z.string().min(1),
+    classid:          z.string().min(1),
+    academicyearid:   z.string().min(1),
+    enrollmentdate:   z.string().min(1),
+    rollnumber:       z.string().optional(),
+    enrollmentstatus: z.number().optional(),
+});
 
 export async function GET(request: NextRequest) {
     return withSchool(request, async () => {
@@ -17,10 +27,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     return withSchool(request, async () => {
         try {
-            const body = await request.json();
-            if (!body.studentid || !body.classid || !body.academicyearid || !body.enrollmentdate)
-                return NextResponse.json({ success: false, error: 'studentid, classid, academicyearid, enrollmentdate are required' }, { status: 400 });
-            const data = await createEnrollment(body);
+            const parsed = await parseBody(request, createSchema);
+            if ('response' in parsed) return parsed.response;
+            const data = await createEnrollment(parsed.data);
             return NextResponse.json({ success: true, data }, { status: 201 });
         } catch (error) {
             return serverError(error);

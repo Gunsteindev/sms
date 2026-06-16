@@ -51,6 +51,15 @@ function aggregateLabel(agg: number): string {
   return 'Below Average';
 }
 
+// Map a class's grade level to the national exam it sits: JHS → BECE, SHS → WASSCE.
+// Primary (and any other) levels sit neither and are excluded from both tabs.
+function classExamLevel(gradelevelname?: string): 'bece' | 'wassce' | null {
+  const g = (gradelevelname ?? '').toUpperCase();
+  if (g.includes('JHS') || g.includes('JUNIOR')) return 'bece';
+  if (g.includes('SHS') || g.includes('SENIOR')) return 'wassce';
+  return null;
+}
+
 interface SubjectScore {
   subjectname: string;
   score: number | null;
@@ -101,32 +110,41 @@ export default function NationalExamsPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r: any = await gradesAPI.getAll({ classid: classId, termid: termId });
-      const grades: { studentid: string; studentname: string; subjectname: string; finalscore: number | null }[] =
+      // Raw assessment rows — a student may have several rows per subject (e.g. classwork,
+      // homework, mid-term). Keep subjectid so they can be collapsed into one final per subject.
+      const rows: { studentid: string; studentname: string; subjectid: string; subjectname: string; score: number | null }[] =
         (r.data ?? []).map((g: any) => ({
           studentid:   g.studentid   ?? g._sms_student_value ?? '',
           studentname: g.studentname ?? '',
+          subjectid:   g.subjectid   ?? g.subjectname ?? '',
           subjectname: g.subjectname ?? '',
-          finalscore:  g.finalscore  ?? g.score ?? null,
+          score:       g.finalscore  ?? g.score ?? null,
         }));
 
-      // Group by student
-      const studentMap = new Map<string, StudentResult>();
-      for (const g of grades) {
+      // Group by student → by subject, so each subject contributes a single final score (the
+      // average of its assessment rows), mirroring how the report card derives one result per
+      // subject rather than one per assessment.
+      const studentMap = new Map<string, { studentid: string; studentname: string; subjects: Map<string, { subjectname: string; scores: number[] }> }>();
+      for (const g of rows) {
         if (!studentMap.has(g.studentid)) {
-          studentMap.set(g.studentid, { studentid: g.studentid, studentname: g.studentname, scores: [], best6Points: 0, totalSubs: 0 });
+          studentMap.set(g.studentid, { studentid: g.studentid, studentname: g.studentname, subjects: new Map() });
         }
-        const entry = studentMap.get(g.studentid)!;
-        const point = gradeToAggregate(g.finalscore);
-        const gr    = scoreToGrade(g.finalscore);
-        entry.scores.push({ subjectname: g.subjectname, score: g.finalscore, grade: gr.label, point });
+        const subjects = studentMap.get(g.studentid)!.subjects;
+        if (!subjects.has(g.subjectid)) subjects.set(g.subjectid, { subjectname: g.subjectname, scores: [] });
+        if (g.score !== null) subjects.get(g.subjectid)!.scores.push(g.score);
       }
 
-      // Calculate best 6 aggregate (BECE style: sum of lowest 6 point values = best grades)
+      // One SubjectScore per subject (averaged), then best-6 aggregate (lowest 6 point values)
       const processed: StudentResult[] = Array.from(studentMap.values()).map(s => {
-        const sorted    = [...s.scores].sort((a, b) => a.point - b.point);
-        const best6     = sorted.slice(0, 6);
-        const best6pts  = best6.reduce((sum, x) => sum + x.point, 0);
-        return { ...s, best6Points: best6pts, totalSubs: s.scores.length };
+        const scores: SubjectScore[] = Array.from(s.subjects.values()).map(sub => {
+          const avg = sub.scores.length
+            ? Math.round((sub.scores.reduce((a, b) => a + b, 0) / sub.scores.length) * 10) / 10
+            : null;
+          return { subjectname: sub.subjectname, score: avg, grade: scoreToGrade(avg).label, point: gradeToAggregate(avg) };
+        });
+        const sorted   = [...scores].sort((a, b) => a.point - b.point);
+        const best6pts = sorted.slice(0, 6).reduce((sum, x) => sum + x.point, 0);
+        return { studentid: s.studentid, studentname: s.studentname, scores, best6Points: best6pts, totalSubs: scores.length };
       });
 
       // Rank by best6 aggregate (lower is better)
@@ -140,6 +158,13 @@ export default function NationalExamsPage() {
       setLoading(false);
     }
   };
+
+  // Classes relevant to the selected exam: BECE = JHS levels, WASSCE = SHS levels
+  const visibleClasses = useMemo(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    () => classes.filter((c: any) => classExamLevel(c.gradelevelname) === examType),
+    [classes, examType],
+  );
 
   const allSubjects = useMemo(() => {
     const names = new Set<string>();
@@ -169,14 +194,14 @@ export default function NationalExamsPage() {
           <button
             key={t}
             type="button"
-            onClick={() => setExamType(t)}
+            onClick={() => { setExamType(t); setClassId(''); setResults([]); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${examType === t ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
           >
             {t.toUpperCase()}
           </button>
         ))}
         <span className="flex items-center ml-2 text-xs text-slate-400 dark:text-slate-500">
-          {examType === 'bece' ? 'JHS 3 — Basic Education Certificate' : 'SHS 3 — West Africa Senior Secondary Certificate'}
+          {examType === 'bece' ? 'Junior High (JHS) — Basic Education Certificate' : 'Senior High (SHS) — West Africa Senior School Certificate'}
         </span>
       </div>
 
@@ -207,7 +232,9 @@ export default function NationalExamsPage() {
             <SelectRoot value={classId} onValueChange={v => setClassId(v ?? '')}>
               <SelectTrigger className={ST}><SelectValue>{classId ? (classes.find((c: any) => c.classid === classId)?.classname ?? classes.find((c: any) => c.classid === classId)?.name ?? 'Class') : 'Select Class'}</SelectValue></SelectTrigger>
               <SelectContent>
-                {classes.map((c: any) => <SelectItem key={c.classid} value={c.classid}>{c.classname ?? c.name}</SelectItem>)}
+                {visibleClasses.length === 0
+                  ? <div className="px-3 py-2 text-xs text-slate-400">No {examType === 'bece' ? 'JHS' : 'SHS'} classes found</div>
+                  : visibleClasses.map((c: any) => <SelectItem key={c.classid} value={c.classid}>{c.classname ?? c.name}</SelectItem>)}
               </SelectContent>
             </SelectRoot>
           </div>

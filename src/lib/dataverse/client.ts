@@ -120,10 +120,14 @@ class DataverseClient {
         return response.data;
     }
 
-    // Generic PATCH method (for updates)
+    // Generic PATCH method (for updates). If-Match: '*' prevents Dataverse's
+    // OData upsert behavior, which would otherwise silently create a new
+    // record (at the given id) if it doesn't already exist.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async patch<T>(endpoint: string, data: any): Promise<T> {
-        const response = await this.client.patch<T>(endpoint, data);
+        const response = await this.client.patch<T>(endpoint, data, {
+            headers: { 'If-Match': '*' },
+        });
         return response.data;
     }
 

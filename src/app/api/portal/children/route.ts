@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
         try {
             const parent = await getParentByEmail(session.email);
             if (!parent) {
-                return NextResponse.json({ success: true, data: [], parentFound: false });
+                return NextResponse.json({ success: true, data: [], parentFound: false, parentName: '' });
             }
             const links = await getParentStudents(parent.parentid);
             const data = links.map(l => ({
@@ -19,7 +19,13 @@ export async function GET(request: NextRequest) {
                 studentname: l.studentname,
                 isprimary:   l.isprimary,
             }));
-            return NextResponse.json({ success: true, data, parentFound: true, parentid: parent.parentid });
+            return NextResponse.json({
+                success: true,
+                data,
+                parentFound: true,
+                parentid: parent.parentid,
+                parentName: parent.fullname || `${parent.firstname} ${parent.lastname}`.trim(),
+            });
         } catch (error) {
             return serverError(error);
         }

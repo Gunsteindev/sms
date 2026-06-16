@@ -93,7 +93,7 @@ const LVL_REV:  Record<SchoolLevel, number> = { primary: 1, jhs: 2, shs: 3, inte
 const SCHOOL_TABLE = 'sms_schools';
 const BRANCH_TABLE = 'sms_schoolbranchs';
 
-const SCHOOL_SELECT = 'sms_schoolid,sms_name,sms_motto,sms_type,sms_level,sms_address,sms_phone,sms_email,sms_currency,sms_website,sms_emiscode,sms_district,sms_region,sms_logo,sms_enabledmodule';
+const SCHOOL_SELECT = 'sms_schoolid,sms_name,sms_motto,sms_type,sms_level,sms_address,sms_phone,sms_email,sms_currency,sms_website,sms_emiscode,sms_district,sms_region,sms_logo,sms_enabledmodule,sms_primarycolor,sms_sidebarcolor';
 const BRANCH_SELECT = 'sms_schoolbranchid,sms_name,sms_address,sms_district,sms_region,sms_phone,sms_email,sms_ismain,_sms_school_value';
 
 /* ── Mappers ────────────────────────────────────────────────────────────── */
@@ -119,8 +119,8 @@ function mapSchool(item: any): SchoolProfile {
         district:       item.sms_district ?? '',
         region:         item.sms_region   ?? '',
         logo:           item.sms_logo ?? '',
-        primarycolor:   '',
-        sidebarcolor:   '',
+        primarycolor:   item.sms_primarycolor ?? '',
+        sidebarcolor:   item.sms_sidebarcolor ?? '',
         enabledmodules,
     };
 }
@@ -155,6 +155,8 @@ function buildSchoolPayload(data: Partial<UpsertSchoolRequest>): Record<string, 
     if (data.district !== undefined) p.sms_district = data.district;
     if (data.region   !== undefined) p.sms_region   = data.region;
     if (data.logo            !== undefined) p.sms_logo            = data.logo;
+    if (data.primarycolor    !== undefined) p.sms_primarycolor    = data.primarycolor;
+    if (data.sidebarcolor    !== undefined) p.sms_sidebarcolor    = data.sidebarcolor;
     if (data.enabledmodules  !== undefined) p.sms_enabledmodule  = JSON.stringify(data.enabledmodules);
     return p;
 }

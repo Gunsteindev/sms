@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, RefreshCw, Layers, GripVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { useSchoolSettings, type ProgrammeTrack } from '@/contexts/SchoolSettingsContext';
+import { programmeTracksAPI } from '@/lib/api-client';
+import type { ProgrammeTrack } from '@/lib/dataverse/programmetracks';
 
 const COLORS = [
   { value: 'blue',    label: 'Blue',    bg: 'bg-blue-100    text-blue-700    dark:bg-blue-900/30    dark:text-blue-300'    },
@@ -30,14 +31,14 @@ const colorBg = (color: string) =>
   COLORS.find(c => c.value === color)?.bg ??
   'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
-const DEFAULT_TRACKS: ProgrammeTrack[] = [
-  { id: 'general-arts',    name: 'General Arts',    abbreviation: 'Arts',      description: 'Literature, History, Geography, Government, Economics',   color: 'blue'    },
-  { id: 'general-science', name: 'General Science', abbreviation: 'Science',   description: 'Physics, Chemistry, Biology, Elective Mathematics',        color: 'emerald' },
-  { id: 'business',        name: 'Business',        abbreviation: 'Business',  description: 'Accounting, Business Management, Economics',               color: 'amber'   },
-  { id: 'technical',       name: 'Technical',       abbreviation: 'Technical', description: 'Technical Drawing, Workshop Technology, Auto Mechanics',   color: 'orange'  },
-  { id: 'visual-arts',     name: 'Visual Arts',     abbreviation: 'Visual',    description: 'Graphic Design, Picture Making, Ceramics, Textiles',       color: 'purple'  },
-  { id: 'agriculture',     name: 'Agriculture',     abbreviation: 'Agric',     description: 'Crop Production, Animal Husbandry, Agribusiness',          color: 'green'   },
-  { id: 'home-economics',  name: 'Home Economics',  abbreviation: 'Home Eco',  description: 'Food & Nutrition, Textiles, Management in Living',         color: 'rose'    },
+const DEFAULT_TRACKS: { name: string; abbreviation: string; description: string; color: string }[] = [
+  { name: 'General Arts',    abbreviation: 'Arts',      description: 'Literature, History, Geography, Government, Economics',   color: 'blue'    },
+  { name: 'General Science', abbreviation: 'Science',   description: 'Physics, Chemistry, Biology, Elective Mathematics',        color: 'emerald' },
+  { name: 'Business',        abbreviation: 'Business',  description: 'Accounting, Business Management, Economics',               color: 'amber'   },
+  { name: 'Technical',       abbreviation: 'Technical', description: 'Technical Drawing, Workshop Technology, Auto Mechanics',   color: 'orange'  },
+  { name: 'Visual Arts',     abbreviation: 'Visual',    description: 'Graphic Design, Picture Making, Ceramics, Textiles',       color: 'purple'  },
+  { name: 'Agriculture',     abbreviation: 'Agric',     description: 'Crop Production, Animal Husbandry, Agribusiness',          color: 'green'   },
+  { name: 'Home Economics',  abbreviation: 'Home Eco',  description: 'Food & Nutrition, Textiles, Management in Living',         color: 'rose'    },
 ];
 
 const schema = z.object({
@@ -58,10 +59,11 @@ function F({ id, label, error, children }: { id: string; label: string; error?: 
   );
 }
 
-function TrackForm({ defaultValues, onSubmit, onCancel }: {
+function TrackForm({ defaultValues, onSubmit, onCancel, submitting }: {
   defaultValues?: Partial<FormData>;
   onSubmit: (d: FormData) => void;
   onCancel: () => void;
+  submitting: boolean;
 }) {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as never,
@@ -106,50 +108,90 @@ function TrackForm({ defaultValues, onSubmit, onCancel }: {
 
       <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save Track</Button>
+        <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save Track'}</Button>
       </div>
     </form>
   );
 }
 
 export default function ProgrammeTracksPage() {
-  const { programmeTracks, setProgrammeTracks } = useSchoolSettings();
+  const [tracks, setTracks]         = useState<ProgrammeTrack[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting]   = useState(false);
   const [modalOpen, setModalOpen]   = useState(false);
   const [editing, setEditing]       = useState<ProgrammeTrack | null>(null);
   const [toDelete, setToDelete]     = useState<string | null>(null);
   const [resetConfirm, setResetConfirm] = useState(false);
 
-  const handleSubmit = (data: FormData) => {
-    if (editing) {
-      setProgrammeTracks(programmeTracks.map(t =>
-        t.id === editing.id ? { ...t, ...data } : t
-      ));
-      toast.success('Track updated');
-    } else {
-      const newTrack: ProgrammeTrack = {
-        id:           `track-${Date.now()}`,
-        name:         data.name,
-        abbreviation: data.abbreviation,
-        description:  data.description ?? '',
-        color:        data.color,
-      };
-      setProgrammeTracks([...programmeTracks, newTrack]);
-      toast.success('Track added');
+  const loadTracks = async () => {
+    setLoading(true);
+    try {
+      const res = await programmeTracksAPI.getAll();
+      const data: ProgrammeTrack[] = res.data ?? [];
+      setTracks(data);
+      return data;
+    } catch {
+      toast.error('Failed to load programme tracks');
+      return [];
+    } finally {
+      setLoading(false);
     }
-    setModalOpen(false);
-    setEditing(null);
   };
 
-  const handleDelete = (id: string) => {
-    setProgrammeTracks(programmeTracks.filter(t => t.id !== id));
-    toast.success('Track removed');
-    setToDelete(null);
+  useEffect(() => { loadTracks(); }, []);
+
+  const handleSubmit = async (data: FormData) => {
+    setSubmitting(true);
+    try {
+      if (editing) {
+        const res = await programmeTracksAPI.update(editing.programmetrackid, data);
+        setTracks(tracks.map(t => t.programmetrackid === editing.programmetrackid ? res.data : t));
+        toast.success('Track updated');
+      } else {
+        const ordernumber = tracks.length ? Math.max(...tracks.map(t => t.ordernumber)) + 1 : 1;
+        const res = await programmeTracksAPI.create({ ...data, ordernumber });
+        setTracks([...tracks, res.data]);
+        toast.success('Track added');
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch {
+      toast.error('Failed to save track');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleReset = () => {
-    setProgrammeTracks(DEFAULT_TRACKS);
-    toast.success('Tracks reset to GES defaults');
-    setResetConfirm(false);
+  const handleDelete = async (id: string) => {
+    try {
+      await programmeTracksAPI.delete(id);
+      setTracks(tracks.filter(t => t.programmetrackid !== id));
+      toast.success('Track removed');
+    } catch {
+      toast.error('Failed to remove track');
+    } finally {
+      setToDelete(null);
+    }
+  };
+
+  const handleReset = async () => {
+    setResetting(true);
+    try {
+      const current = await loadTracks();
+      await Promise.all(current.map(t => programmeTracksAPI.delete(t.programmetrackid)));
+      const created = await Promise.all(
+        DEFAULT_TRACKS.map((t, index) => programmeTracksAPI.create({ ...t, ordernumber: index + 1 }))
+      );
+      setTracks(created.map(res => res.data));
+      toast.success('Tracks reset to GES defaults');
+    } catch {
+      toast.error('Failed to reset tracks');
+      await loadTracks();
+    } finally {
+      setResetting(false);
+      setResetConfirm(false);
+    }
   };
 
   const openEdit = (t: ProgrammeTrack) => { setEditing(t); setModalOpen(true); };
@@ -161,14 +203,14 @@ export default function ProgrammeTracksPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Programme Tracks</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {programmeTracks.length} track{programmeTracks.length !== 1 ? 's' : ''} · SHS programme categories
+            {tracks.length} track{tracks.length !== 1 ? 's' : ''} · SHS programme categories
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setResetConfirm(true)}>
+          <Button variant="outline" size="sm" onClick={() => setResetConfirm(true)} disabled={loading || resetting}>
             <RefreshCw className="h-4 w-4 mr-1.5" /> Reset to GES Defaults
           </Button>
-          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }} disabled={loading}>
             <Plus className="h-4 w-4 mr-1" /> Add Track
           </Button>
         </div>
@@ -184,7 +226,11 @@ export default function ProgrammeTracksPage() {
       </div>
 
       {/* Tracks grid */}
-      {programmeTracks.length === 0 ? (
+      {loading ? (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center py-24 text-slate-400">
+          <p className="text-sm">Loading…</p>
+        </div>
+      ) : tracks.length === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center justify-center py-24 text-slate-400">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
             <Layers className="h-7 w-7 opacity-50" />
@@ -194,9 +240,9 @@ export default function ProgrammeTracksPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {programmeTracks.map((track, index) => (
+          {tracks.map((track, index) => (
             <div
-              key={track.id}
+              key={track.programmetrackid}
               className="group relative rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
             >
               {/* Drag handle (decorative) */}
@@ -229,7 +275,7 @@ export default function ProgrammeTracksPage() {
                     className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                     <Pencil className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setToDelete(track.id)}
+                  <Button variant="ghost" size="icon" onClick={() => setToDelete(track.programmetrackid)}
                     className="h-7 w-7 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600">
                     <Trash2 className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                   </Button>
@@ -255,6 +301,7 @@ export default function ProgrammeTracksPage() {
             } : undefined}
             onSubmit={handleSubmit}
             onCancel={() => { setModalOpen(false); setEditing(null); }}
+            submitting={submitting}
           />
         </DialogContent>
       </Dialog>

@@ -93,5 +93,16 @@ export const medicalAPI = {
 
 export const portalAPI = {
     getChildren:   ()               => apiClient.get('/portal/children'),
-    getChildData:  (studentId: string) => apiClient.get(`/portal/children/${studentId}`),
+    getChildData:  (studentId: string, termId?: string) =>
+        apiClient.get(`/portal/children/${studentId}`, { params: termId ? { termId } : {} }),
+    getFeedback:   ()               => apiClient.get('/portal/feedback'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    submitFeedback: (data: any)     => apiClient.post('/portal/feedback', data),
+};
+
+// Admin-facing: view & respond to parent feedback
+export const feedbackAPI = {
+    getAll:  ()                          => apiClient.get('/feedback'),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:  (id: string, data: any)     => apiClient.put(`/feedback/${id}`, data),
 };

@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getExamResults, createExamResult } from '@/lib/dataverse/examresults';
-import { serverError, withSchool } from '@/lib/api-guard';
+import { parseBody, serverError, withSchool } from '@/lib/api-guard';
+
+const createSchema = z.object({
+    examid:    z.string().min(1),
+    studentid: z.string().min(1),
+    score:     z.number().min(0),
+    remarks:   z.string().optional(),
+});
 
 export async function GET(request: NextRequest) {
     return withSchool(request, async () => {
@@ -21,11 +29,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     return withSchool(request, async () => {
         try {
-            const body = await request.json();
-            if (!body.examid || !body.studentid || body.score === undefined) {
-                return NextResponse.json({ success: false, error: 'examid, studentid, and score are required' }, { status: 400 });
-            }
-            const data = await createExamResult(body);
+            const parsed = await parseBody(request, createSchema);
+            if ('response' in parsed) return parsed.response;
+            const data = await createExamResult(parsed.data);
             return NextResponse.json({ success: true, data, message: 'Exam result recorded' }, { status: 201 });
         } catch (error) {
             return serverError(error);

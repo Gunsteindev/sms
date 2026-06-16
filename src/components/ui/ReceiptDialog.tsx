@@ -105,7 +105,7 @@ export function ReceiptDialog({ open, onClose, data }: {
 
     return (
         <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
-            <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+            <DialogContent showCloseButton={false} className="sm:max-w-lg p-0 overflow-hidden">
                 {/* Toolbar */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
                     <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Payment Receipt</p>
