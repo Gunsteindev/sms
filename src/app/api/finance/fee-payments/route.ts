@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { getFeePayments, createFeePayment } from '@/lib/dataverse/fees';
 import { parseBody, serverError, withSchool } from '@/lib/api-guard';
 
+// Mobile Money (4) and Bank Transfer (2) require a transaction/reference number; Cash (1) does not.
+const REFERENCE_REQUIRED_METHODS = new Set([2, 4]);
+
 const paymentSchema = z.object({
     studentid:     z.string().min(1),
     feeid:         z.string().min(1),
@@ -12,7 +15,10 @@ const paymentSchema = z.object({
     paymentstatus: z.number().int().optional(),
     transactionid: z.string().optional(),
     receiptnumber: z.string().optional(),
-});
+}).refine(
+    d => !REFERENCE_REQUIRED_METHODS.has(d.paymentmethod) || !!d.transactionid?.trim(),
+    { path: ['transactionid'], message: 'Transaction/reference number is required for Mobile Money and Bank Transfer' },
+);
 
 export async function GET(request: NextRequest) {
     return withSchool(request, async () => {
