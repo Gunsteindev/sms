@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getSubjectById, updateSubject, deleteSubject } from '@/lib/dataverse/subjects';
 import { serverError, withSchool } from '@/lib/api-guard';
 
@@ -7,8 +8,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         try {
             const { id } = await params;
             return NextResponse.json({ success: true, data: await getSubjectById(id) });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) { return serverError(e); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Subject not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }
 
@@ -17,8 +22,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         try {
             const { id } = await params;
             return NextResponse.json({ success: true, data: await updateSubject(id, await request.json()) });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) { return serverError(e); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Subject not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }
 
@@ -28,7 +37,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
             const { id } = await params;
             await deleteSubject(id);
             return NextResponse.json({ success: true });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) { return serverError(e); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Subject not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }

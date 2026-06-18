@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -10,11 +10,13 @@ import {
   GraduationCap, CalendarRange, Layers, Award, BookOpenCheck, TrendingUp,
   ChevronLeft, ChevronRight, HeartPulse, ShieldAlert, UserPlus, Medal,
   School, Home, UserCog, Package, ShoppingCart, CalendarOff,
-  Megaphone, Bus, Trophy, Bell, Waves, UtensilsCrossed,
+  Megaphone, Bus, Trophy, Waves, UtensilsCrossed, CreditCard, MessageSquare,
 } from 'lucide-react';
 import { useI18n } from '@/contexts/I18nContext';
 import { useSession } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
+import { feedbackAPI } from '@/lib/api-client';
+import { roleHasModule } from '@/lib/modules';
 
 // Role constants — must match src/lib/dataverse/users.ts
 const ADMIN     = 1;
@@ -23,16 +25,35 @@ const FINANCE   = 3;
 const INVENTORY = 4;
 const TRANSPORT = 5;
 const POOL      = 6;
-const PARENT    = 7;
 const KITCHEN   = 8;
 
 export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const pathname = usePathname();
   const { t } = useI18n();
   const { data: session } = useSession();
-  const { school, enabledModules } = useBrand();
+  const { school, enabledModules, roleModuleAccess } = useBrand();
   const role        = session?.user?.userrole ?? ADMIN;
   const isSuperAdmin = session?.user?.userid === 'bootstrap';
+
+  // Count of new (Submitted) parent feedback — shown as a badge on the Feedback link (admins only).
+  // Re-fetches on the 'feedback:changed' event so it updates the moment an admin responds.
+  const [pendingFeedback, setPendingFeedback] = useState(0);
+  const isAdminUser = isSuperAdmin || role === ADMIN;
+  const refreshFeedbackCount = useCallback(() => {
+    if (!isAdminUser) { setPendingFeedback(0); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    feedbackAPI.getAll().then((res: any) => {
+      const items = res?.data ?? [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setPendingFeedback(items.filter((f: any) => f.status === 1).length);
+    }).catch(() => {/* not an admin / table missing — no badge */});
+  }, [isAdminUser]);
+
+  useEffect(() => {
+    refreshFeedbackCount();
+    window.addEventListener('feedback:changed', refreshFeedbackCount);
+    return () => window.removeEventListener('feedback:changed', refreshFeedbackCount);
+  }, [refreshFeedbackCount]);
 
   type NavItem = { href: string; label: string; icon: React.ElementType; exact?: boolean; roles?: number[]; module?: string };
   type Section = { label: string | null; items: NavItem[]; roles?: number[] };
@@ -96,6 +117,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
         { href: '/procurement',            label: t.nav.procurement  ?? 'Procurement',            icon: ShoppingCart, roles: [ADMIN, FINANCE],               module: 'procurement'   },
         { href: '/staff-leave',            label: t.nav.staffLeave   ?? 'Staff Leave',            icon: CalendarOff,  roles: [ADMIN],                        module: 'staff-leave'   },
         { href: '/announcements',          label: t.nav.announcements ?? 'Announcements',         icon: Megaphone,    roles: [ADMIN, TEACHER, FINANCE],      module: 'announcements' },
+        { href: '/feedback',               label: t.nav.feedback ?? 'Parent Feedback',            icon: MessageSquare, roles: [ADMIN] },
         { href: '/transport',              label: t.nav.transport    ?? 'Transport & Fleet',      icon: Bus,          roles: [ADMIN, TRANSPORT],             module: 'transport'     },
         { href: '/activities',             label: t.nav.activities   ?? 'Activities',             icon: Trophy,       roles: [ADMIN, TEACHER],               module: 'activities'    },
         { href: '/reports',                label: t.nav.reports,                      icon: BarChart3, exact: true, roles: [ADMIN, TEACHER, FINANCE],       module: 'reports'       },
@@ -107,8 +129,9 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       label: t.nav.finance,
       roles: [ADMIN, FINANCE],
       items: [
-        { href: '/fees',                 label: t.nav.fees,         icon: DollarSign, module: 'fees'         },
-        { href: '/finance/scholarships', label: t.nav.scholarships, icon: Award,      module: 'scholarships' },
+        { href: '/fees',                 label: t.nav.fees,                              icon: DollarSign, module: 'fees'         },
+        { href: '/finance/fee-payments', label: t.nav.feePayments ?? 'Fee Payments',     icon: CreditCard, module: 'fees'         },
+        { href: '/finance/scholarships', label: t.nav.scholarships,                      icon: Award,      module: 'scholarships' },
       ],
     },
     {
@@ -126,13 +149,6 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
       ],
     },
     {
-      label: t.nav.parentPortal ?? 'Parent Portal',
-      roles: [PARENT],
-      items: [
-        { href: '/portal', label: t.nav.portal ?? 'Notices & Updates', icon: Bell, roles: [PARENT] },
-      ],
-    },
-    {
       label: null,
       items: [
         { href: '/docs', label: t.nav.docs ?? 'Help & Docs', icon: BookOpen },
@@ -140,12 +156,23 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
     },
   ];
 
-  const canSeeSection = (section: Section) =>
-    isSuperAdmin || !section.roles || section.roles.includes(role);
+  // A module item is gated by the configurable role→module matrix; non-module items
+  // (dashboard, setup, feedback, docs) keep their static role list.
+  const canSeeItem = (item: NavItem) => {
+    // School-wide module toggle still applies first.
+    if (item.module && !enabledModules.includes(item.module)) return false;
+    if (isSuperAdmin) return true;
+    if (item.module) return roleHasModule(roleModuleAccess, role, item.module);
+    return !item.roles || item.roles.includes(role);
+  };
 
-  const canSeeItem = (item: NavItem) =>
-    (isSuperAdmin || !item.roles || item.roles.includes(role)) &&
-    (!item.module || enabledModules.includes(item.module));
+  // Sections made up purely of static (non-module) items keep their role gate; sections
+  // containing module items defer to per-item access so the matrix can fully drive them.
+  const canSeeSection = (section: Section) => {
+    if (isSuperAdmin) return true;
+    if (section.items.some(i => i.module)) return true;
+    return !section.roles || section.roles.includes(role);
+  };
 
   return (
     <aside
@@ -252,7 +279,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                       key={item.href}
                       href={item.href}
                       title={collapsed ? item.label : undefined}
-                      className={`group flex items-center rounded-lg py-2 text-sm font-medium transition-all duration-150 ${
+                      className={`group relative flex items-center rounded-lg py-2 text-sm font-medium transition-all duration-150 ${
                         collapsed ? 'justify-center px-0' : 'gap-3 px-3'
                       } ${
                         isActive
@@ -265,6 +292,15 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                         isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'
                       }`} />
                       {!collapsed && <span className="truncate">{item.label}</span>}
+                      {item.href === '/feedback' && pendingFeedback > 0 && (
+                        collapsed ? (
+                          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[color:var(--school-sidebar)]" />
+                        ) : (
+                          <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+                            {pendingFeedback}
+                          </span>
+                        )
+                      )}
                     </Link>
                   );
                 })}

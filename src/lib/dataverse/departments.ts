@@ -59,7 +59,9 @@ export const updateDepartment = async (id: string, data: Partial<CreateDepartmen
     const payload: Record<string, unknown> = {};
     if (data.name        !== undefined) payload.sms_name        = data.name;
     if (data.description !== undefined) payload.sms_description = data.description;
-    if (data.hodid       !== undefined) payload['sms_headofdepartment@odata.bind'] = `/sms_teachers(${data.hodid})`;
+    if (data.hodid !== undefined) {
+        payload['sms_headofdepartment@odata.bind'] = data.hodid ? `/sms_teachers(${data.hodid})` : null;
+    }
     await dataverseClient.patch(`${TABLE}(${id})`, payload);
     return getDepartmentById(id);
 };

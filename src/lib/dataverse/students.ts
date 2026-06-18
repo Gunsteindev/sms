@@ -73,6 +73,7 @@ const SELECT = [
 // List select — omits sms_profilepicture (~20 KB base64 per row) to keep list payloads small
 const LIST_SELECT = [
     'sms_studentid', 'sms_name', 'sms_firstname', 'sms_lastname',
+    'sms_dateofbirth', 'sms_enrollmentdate',
     'sms_gender', 'sms_email', 'sms_phone',
     'sms_studentstatus', 'sms_enrollmentstatus',
     'sms_specialneeds', 'sms_studentnumber',

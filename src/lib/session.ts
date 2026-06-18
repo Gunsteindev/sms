@@ -2,8 +2,15 @@ import { SignJWT, jwtVerify } from 'jose';
 
 export const SESSION_COOKIE = 'sms.session';
 
+const DEV_FALLBACK_SECRET = 'dev-fallback-change-in-prod';
+
 function getSecret() {
-  const raw = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? 'dev-fallback-change-in-prod';
+  const raw = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? DEV_FALLBACK_SECRET;
+  // Fail fast in production rather than signing/verifying tokens with a weak,
+  // publicly-known secret (which would let anyone forge admin sessions).
+  if (process.env.NODE_ENV === 'production' && (raw === DEV_FALLBACK_SECRET || raw.length < 32)) {
+    throw new Error('AUTH_SECRET (or NEXTAUTH_SECRET) must be set to a strong secret of at least 32 characters in production.');
+  }
   return new TextEncoder().encode(raw);
 }
 

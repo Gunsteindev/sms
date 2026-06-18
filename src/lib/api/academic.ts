@@ -73,6 +73,26 @@ export const gradeLevelsAPI = {
     delete:   (id: string)               => apiClient.delete(`/grade-levels/${id}`),
 };
 
+export const programmeTracksAPI = {
+    getAll:   (search?: string)          => apiClient.get('/programme-tracks', { params: { search } }),
+    getById:  (id: string)               => apiClient.get(`/programme-tracks/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:   (data: any)                => apiClient.post('/programme-tracks', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:   (id: string, data: any)    => apiClient.put(`/programme-tracks/${id}`, data),
+    delete:   (id: string)               => apiClient.delete(`/programme-tracks/${id}`),
+};
+
+export const housesAPI = {
+    getAll:   (search?: string)          => apiClient.get('/houses', { params: { search } }),
+    getById:  (id: string)               => apiClient.get(`/houses/${id}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    create:   (data: any)                => apiClient.post('/houses', data),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    update:   (id: string, data: any)    => apiClient.put(`/houses/${id}`, data),
+    delete:   (id: string)               => apiClient.delete(`/houses/${id}`),
+};
+
 export const examsAPI = {
     getAll:   ()                         => apiClient.get('/exams'),
     getById:  (id: string)               => apiClient.get(`/exams/${id}`),

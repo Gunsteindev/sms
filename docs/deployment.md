@@ -6,9 +6,9 @@ The app is a standard Next.js application. It can be deployed anywhere Node.js r
 
 ## Pre-Deployment Checklist
 
-- [ ] `npm run build` passes with zero TypeScript errors
+- [ ] `npm run lint` passes (no errors), `npm test` passes, and `npm run build` passes with zero TypeScript errors — all three run in CI (`.github/workflows/ci.yml`)
 - [ ] All required environment variables are set (see [Setup](./setup.md))
-- [ ] `AUTH_SECRET` is at least 32 random characters — generate with `openssl rand -base64 32`
+- [ ] `AUTH_SECRET` is at least 32 random characters — generate with `openssl rand -base64 32`. **Production throws at runtime if it is missing or weak.**
 - [ ] `ADMIN_PASSWORD` is strong (≥12 characters, mixed case, numbers, symbols)
 - [ ] Per-school admin passwords changed from the `School@2025` default
 - [ ] Azure AD app registration has correct permissions to Dataverse
@@ -119,6 +119,8 @@ Use [Let's Encrypt](https://letsencrypt.org/) (free) with Certbot for TLS certif
 The app is stateless — session state is stored in the JWT cookie, not server memory. Multiple instances can run behind a load balancer without sticky sessions.
 
 The only shared state is Dataverse. Dataverse handles concurrent connections natively.
+
+> **Caveat — login rate limiting is in-memory** (`src/lib/rate-limit.ts`), so limits are per-instance. For a multi-instance / serverless deployment, back it with a shared store (e.g. Redis/Upstash) so brute-force limits hold across instances.
 
 ### Dataverse API Limits
 

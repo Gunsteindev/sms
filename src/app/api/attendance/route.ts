@@ -8,7 +8,9 @@ const attendanceRecordSchema = z.object({
     date:      z.string().min(1),
     attendancestatus: z.number().int().min(1).max(4),
     classid:   z.string().optional(),
-    notes:     z.string().optional(),
+    subjectid: z.string().optional(),
+    checkintime: z.string().optional(),
+    remarks:   z.string().optional(),
 });
 
 const markSchema = z.object({

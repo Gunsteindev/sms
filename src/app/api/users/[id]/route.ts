@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { z } from 'zod';
 import { getUserById, updateUser, deleteUser } from '@/lib/dataverse/users';
 import { parseBody, serverError, withSchool } from '@/lib/api-guard';
@@ -19,6 +20,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             const data = await getUserById(id);
             return NextResponse.json({ success: true, data });
         } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+            }
             return serverError(error);
         }
     });
@@ -33,6 +37,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             const data = await updateUser(id, parsed.data);
             return NextResponse.json({ success: true, data });
         } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+            }
             return serverError(error);
         }
     });
@@ -45,6 +52,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             await deleteUser(id);
             return NextResponse.json({ success: true });
         } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+            }
             return serverError(error);
         }
     });

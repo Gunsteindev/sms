@@ -67,6 +67,12 @@ function toISO(t: string): string {
     return t.includes('T') ? t : `1970-01-01T${t}:00Z`;
 }
 
+function buildEntryName(dayofweek: number, periodnumber: number | null | undefined, starttime: string, endtime: string): string {
+    const day    = DAYS_OF_WEEK[dayofweek] ?? `Day ${dayofweek}`;
+    const period = periodnumber ? ` P${periodnumber}` : '';
+    return `${day}${period} (${extractTime(starttime)}-${extractTime(endtime)})`;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapEntry(item: any): TimetableEntry {
     return {
@@ -108,6 +114,7 @@ export const getTimetableEntryById = async (id: string): Promise<TimetableEntry>
 
 export const createTimetableEntry = async (data: CreateTimetableEntryRequest) => {
     const payload: Record<string, unknown> = {
+        sms_name:      buildEntryName(data.dayofweek, data.periodnumber, data.starttime, data.endtime),
         sms_dayofweek: data.dayofweek,
         sms_starttime: toISO(data.starttime),
         sms_endtime:   toISO(data.endtime),
@@ -128,6 +135,15 @@ export const updateTimetableEntry = async (id: string, data: Partial<CreateTimet
     if (data.endtime      !== undefined) payload.sms_endtime     = toISO(data.endtime);
     if (data.roomnumber   !== undefined) payload.sms_roomnumber  = data.roomnumber;
     if (data.periodnumber !== undefined) payload.sms_periodnumber = data.periodnumber;
+    if (data.dayofweek !== undefined || data.periodnumber !== undefined || data.starttime !== undefined || data.endtime !== undefined) {
+        const existing = await getTimetableEntryById(id);
+        payload.sms_name = buildEntryName(
+            data.dayofweek    ?? existing.dayofweek,
+            data.periodnumber !== undefined ? data.periodnumber : existing.periodnumber,
+            data.starttime    ?? existing.starttime,
+            data.endtime      ?? existing.endtime,
+        );
+    }
     if (data.classid   !== undefined)
         payload['sms_class@odata.bind']   = data.classid   ? `/sms_classes(${data.classid})`   : null;
     if (data.subjectid !== undefined)

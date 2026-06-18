@@ -220,7 +220,7 @@ export default function ScholarshipsPage() {
             const [schRes, ayRes, sRes]: any[] = await Promise.all([
                 scholarshipsAPI.getAll(),
                 academicYearsAPI.getAll(),
-                studentsAPI.getAll(),
+                studentsAPI.getAll({ pageSize: 1000 }),
             ]);
             setRows(schRes.data ?? []);
             setAcademicYears(ayRes.data ?? []);

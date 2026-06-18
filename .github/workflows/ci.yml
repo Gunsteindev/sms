@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [master, claude-edits]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholder secret so production-mode `next build` doesn't trip the
+      # AUTH_SECRET guard. Real secrets are configured in the deployment env.
+      AUTH_SECRET: ci-placeholder-secret-0123456789abcdef0123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint (fails on errors; warnings allowed)
+        run: npm run lint
+      - name: Unit tests (incl. cross-tenant isolation)
+        run: npm test
+      - name: Production build (typecheck + compile)
+        run: npm run build

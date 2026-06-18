@@ -5,16 +5,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Only non-secret build args — secrets are injected at runtime below.
       args:
         NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
     image: sms-app:latest
     container_name: sms-app
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      # ── NextAuth ─────────────────────────────────────────────────────────────
+      # ── Session auth ─────────────────────────────────────────────────────────
+      # AUTH_SECRET (or NEXTAUTH_SECRET) MUST be ≥32 chars — production throws otherwise.
+      # Generate with: openssl rand -base64 32
       NEXTAUTH_URL:        ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET:     ${NEXTAUTH_SECRET}
       AUTH_SECRET:         ${AUTH_SECRET}

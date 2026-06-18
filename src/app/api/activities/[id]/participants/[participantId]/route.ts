@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { deleteParticipant } from '@/lib/dataverse/activityParticipants';
 import { getActivityById, updateActivity } from '@/lib/dataverse/activities';
-import { serverError, withSchool, makeTableGuard } from '@/lib/api-guard';
+import { serverError, withSchool } from '@/lib/api-guard';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isTableMissing(error: any): boolean {
-    const msg: string = error?.response?.data?.error?.message ?? '';
-    return error?.response?.status === 404 && msg.includes('Resource not found for the segment');
+// Precise: a missing TABLE yields an OData "Resource not found for the segment" error.
+// A missing RECORD also 404s, so distinguish — only the segment error means table-missing.
+function isTableMissing(error: unknown): boolean {
+    if (!axios.isAxiosError(error) || error.response?.status !== 404) return false;
+    const msg: string = error.response?.data?.error?.message ?? '';
+    return msg.includes('Resource not found for the segment');
 }
 
 export async function DELETE(
@@ -25,6 +28,9 @@ export async function DELETE(
         } catch (error) {
             if (isTableMissing(error)) {
                 return NextResponse.json({ success: false, error: 'Table not configured', setup_required: true }, { status: 503 });
+            }
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Participant not found' }, { status: 404 });
             }
             return serverError(error);
         }

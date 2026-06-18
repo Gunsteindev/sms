@@ -9,9 +9,9 @@ import {
   BookOpen, FileText, ClipboardList, Calendar, BookOpenCheck,
   HeartPulse, ShieldAlert,
   Building2, Library, Package, ShoppingCart, CalendarOff,
-  Megaphone, Bus, Trophy, BarChart3, Medal,
+  Megaphone, Bus, Trophy, BarChart3, Medal, MessageSquare,
   Award, Waves, Bell, Lightbulb, SwitchCamera, Settings, UserRound,
-  LayoutGrid, ArrowRight, CheckCircle2,
+  ArrowRight, CheckCircle2,
 } from 'lucide-react';
 
 /* ── Role badge colours ────────────────────────────────────────────────────── */
@@ -224,15 +224,17 @@ const sections: Section[] = [
         icon: UserCog,
         name: 'User Management',
         roles: ['Admin'],
-        description: 'Create system user accounts, assign roles, reset passwords, and manage login access for all staff. Roles control which modules each user can see and interact with.',
+        description: 'Create system user accounts, assign roles, reset passwords, and manage login access for all staff. Has two tabs: Users (the account list) and Module Access (super admin only). Roles control which modules each user can see and interact with.',
         actions: [
           'Create a new user account with email and temporary password',
           'Assign a role: Admin, Teacher, Finance, Inventory, Transport, Pool, Parent, or Kitchen',
-          'Edit user details or change their role',
-          'Deactivate accounts for departing staff',
+          'Edit user details, change a role, or activate/deactivate an account',
+          'Open the Module Access tab to grant each role specific modules (super admin)',
+          'Toggle one module, a whole role, or a whole module column — or Reset to defaults',
         ],
         tips: [
           'Parent accounts should be created here and then linked to the student record from the student\'s detail page.',
+          'Module Access (super admin only) sets per-role module visibility, saved per school. Changes apply to the sidebar and routes immediately, and layer on top of the school-wide module toggles from onboarding.',
         ],
       },
     ],
@@ -560,6 +562,22 @@ const sections: Section[] = [
         ],
       },
       {
+        href: '/feedback',
+        icon: MessageSquare,
+        name: 'Parent Feedback',
+        roles: ['Admin'],
+        description: 'Review feedback, complaints, suggestions, and questions that parents submit through the Parent Portal, and reply to them. New (unread) submissions show a badge on the sidebar.',
+        actions: [
+          'View all submissions with their type (Feedback / Complaint / Suggestion / Question) and status',
+          'Open a submission to read the full message and see which child it concerns',
+          'Write and send a response — the parent sees it in their portal',
+          'Move items through Submitted → In Review → Resolved as you handle them',
+        ],
+        tips: [
+          'Parents raise these from the Parent Portal’s Feedback section. Resolving items keeps the pending badge count accurate.',
+        ],
+      },
+      {
         href: '/transport',
         icon: Bus,
         name: 'Transport & Fleet',
@@ -694,7 +712,7 @@ const sections: Section[] = [
           'Reset your login password',
         ],
         tips: [
-          'Choose a strong password of at least 8 characters mixing letters, numbers, and symbols. Contact your administrator if you are locked out.',
+          'Choose a strong password of at least 8 characters mixing letters, numbers, and symbols. After several failed login attempts the login is temporarily rate-limited — wait a few minutes or contact your administrator.',
         ],
       },
       {
@@ -734,53 +752,24 @@ const sections: Section[] = [
         ],
       },
       {
-        href: '/portal',
+        href: '/parent',
         icon: Bell,
         name: 'Parent Portal',
         roles: ['Parent'],
-        description: 'Parents with portal accounts see school notices, their child\'s attendance summary, and important updates here. The portal is a read-only view for parents.',
+        description: 'A dedicated portal where linked parents follow each child: announcements, class information, attendance, recent grades, fee balance, disciplinary record, and termly report cards — plus a feedback channel. It has its own light/dark theme, separate from the staff app.',
         actions: [
-          'View pinned and recent school announcements',
-          'See your child\'s attendance and academic summary',
-          'Check school event notices',
+          'Read pinned and recent school announcements',
+          'Pick a child to view class info, attendance, recent grades, fee balance, and disciplinary record',
+          'Open and print the child\'s termly report card',
+          'Submit feedback, a complaint, a suggestion, or a question — optionally about a specific child',
+          'Switch the portal between light and dark mode, independent of the admin theme',
         ],
         tips: [
+          'Parents only ever see their own linked children — access to another family\'s records is blocked.',
           'Contact the school administrator if you cannot see your child\'s records — your parent account may not be linked to the student profile yet.',
         ],
       },
     ],
-  },
-];
-
-/* ── Workflow cards ──────────────────────────────────────────────────────────── */
-const workflows = [
-  {
-    icon: School,
-    title: 'First-Time Setup',
-    steps: ['Register your school at /onboarding', 'Set up Academic Years & Terms', 'Add Grade Levels & Fee Types', 'Create user accounts for staff'],
-    color: 'border-blue-200 dark:border-blue-800/50 bg-blue-50/50 dark:bg-blue-900/10',
-    iconBg: 'bg-blue-500',
-  },
-  {
-    icon: LayoutGrid,
-    title: 'Module Management',
-    steps: ['Go to /onboarding', 'Click the ⚙ icon next to a school', 'Toggle modules on or off', 'Save — dashboard updates immediately'],
-    color: 'border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-900/10',
-    iconBg: 'bg-violet-500',
-  },
-  {
-    icon: DollarSign,
-    title: 'Finance Setup',
-    steps: ['Create Fee Types in Setup', 'Build Fee Structures per grade & term', 'Record payments against student accounts', 'Apply scholarships to reduce balances'],
-    color: 'border-emerald-200 dark:border-emerald-800/50 bg-emerald-50/50 dark:bg-emerald-900/10',
-    iconBg: 'bg-emerald-500',
-  },
-  {
-    icon: BookOpenCheck,
-    title: 'End-of-Term Flow',
-    steps: ['Enter exam marks in Exams module', 'Compute grades in Gradebook', 'Generate Report Cards', 'Run Promotions for next year'],
-    color: 'border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-900/10',
-    iconBg: 'bg-amber-500',
   },
 ];
 
@@ -792,7 +781,7 @@ const roles = [
   { name: 'Inventory', desc: 'Library, inventory, students (read)',                  badge: roleBadge.Inventory },
   { name: 'Transport', desc: 'Transport & fleet management',                         badge: roleBadge.Transport },
   { name: 'Pool',      desc: 'Swimming pool sessions and scheduling',                badge: roleBadge.Pool },
-  { name: 'Parent',    desc: 'Parent portal — notices and child updates (read only)',badge: roleBadge.Parent },
+  { name: 'Parent',    desc: 'Parent portal — child info, grades, fees, report cards & feedback',badge: roleBadge.Parent },
   { name: 'Kitchen',   desc: 'Pool / kitchen access (limited)',                      badge: roleBadge.Kitchen },
 ];
 
@@ -945,36 +934,6 @@ export default function DocsPage() {
               </button>
             );
           })}
-        </div>
-      )}
-
-      {/* ── Workflow cards — only when not searching ─────────────────────── */}
-      {!query && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">Common Workflows</p>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {workflows.map(w => {
-              const WIcon = w.icon;
-              return (
-                <div key={w.title} className={`rounded-xl border p-4 space-y-3 ${w.color}`}>
-                  <div className="flex items-center gap-2.5">
-                    <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${w.iconBg}`}>
-                      <WIcon className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{w.title}</p>
-                  </div>
-                  <ol className="space-y-1.5">
-                    {w.steps.map((step, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
-                        <span className="flex-shrink-0 flex h-4 w-4 items-center justify-center rounded-full bg-white/60 dark:bg-white/10 text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-px">{i + 1}</span>
-                        {step}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 

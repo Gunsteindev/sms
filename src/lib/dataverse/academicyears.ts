@@ -69,7 +69,7 @@ async function clearCurrentYears(excludeId?: string) {
     await Promise.all(others.map(yid => dataverseClient.patch(`${TABLE}(${yid})`, { sms_iscurrent: false })));
 }
 
-export const createAcademicYear = async (data: CreateAcademicYearRequest) => {
+export const createAcademicYear = async (data: CreateAcademicYearRequest): Promise<AcademicYear> => {
     if (data.iscurrent) await clearCurrentYears();
     const payload: Record<string, unknown> = {
         sms_name:      data.name,
@@ -79,7 +79,9 @@ export const createAcademicYear = async (data: CreateAcademicYearRequest) => {
     if (data.iscurrent   !== undefined) payload.sms_iscurrent   = data.iscurrent;
     if (data.yearname    !== undefined) payload.sms_yearname    = data.yearname;
     if (data.description !== undefined) payload.sms_description = data.description;
-    return dataverseClient.post(TABLE, payload);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await dataverseClient.post<any>(TABLE, payload);
+    return mapAcademicYear(result);
 };
 
 export const updateAcademicYear = async (id: string, data: Partial<CreateAcademicYearRequest>) => {

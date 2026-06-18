@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getTeacherById, updateTeacher, deleteTeacher } from '@/lib/dataverse/teachers';
 import { serverError, withSchool } from '@/lib/api-guard';
 
@@ -10,16 +11,11 @@ export async function GET(
     try {
       const { id } = await params;
       const teacher = await getTeacherById(id);
-
-      if (!teacher) {
-        return NextResponse.json(
-          { success: false, error: 'Teacher not found' },
-          { status: 404 }
-        );
-      }
-
       return NextResponse.json({ success: true, data: teacher });
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return NextResponse.json({ success: false, error: 'Teacher not found' }, { status: 404 });
+      }
       return serverError(error);
     }
   });
@@ -41,6 +37,9 @@ export async function PUT(
         message: 'Teacher updated successfully'
       });
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return NextResponse.json({ success: false, error: 'Teacher not found' }, { status: 404 });
+      }
       return serverError(error);
     }
   });
@@ -60,6 +59,9 @@ export async function DELETE(
         message: 'Teacher deleted successfully'
       });
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return NextResponse.json({ success: false, error: 'Teacher not found' }, { status: 404 });
+      }
       return serverError(error);
     }
   });

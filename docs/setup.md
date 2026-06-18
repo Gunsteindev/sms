@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 18 or later
+- Node.js 20 or later (Docker image and CI use Node 22)
 - A Microsoft Dataverse environment (Dynamics 365 / Power Platform)
 - An Azure AD app registration with Dataverse API permissions
 - (Optional) An Anthropic API key for AI summaries
@@ -91,16 +91,25 @@ sms_pooltransactions  sms_procurement       sms_studentparents
 
 See [Dataverse Schema](./schema.md) for full field definitions.
 
+`sms_schools` also carries two memo columns used by the module system: `sms_enabledmodule` (school-wide enabled modules) and `sms_rolemoduleaccess` (per-role access). If `sms_rolemoduleaccess` is missing on an existing environment, create it with:
+
+```bash
+npx ts-node --skipProject scripts/add-school-role-access-column.ts
+```
+
 ## Running the App
 
 ```bash
 # Development (with hot reload via Turbopack)
 npm run dev
 
-# Verify Dataverse connectivity
+# Unit tests (Vitest — tenant isolation, rate limiter)
+npm test
+
+# Verify Dataverse connectivity (manual integration probe)
 npm run test:connection
 
-# Full CRUD test
+# Full CRUD test (manual integration probe)
 npm run test:dataverse
 
 # Production build check (must pass with zero TS errors)
@@ -109,6 +118,8 @@ npm run build
 # Start production server (after build)
 npm start
 ```
+
+> **Production note**: `AUTH_SECRET` (or `NEXTAUTH_SECRET`) must be set to a strong value of **≥32 characters** — when `NODE_ENV=production` the app throws rather than fall back to the insecure dev secret.
 
 Open [http://localhost:3000](http://localhost:3000). First-time visitors without a school session are redirected to `/onboarding`.
 

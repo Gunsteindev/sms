@@ -15,17 +15,19 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { feePaymentsAPI, feeStructuresAPI } from '@/lib/api-client';
+import { feePaymentsAPI, feeInvoicesAPI } from '@/lib/api-client';
 import { exportToCSV } from '@/lib/csv';
 import { ReceiptDialog } from '@/components/ui/ReceiptDialog';
 import { Pagination } from '@/components/ui/Pagination';
 import type { FeePayment } from '@/lib/dataverse/fees';
-import type { FeeStructure } from '@/lib/dataverse/fees';
+
+interface FeeOption { feeid: string; name: string; studentid: string; studentname: string; amount: number; }
 
 const PAGE_SIZE = 10;
 
+// Allowed payment channels: Cash, Mobile Money, Bank Transfer
 const PAYMENT_METHODS: Record<number, string> = {
-    1: 'Cash', 2: 'Bank Transfer', 3: 'Card', 4: 'Mobile Money', 5: 'Cheque',
+    1: 'Cash', 4: 'Mobile Money', 2: 'Bank Transfer',
 };
 const PAYMENT_STATUS: Record<number, string> = {
     1: 'Paid', 2: 'Pending', 3: 'Failed', 4: 'Refunded',
@@ -35,12 +37,12 @@ const STATUS_VARIANT: Record<number, 'success' | 'warning' | 'destructive' | 'de
 };
 
 const schema = z.object({
-    studentid:      z.string().min(1, 'Required'),
-    feestructureid: z.string().min(1, 'Required'),
+    studentid:      z.string().optional(),
+    feeid:          z.string().optional(),
     amount:         z.coerce.number().min(0, 'Required'),
     paymentdate:    z.string().min(1, 'Required'),
     paymentmethod:  z.string().min(1, 'Required'),
-    paymentstatus:  z.string().default('Paid'),
+    paymentstatus:  z.string().default('1'),
     transactionid:  z.string().optional(),
     receiptnumber:  z.string().optional(),
 });
@@ -56,33 +58,68 @@ function F({ id, label, error, children }: { id: string; label: string; error?: 
     );
 }
 
-function FeePaymentForm({ defaultValues, feeStructures, onSubmit, onCancel }: {
+function FeePaymentForm({ defaultValues, fees, onSubmit, onCancel }: {
     defaultValues?: Partial<FormData>;
-    feeStructures: FeeStructure[];
+    fees: FeeOption[];
     onSubmit: (d: FormData) => Promise<void>;
     onCancel: () => void;
 }) {
     const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
-    const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    const { register, control, setValue, watch, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
         resolver: zodResolver(schema) as never,
-        defaultValues: defaultValues ?? { paymentmethod: 'Cash', paymentstatus: 'Paid', amount: 0 },
+        defaultValues: defaultValues ?? { paymentmethod: '1', paymentstatus: '1', amount: 0 },
     });
+
+    // Distinct students that have fee invoices
+    const students = useMemo(() => {
+        const m = new Map<string, string>();
+        fees.forEach(f => { if (f.studentid && !m.has(f.studentid)) m.set(f.studentid, f.studentname); });
+        return Array.from(m, ([studentid, studentname]) => ({ studentid, studentname }))
+            .sort((a, b) => a.studentname.localeCompare(b.studentname));
+    }, [fees]);
+
+    const selectedStudent = watch('studentid');
+    const studentItems = useMemo(() => fees.filter(f => f.studentid === selectedStudent), [fees, selectedStudent]);
+
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <F id="studentid" label="Student ID *" error={errors.studentid?.message}>
-                <Input id="studentid" {...register('studentid')} placeholder="Student GUID" />
-            </F>
-            <F id="feestructureid" label="Fee Structure *" error={errors.feestructureid?.message}>
-                <Controller name="feestructureid" control={control} render={({ field }) => (
-                    <SelectRoot value={field.value ?? ''} onValueChange={field.onChange}>
-                        <SelectTrigger id="feestructureid" className={ST}>
+            <F id="studentid" label="Student *" error={errors.studentid?.message}>
+                <Controller name="studentid" control={control} render={({ field }) => (
+                    <SelectRoot value={field.value ?? ''} onValueChange={(v) => {
+                        field.onChange(v);
+                        setValue('feeid', '');   // reset item — fees differ per student
+                    }}>
+                        <SelectTrigger id="studentid" className={ST}>
                             <SelectValue>
-                                {field.value ? (feeStructures.find(fs => fs.feestructureid === field.value)?.name ?? '— Select —') : '— Select —'}
+                                {field.value ? (students.find(s => s.studentid === field.value)?.studentname ?? '— Select student —') : '— Select student —'}
                             </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">— Select —</SelectItem>
-                            {feeStructures.map(fs => <SelectItem key={fs.feestructureid} value={fs.feestructureid}>{fs.name}</SelectItem>)}
+                            <SelectItem value="">— Select student —</SelectItem>
+                            {students.map(s => <SelectItem key={s.studentid} value={s.studentid}>{s.studentname}</SelectItem>)}
+                        </SelectContent>
+                    </SelectRoot>
+                )} />
+            </F>
+            <F id="feeid" label="Item *" error={errors.feeid?.message}>
+                <Controller name="feeid" control={control} render={({ field }) => (
+                    <SelectRoot value={field.value ?? ''} disabled={!selectedStudent} onValueChange={(v) => {
+                        field.onChange(v);
+                        const fee = fees.find(f => f.feeid === v);
+                        if (fee) setValue('amount', fee.amount);
+                    }}>
+                        <SelectTrigger id="feeid" className={ST}>
+                            <SelectValue>
+                                {field.value
+                                    ? (fees.find(f => f.feeid === field.value)?.name ?? '— Select item —')
+                                    : (selectedStudent ? '— Select item —' : '— Select student first —')}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">— Select item —</SelectItem>
+                            {studentItems.map(f => (
+                                <SelectItem key={f.feeid} value={f.feeid}>{f.name} ({f.amount})</SelectItem>
+                            ))}
                         </SelectContent>
                     </SelectRoot>
                 )} />
@@ -105,7 +142,7 @@ function FeePaymentForm({ defaultValues, feeStructures, onSubmit, onCancel }: {
                                 <SelectValue>{field.value ? (PAYMENT_METHODS[Number(field.value)] ?? field.value) : '— Select —'}</SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                {Object.entries(PAYMENT_METHODS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                                {[1, 4, 2].map(k => <SelectItem key={k} value={String(k)}>{PAYMENT_METHODS[k]}</SelectItem>)}
                             </SelectContent>
                         </SelectRoot>
                     )} />
@@ -148,18 +185,18 @@ export default function FeePaymentsPage() {
     const [editing, setEditing]     = useState<FeePayment | null>(null);
     const [receiptData, setReceiptData] = useState<FeePayment | null>(null);
     const [toDelete, setToDelete]   = useState<string | null>(null);
-    const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
+    const [fees, setFees] = useState<FeeOption[]>([]);
 
     const load = async () => {
         setLoading(true);
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const [fpRes, fsRes]: any[] = await Promise.all([
-                feePaymentsAPI.getAll(),
-                feeStructuresAPI.getAll(),
+            const [fpRes, feeRes]: any[] = await Promise.all([
+                feePaymentsAPI.getAll({ pageSize: 500 }),
+                feeInvoicesAPI.getAll({ pageSize: 1000 }),
             ]);
             setRows(fpRes.data ?? []);
-            setFeeStructures(fsRes.data ?? []);
+            setFees(feeRes.data ?? []);
         } catch { toast.error('Failed to load fee payments'); }
         finally { setLoading(false); }
     };
@@ -182,11 +219,22 @@ export default function FeePaymentsPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleSubmit = async (data: any) => {
         try {
+            const payload = {
+                amount:        Number(data.amount),
+                paymentdate:   data.paymentdate,
+                paymentmethod: Number(data.paymentmethod),
+                paymentstatus: Number(data.paymentstatus),
+                transactionid: data.transactionid || undefined,
+                receiptnumber: data.receiptnumber || undefined,
+            };
+            const fee = fees.find(f => f.feeid === data.feeid);
+            if (!fee) { toast.error('Please select a fee'); return; }
+            const full = { ...payload, feeid: fee.feeid, studentid: fee.studentid };
             if (editing) {
-                await feePaymentsAPI.update(editing.feepaymentid, { ...data, paymentmethod: Object.entries(PAYMENT_METHODS).find(([,v])=>v===data.paymentmethod)?.[0] ? Number(Object.entries(PAYMENT_METHODS).find(([,v])=>v===data.paymentmethod)![0]) : 1, paymentstatus: Object.entries(PAYMENT_STATUS).find(([,v])=>v===data.paymentstatus)?.[0] ? Number(Object.entries(PAYMENT_STATUS).find(([,v])=>v===data.paymentstatus)![0]) : 1 });
+                await feePaymentsAPI.update(editing.feepaymentid, full);
                 toast.success('Payment updated');
             } else {
-                await feePaymentsAPI.create({ ...data, paymentmethod: Object.entries(PAYMENT_METHODS).find(([,v])=>v===data.paymentmethod)?.[0] ? Number(Object.entries(PAYMENT_METHODS).find(([,v])=>v===data.paymentmethod)![0]) : 1, paymentstatus: Object.entries(PAYMENT_STATUS).find(([,v])=>v===data.paymentstatus)?.[0] ? Number(Object.entries(PAYMENT_STATUS).find(([,v])=>v===data.paymentstatus)![0]) : 1 });
+                await feePaymentsAPI.create(full);
                 toast.success('Payment recorded');
             }
             setModalOpen(false); setEditing(null); load();
@@ -302,16 +350,16 @@ export default function FeePaymentsPage() {
                 </DialogHeader>
                 <FeePaymentForm
                     defaultValues={editing ? {
-                        studentid:     editing.studentname,
-                        feestructureid: '',
+                        studentid:      editing.studentid,
+                        feeid:          editing.feestructureid,   // FeePayment.feestructureid holds the fee invoice id (_sms_fee_value)
                         amount:         editing.amount,
                         paymentdate:    editing.paymentdate?.slice(0, 10),
-                        paymentmethod:  PAYMENT_METHODS[editing.paymentmethod] ?? 'Cash',
-                        paymentstatus:  PAYMENT_STATUS[editing.paymentstatus] ?? 'Paid',
+                        paymentmethod:  String(editing.paymentmethod),
+                        paymentstatus:  String(editing.paymentstatus),
                         transactionid:  editing.transactionid || undefined,
                         receiptnumber:  editing.receiptnumber || undefined,
                     } : undefined}
-                    feeStructures={feeStructures}
+                    fees={fees}
                     onSubmit={handleSubmit}
                     onCancel={() => { setModalOpen(false); setEditing(null); }}
                 />

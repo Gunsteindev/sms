@@ -16,10 +16,20 @@ const ThemeContext = createContext<ThemeContextValue>({
     setTheme: () => {},
 });
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+const GLOBAL_KEY = 'sms-theme';
+
+// The parent portal (route group "(parent)" → /parent) runs its own scoped ThemeProvider.
+const onParentRoute = () =>
+    typeof window !== 'undefined' &&
+    (window.location.pathname === '/parent' || window.location.pathname.startsWith('/parent/'));
+
+// `storageKey` lets a sub-tree (e.g. the parent portal) keep a theme that is
+// independent of the global/admin theme. A scoped provider (storageKey !== GLOBAL_KEY)
+// restores the global theme on unmount so leaving the scoped area doesn't strand its class.
+export function ThemeProvider({ children, storageKey = GLOBAL_KEY }: { children: React.ReactNode; storageKey?: string }) {
     const [theme, setThemeState] = useState<Theme>(() => {
         if (typeof window === 'undefined') return 'system';
-        return (localStorage.getItem('sms-theme') as Theme) ?? 'system';
+        return (localStorage.getItem(storageKey) as Theme) ?? 'system';
     });
 
     const [systemDark, setSystemDark] = useState<boolean>(() =>
@@ -37,11 +47,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         return () => mq.removeEventListener('change', handler);
     }, []);
 
-    // Apply the theme class to <html> whenever resolvedTheme changes
+    // Apply the theme class to <html> whenever resolvedTheme changes.
+    // On a full load of a parent route, effects fire child-first, so the scoped provider
+    // applies first and the global one would otherwise clobber it — the global provider
+    // defers the class toggle on parent routes and lets the scoped provider own it.
     useEffect(() => {
-        document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
-        localStorage.setItem('sms-theme', theme);
-    }, [theme, resolvedTheme]);
+        if (!(storageKey === GLOBAL_KEY && onParentRoute())) {
+            document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+        }
+        localStorage.setItem(storageKey, theme);
+    }, [theme, resolvedTheme, storageKey]);
+
+    // Scoped providers restore the global (admin) theme when they unmount, so navigating
+    // away from the scoped area (e.g. parent portal → login) doesn't leave a stale class.
+    useEffect(() => {
+        if (storageKey === GLOBAL_KEY) return;
+        return () => {
+            const t = (localStorage.getItem(GLOBAL_KEY) as Theme) ?? 'system';
+            const dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', dark);
+        };
+    }, [storageKey]);
 
     return (
         <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme: setThemeState }}>

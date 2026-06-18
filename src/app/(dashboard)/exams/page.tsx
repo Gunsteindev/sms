@@ -49,11 +49,10 @@ type ExamFormData = z.infer<typeof examSchema>;
 
 // ─── Result form schema ───────────────────────────────────────────────────────
 const resultSchema = z.object({
-    examid:      z.string().min(1, 'Required'),
-    studentid:   z.string().min(1, 'Required'),
-    score:       z.coerce.number().min(0, 'Required'),
-    gradeletter: z.string().optional(),
-    remarks:     z.string().optional(),
+    examid:    z.string().min(1, 'Required'),
+    studentid: z.string().min(1, 'Required'),
+    score:     z.coerce.number().min(0, 'Required'),
+    remarks:   z.string().optional(),
 });
 type ResultFormData = z.infer<typeof resultSchema>;
 
@@ -294,14 +293,9 @@ function ResultForm({ defaultValues, exams, students, onSubmit, onCancel }: {
             <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">Score Details</p>
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <F id="score" label="Score *" error={errors.score?.message}>
-                            <Input id="score" type="number" step="0.01" min="0" {...register('score')} />
-                        </F>
-                        <F id="gradeletter" label="Grade Letter">
-                            <Input id="gradeletter" {...register('gradeletter')} placeholder="e.g. A, B+, C" />
-                        </F>
-                    </div>
+                    <F id="score" label="Score *" error={errors.score?.message}>
+                        <Input id="score" type="number" step="0.01" min="0" {...register('score')} />
+                    </F>
                     <F id="remarks" label="Remarks">
                         <Input id="remarks" {...register('remarks')} placeholder="Optional" />
                     </F>
@@ -309,7 +303,7 @@ function ResultForm({ defaultValues, exams, students, onSubmit, onCancel }: {
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
-                Percentage and pass/fail status are calculated automatically based on the exam&apos;s total marks.
+                Percentage, grade and pass/fail status are calculated automatically based on the exam&apos;s total and pass marks.
             </p>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -752,11 +746,10 @@ export default function ExamsPage() {
                 </DialogHeader>
                 <ResultForm
                     defaultValues={editingResult ? {
-                        examid:      editingResult.examid,
-                        studentid:   editingResult.studentid,
-                        score:       editingResult.score,
-                        gradeletter: editingResult.gradeletter || undefined,
-                        remarks:     editingResult.remarks     || undefined,
+                        examid:    editingResult.examid,
+                        studentid: editingResult.studentid,
+                        score:     editingResult.score,
+                        remarks:   editingResult.remarks || undefined,
                     } : undefined}
                     exams={exams}
                     students={students}

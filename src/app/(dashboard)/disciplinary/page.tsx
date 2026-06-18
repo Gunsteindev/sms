@@ -27,7 +27,6 @@ const INCIDENT_STYLE: Record<number, string> = {
   1: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300',
   2: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300',
   3: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
-  4: 'bg-rose-100 text-rose-900 dark:bg-rose-900/30 dark:text-rose-300',
 };
 
 function formatDate(d: string) {
@@ -186,8 +185,11 @@ function DisciplinaryForm({ defaultValues, onSubmit, onCancel }: {
 
 export default function DisciplinaryPage() {
   const [records, setRecords]         = useState<DisciplinaryRecord[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [students, setStudents]       = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [typeFilter, setTypeFilter]   = useState<string>('');
   const [resolvedFilter, setResolvedFilter] = useState<string>('');
   const [page, setPage]               = useState(1);
@@ -208,8 +210,23 @@ export default function DisciplinaryPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    studentsAPI.getAll().then((r: any) => setStudents(r.data ?? [])).catch(() => {});
+  }, []);
   useEffect(() => { setPage(1); }, [search, typeFilter, resolvedFilter]);
+
+  const studentSuggestions = useMemo(() => {
+    if (!search.trim()) return [];
+    const q = search.toLowerCase();
+    return students
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((s: any) => (s.fullname || `${s.firstname} ${s.lastname}`).toLowerCase().includes(q))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((s: any) => s.fullname || `${s.firstname} ${s.lastname}`)
+      .slice(0, 6);
+  }, [students, search]);
 
   const filtered = useMemo(() => {
     let list = records;
@@ -266,8 +283,8 @@ export default function DisciplinaryPage() {
 
   const openEdit = (r: DisciplinaryRecord) => { setEditing(r); setModalOpen(true); };
 
-  const openCount  = records.filter(r => !r.resolved).length;
-  const expulsions = records.filter(r => r.incidenttype === 4).length;
+  const openCount    = records.filter(r => !r.resolved).length;
+  const suspensions  = records.filter(r => r.incidenttype === 3).length;
 
   return (
     <div className="space-y-5">
@@ -275,7 +292,7 @@ export default function DisciplinaryPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Disciplinary Records</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {loading ? 'Loading…' : `${records.length} record${records.length !== 1 ? 's' : ''} · ${openCount} open${expulsions ? ` · ${expulsions} expulsion${expulsions !== 1 ? 's' : ''}` : ''}`}
+            {loading ? 'Loading…' : `${records.length} record${records.length !== 1 ? 's' : ''} · ${openCount} open${suspensions ? ` · ${suspensions} suspension${suspensions !== 1 ? 's' : ''}` : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -292,7 +309,28 @@ export default function DisciplinaryPage() {
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input placeholder="Search student, description…" className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input
+            placeholder="Search student, description…"
+            className="pl-9"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setShowSuggestions(true); }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          />
+          {showSuggestions && studentSuggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 z-20 mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg overflow-hidden">
+              {studentSuggestions.map(name => (
+                <button
+                  key={name}
+                  type="button"
+                  onMouseDown={() => { setSearch(name); setShowSuggestions(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800 last:border-0"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <SelectRoot value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? '')}>
           <SelectTrigger className="w-44 h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100">
@@ -343,7 +381,7 @@ export default function DisciplinaryPage() {
             </TableHeader>
             <TableBody>
               {paginated.map(r => (
-                <TableRow key={r.disciplinaryid} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                <TableRow key={r.disciplinaryid} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                   <TableCell className="px-4 py-3.5">
                     <p className="font-semibold text-slate-900 dark:text-slate-100">{r.studentname || '—'}</p>
                     <p className="text-xs text-slate-400">{formatDate(r.date)}</p>
@@ -372,7 +410,7 @@ export default function DisciplinaryPage() {
                       : <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">Open</span>}
                   </TableCell>
                   <TableCell className="px-4 py-3.5">
-                    <div className="flex justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-0.5">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(r)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <Pencil className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                       </Button>

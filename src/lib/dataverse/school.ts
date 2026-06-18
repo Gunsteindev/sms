@@ -27,6 +27,8 @@ export interface SchoolProfile {
     primarycolor:   string;      // hex, e.g. #2563eb
     sidebarcolor:   string;      // hex, e.g. #0f172a
     enabledmodules: string[];    // JSON-serialised list of active module keys
+    // Per-role module access map { roleNumber: moduleKey[] }, stored as JSON in sms_rolemoduleaccess.
+    rolemoduleaccess: Record<number, string[]>;
 }
 
 export interface SchoolBranch {
@@ -58,6 +60,7 @@ export interface UpsertSchoolRequest {
     primarycolor?:   string;
     sidebarcolor?:   string;
     enabledmodules?: string[];
+    rolemoduleaccess?: Record<number, string[]>;
 }
 
 export interface CreateBranchRequest {
@@ -93,7 +96,7 @@ const LVL_REV:  Record<SchoolLevel, number> = { primary: 1, jhs: 2, shs: 3, inte
 const SCHOOL_TABLE = 'sms_schools';
 const BRANCH_TABLE = 'sms_schoolbranchs';
 
-const SCHOOL_SELECT = 'sms_schoolid,sms_name,sms_motto,sms_type,sms_level,sms_address,sms_phone,sms_email,sms_currency,sms_website,sms_emiscode,sms_district,sms_region,sms_logo,sms_enabledmodule';
+const SCHOOL_SELECT = 'sms_schoolid,sms_name,sms_motto,sms_type,sms_level,sms_address,sms_phone,sms_email,sms_currency,sms_website,sms_emiscode,sms_district,sms_region,sms_logo,sms_enabledmodule,sms_rolemoduleaccess,sms_primarycolor,sms_sidebarcolor';
 const BRANCH_SELECT = 'sms_schoolbranchid,sms_name,sms_address,sms_district,sms_region,sms_phone,sms_email,sms_ismain,_sms_school_value';
 
 /* ── Mappers ────────────────────────────────────────────────────────────── */
@@ -103,6 +106,10 @@ function mapSchool(item: any): SchoolProfile {
     let enabledmodules: string[] = [];
     if (item.sms_enabledmodule) {
         try { enabledmodules = JSON.parse(item.sms_enabledmodule); } catch { /* ignore */ }
+    }
+    let rolemoduleaccess: Record<number, string[]> = {};
+    if (item.sms_rolemoduleaccess) {
+        try { rolemoduleaccess = JSON.parse(item.sms_rolemoduleaccess); } catch { /* ignore */ }
     }
     return {
         schoolid:       item.sms_schoolid,
@@ -119,9 +126,10 @@ function mapSchool(item: any): SchoolProfile {
         district:       item.sms_district ?? '',
         region:         item.sms_region   ?? '',
         logo:           item.sms_logo ?? '',
-        primarycolor:   '',
-        sidebarcolor:   '',
+        primarycolor:   item.sms_primarycolor ?? '',
+        sidebarcolor:   item.sms_sidebarcolor ?? '',
         enabledmodules,
+        rolemoduleaccess,
     };
 }
 
@@ -155,7 +163,10 @@ function buildSchoolPayload(data: Partial<UpsertSchoolRequest>): Record<string, 
     if (data.district !== undefined) p.sms_district = data.district;
     if (data.region   !== undefined) p.sms_region   = data.region;
     if (data.logo            !== undefined) p.sms_logo            = data.logo;
+    if (data.primarycolor    !== undefined) p.sms_primarycolor    = data.primarycolor;
+    if (data.sidebarcolor    !== undefined) p.sms_sidebarcolor    = data.sidebarcolor;
     if (data.enabledmodules  !== undefined) p.sms_enabledmodule  = JSON.stringify(data.enabledmodules);
+    if (data.rolemoduleaccess !== undefined) p.sms_rolemoduleaccess = JSON.stringify(data.rolemoduleaccess);
     return p;
 }
 

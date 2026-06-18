@@ -4,8 +4,12 @@ import { updateSchool, getSchoolById } from '@/lib/dataverse/school';
 import { parseBody, serverError, getSession } from '@/lib/api-guard';
 
 const modulesSchema = z.object({
-    enabledmodules: z.array(z.string()),
-});
+    enabledmodules:   z.array(z.string()).optional(),
+    rolemoduleaccess: z.record(z.string(), z.array(z.string())).optional(),
+}).refine(
+    d => d.enabledmodules !== undefined || d.rolemoduleaccess !== undefined,
+    { message: 'Provide enabledmodules or rolemoduleaccess' },
+);
 
 type Params = { params: Promise<{ id: string }> };
 

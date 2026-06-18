@@ -94,6 +94,7 @@ export const getEmployeeById = async (id: string): Promise<Employee> => {
 
 export const createEmployee = async (data: CreateEmployeeRequest) => {
     const payload: Record<string, unknown> = {
+        sms_name:                  `${data.firstname} ${data.lastname}`.trim(),
         sms_employeecode:          data.employeecode,
         sms_firstname:             data.firstname,
         sms_lastname:              data.lastname,
@@ -121,6 +122,10 @@ export const updateEmployee = async (id: string, data: Partial<CreateEmployeeReq
     if (data.employeecode    !== undefined) payload.sms_employeecode    = data.employeecode;
     if (data.firstname       !== undefined) payload.sms_firstname       = data.firstname;
     if (data.lastname        !== undefined) payload.sms_lastname        = data.lastname;
+    if (data.firstname !== undefined || data.lastname !== undefined) {
+        const existing = await getEmployeeById(id);
+        payload.sms_name = `${data.firstname ?? existing.firstname} ${data.lastname ?? existing.lastname}`.trim();
+    }
     if (data.dateofbirth     !== undefined) payload.sms_dateofbirth     = data.dateofbirth;
     if (data.gender          !== undefined) payload.sms_gender          = data.gender;
     if (data.emailaddress1   !== undefined) payload.sms_email           = data.emailaddress1;

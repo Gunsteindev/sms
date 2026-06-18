@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, RefreshCw, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
-import { useSchoolSettings, type House } from '@/contexts/SchoolSettingsContext';
+import { housesAPI } from '@/lib/api-client';
+import type { House, HouseType, CreateHouseRequest } from '@/lib/dataverse/houses';
 
 const COLORS = [
   { value: 'blue',    bg: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'       },
@@ -29,53 +29,53 @@ const COLORS = [
 
 const colorBg = (c: string) => COLORS.find(x => x.value === c)?.bg ?? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
-const DEFAULT_HOUSES: House[] = [
-  { id: 'aggrey',   name: 'Aggrey House',    color: 'blue',    type: 'boarding', description: 'Named after Rev. Dr. James Emman Kwegyir Aggrey' },
-  { id: 'busia',    name: 'Busia House',     color: 'green',   type: 'boarding', description: 'Named after Dr. Kofi Abrefa Busia'               },
-  { id: 'danquah',  name: 'Danquah House',   color: 'amber',   type: 'boarding', description: 'Named after Dr. Joseph Boakye Danquah'           },
-  { id: 'nkrumah',  name: 'Nkrumah House',   color: 'red',     type: 'boarding', description: 'Named after Dr. Kwame Nkrumah'                   },
-  { id: 'ofori',    name: 'Ofori-Atta House', color: 'purple',  type: 'boarding', description: 'Named after Okyenhene Ofori Atta I'              },
+const DEFAULT_HOUSES: CreateHouseRequest[] = [
+  { name: 'Aggrey House',     type: 1, color: 'blue',   description: 'Named after Rev. Dr. James Emman Kwegyir Aggrey' },
+  { name: 'Busia House',      type: 1, color: 'green',  description: 'Named after Dr. Kofi Abrefa Busia'               },
+  { name: 'Danquah House',    type: 1, color: 'amber',  description: 'Named after Dr. Joseph Boakye Danquah'           },
+  { name: 'Nkrumah House',    type: 1, color: 'red',    description: 'Named after Dr. Kwame Nkrumah'                   },
+  { name: 'Ofori-Atta House', type: 1, color: 'purple', description: 'Named after Okyenhene Ofori Atta I'              },
 ];
 
-const DEFAULT_STREAMS: House[] = [
-  { id: 'stream-a', name: 'Stream A', color: 'blue',    type: 'stream', description: '' },
-  { id: 'stream-b', name: 'Stream B', color: 'emerald', type: 'stream', description: '' },
-  { id: 'stream-c', name: 'Stream C', color: 'amber',   type: 'stream', description: '' },
-  { id: 'stream-d', name: 'Stream D', color: 'red',     type: 'stream', description: '' },
+const DEFAULT_STREAMS: CreateHouseRequest[] = [
+  { name: 'Stream A', type: 3, color: 'blue',    description: '' },
+  { name: 'Stream B', type: 3, color: 'emerald', description: '' },
+  { name: 'Stream C', type: 3, color: 'amber',   description: '' },
+  { name: 'Stream D', type: 3, color: 'red',     description: '' },
 ];
 
-const TYPE_OPTIONS = [
-  { value: 'boarding', label: 'Boarding House' },
-  { value: 'day',      label: 'Day House'      },
-  { value: 'stream',   label: 'Class Stream'   },
+const TYPE_OPTIONS: { value: HouseType; label: string }[] = [
+  { value: 1, label: 'Boarding House' },
+  { value: 2, label: 'Day House'      },
+  { value: 3, label: 'Class Stream'   },
 ];
 
-const TYPE_STYLE: Record<string, string> = {
-  boarding: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
-  day:      'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
-  stream:   'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
+const TYPE_STYLE: Record<number, string> = {
+  1: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300',
+  2: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300',
+  3: 'bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-300',
 };
-
-const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
 
 const schema = z.object({
   name:        z.string().min(1, 'Required'),
-  type:        z.enum(['boarding', 'day', 'stream']),
+  type:        z.union([z.literal(1), z.literal(2), z.literal(3)]),
   description: z.string().optional(),
   color:       z.string().default('blue'),
 });
 type FormData = z.infer<typeof schema>;
 
-function HouseForm({ defaultValues, onSubmit, onCancel }: {
+function HouseForm({ defaultValues, onSubmit, onCancel, submitting }: {
   defaultValues?: Partial<FormData>;
   onSubmit: (d: FormData) => void;
   onCancel: () => void;
+  submitting: boolean;
 }) {
-  const { register, handleSubmit, watch, setValue, control, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as never,
-    defaultValues: { color: 'blue', type: 'boarding', ...defaultValues },
+    defaultValues: { color: 'blue', type: 1, ...defaultValues },
   });
   const selectedColor = watch('color');
+  const selectedType  = watch('type');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -87,15 +87,12 @@ function HouseForm({ defaultValues, onSubmit, onCancel }: {
       <div className="space-y-1.5">
         <Label>Type</Label>
         <div className="grid grid-cols-3 gap-2">
-          {TYPE_OPTIONS.map(t => {
-            const currentType = watch('type');
-            return (
-              <button key={t.value} type="button" onClick={() => setValue('type', t.value as 'boarding' | 'day' | 'stream')}
-                className={`rounded-lg border-2 py-2.5 text-xs font-medium transition-all ${currentType === t.value ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'}`}>
-                {t.label}
-              </button>
-            );
-          })}
+          {TYPE_OPTIONS.map(t => (
+            <button key={t.value} type="button" onClick={() => setValue('type', t.value)}
+              className={`rounded-lg border-2 py-2.5 text-xs font-medium transition-all ${selectedType === t.value ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
       <div className="space-y-1.5">
@@ -113,37 +110,97 @@ function HouseForm({ defaultValues, onSubmit, onCancel }: {
       </div>
       <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Save</Button>
+        <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save'}</Button>
       </div>
     </form>
   );
 }
 
 export default function HousesPage() {
-  const { houses, setHouses } = useSchoolSettings();
+  const [houses, setHouses]         = useState<House[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting]   = useState(false);
   const [modalOpen, setModalOpen]   = useState(false);
   const [editing, setEditing]       = useState<House | null>(null);
   const [toDelete, setToDelete]     = useState<string | null>(null);
   const [resetType, setResetType]   = useState<'houses' | 'streams' | null>(null);
 
-  const handleSubmit = (data: FormData) => {
-    if (editing) {
-      setHouses(houses.map(h => h.id === editing.id ? { ...h, ...data } : h));
-      toast.success('Updated');
-    } else {
-      setHouses([...houses, { id: `house-${Date.now()}`, name: data.name, type: data.type, description: data.description ?? '', color: data.color }]);
-      toast.success('House added');
+  const loadHouses = async () => {
+    setLoading(true);
+    try {
+      const res = await housesAPI.getAll();
+      const data: House[] = res.data ?? [];
+      setHouses(data);
+      return data;
+    } catch {
+      toast.error('Failed to load houses');
+      return [];
+    } finally {
+      setLoading(false);
     }
-    setModalOpen(false); setEditing(null);
   };
 
-  const handleDelete = (id: string) => { setHouses(houses.filter(h => h.id !== id)); toast.success('Removed'); setToDelete(null); };
+  useEffect(() => { loadHouses(); }, []);
+
+  const handleSubmit = async (data: FormData) => {
+    setSubmitting(true);
+    try {
+      if (editing) {
+        const res = await housesAPI.update(editing.houseid, data);
+        setHouses(houses.map(h => h.houseid === editing.houseid ? res.data : h));
+        toast.success('Updated');
+      } else {
+        const ordernumber = houses.length ? Math.max(...houses.map(h => h.ordernumber)) + 1 : 1;
+        const res = await housesAPI.create({ ...data, ordernumber });
+        setHouses([...houses, res.data]);
+        toast.success('House added');
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch {
+      toast.error('Failed to save house');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await housesAPI.delete(id);
+      setHouses(houses.filter(h => h.houseid !== id));
+      toast.success('Removed');
+    } catch {
+      toast.error('Failed to remove');
+    } finally {
+      setToDelete(null);
+    }
+  };
+
+  const handleReset = async (defaults: CreateHouseRequest[], successMsg: string) => {
+    setResetting(true);
+    try {
+      const current = await loadHouses();
+      await Promise.all(current.map(h => housesAPI.delete(h.houseid)));
+      const created = await Promise.all(
+        defaults.map((d, index) => housesAPI.create({ ...d, ordernumber: index + 1 }))
+      );
+      setHouses(created.map(res => res.data));
+      toast.success(successMsg);
+    } catch {
+      toast.error('Failed to reset');
+      await loadHouses();
+    } finally {
+      setResetting(false);
+      setResetType(null);
+    }
+  };
 
   const openEdit = (h: House) => { setEditing(h); setModalOpen(true); };
 
-  const boardingCount = houses.filter(h => h.type === 'boarding').length;
-  const dayCount      = houses.filter(h => h.type === 'day').length;
-  const streamCount   = houses.filter(h => h.type === 'stream').length;
+  const boardingCount = houses.filter(h => h.type === 1).length;
+  const dayCount      = houses.filter(h => h.type === 2).length;
+  const streamCount   = houses.filter(h => h.type === 3).length;
 
   return (
     <div className="space-y-5">
@@ -155,8 +212,8 @@ export default function HousesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative group">
-            <Button variant="outline" size="sm">
+          <div className={`relative group ${(loading || resetting) ? 'pointer-events-none opacity-50' : ''}`}>
+            <Button variant="outline" size="sm" disabled={loading || resetting}>
               <RefreshCw className="h-4 w-4 mr-1.5" /> Reset Defaults
             </Button>
             <div className="absolute right-0 top-full mt-1 hidden group-hover:block z-10 w-44 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg overflow-hidden">
@@ -164,7 +221,7 @@ export default function HousesPage() {
               <button onClick={() => setResetType('streams')} className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800">Class Streams (A–D)</button>
             </div>
           </div>
-          <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+          <Button onClick={() => { setEditing(null); setModalOpen(true); }} disabled={loading}>
             <Plus className="h-4 w-4 mr-1" /> Add House
           </Button>
         </div>
@@ -178,7 +235,11 @@ export default function HousesPage() {
         </p>
       </div>
 
-      {houses.length === 0 ? (
+      {loading ? (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-center py-24 text-slate-400">
+          <p className="text-sm">Loading…</p>
+        </div>
+      ) : houses.length === 0 ? (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col items-center justify-center py-24">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 mb-3">
             <Home className="h-7 w-7 opacity-50 text-slate-400" />
@@ -189,7 +250,7 @@ export default function HousesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {houses.map((h, i) => (
-            <div key={h.id} className="group relative rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
+            <div key={h.houseid} className="group relative rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
               <div className="flex items-start gap-3 mb-3">
                 <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold ${colorBg(h.color)}`}>
                   {h.name.slice(0, 2).toUpperCase()}
@@ -197,7 +258,7 @@ export default function HousesPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">{h.name}</p>
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-0.5 ${TYPE_STYLE[h.type] ?? ''}`}>
-                    {TYPE_OPTIONS.find(t => t.value === h.type)?.label ?? h.type}
+                    {h.typelabel}
                   </span>
                 </div>
               </div>
@@ -208,7 +269,7 @@ export default function HousesPage() {
                   <Button variant="ghost" size="icon" onClick={() => openEdit(h)} className="h-7 w-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                     <Pencil className="h-3.5 w-3.5 text-slate-500" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => setToDelete(h.id)} className="h-7 w-7 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <Button variant="ghost" size="icon" onClick={() => setToDelete(h.houseid)} className="h-7 w-7 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
                     <Trash2 className="h-3.5 w-3.5 text-slate-500" />
                   </Button>
                 </div>
@@ -225,13 +286,14 @@ export default function HousesPage() {
             defaultValues={editing ? { name: editing.name, type: editing.type, description: editing.description, color: editing.color } : undefined}
             onSubmit={handleSubmit}
             onCancel={() => { setModalOpen(false); setEditing(null); }}
+            submitting={submitting}
           />
         </DialogContent>
       </Dialog>
 
       <ConfirmDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)} title="Remove house?" description="This will remove the house or stream." onConfirm={() => { if (toDelete) handleDelete(toDelete); }} />
-      <ConfirmDialog open={resetType === 'houses'} onOpenChange={o => !o && setResetType(null)} title="Reset to boarding houses?" description="Replace all current houses with the 5 default Ghanaian boarding houses (Aggrey, Busia, Danquah, Nkrumah, Ofori-Atta)." onConfirm={() => { setHouses(DEFAULT_HOUSES); toast.success('Reset to boarding houses'); setResetType(null); }} />
-      <ConfirmDialog open={resetType === 'streams'} onOpenChange={o => !o && setResetType(null)} title="Reset to class streams?" description="Replace all current houses with Streams A, B, C, D." onConfirm={() => { setHouses(DEFAULT_STREAMS); toast.success('Reset to class streams'); setResetType(null); }} />
+      <ConfirmDialog open={resetType === 'houses'} onOpenChange={o => !o && setResetType(null)} title="Reset to boarding houses?" description="Replace all current houses with the 5 default Ghanaian boarding houses (Aggrey, Busia, Danquah, Nkrumah, Ofori-Atta)." onConfirm={() => handleReset(DEFAULT_HOUSES, 'Reset to boarding houses')} />
+      <ConfirmDialog open={resetType === 'streams'} onOpenChange={o => !o && setResetType(null)} title="Reset to class streams?" description="Replace all current houses with Streams A, B, C, D." onConfirm={() => handleReset(DEFAULT_STREAMS, 'Reset to class streams')} />
     </div>
   );
 }

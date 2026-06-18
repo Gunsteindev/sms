@@ -5,14 +5,18 @@ import { parseBody, serverError, withSchool } from '@/lib/api-guard';
 
 const createSchema = z.object({
     name:           z.string().min(1),
+    examcode:       z.string().optional(),
     examtype:       z.number().int().min(1),
     startdate:      z.string().min(1),
     enddate:        z.string().min(1),
+    totalmarks:     z.number().optional(),
+    passmarks:      z.number().optional(),
+    venue:          z.string().optional(),
+    weightpercent:  z.number().optional(),
     classid:        z.string().optional(),
+    subjectid:      z.string().optional(),
     termid:         z.string().optional(),
     academicyearid: z.string().optional(),
-    description:    z.string().optional(),
-    status:         z.number().int().optional(),
 });
 
 export async function GET(request: NextRequest) {

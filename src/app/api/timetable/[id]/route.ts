@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
 import { getTimetableEntryById, updateTimetableEntry, deleteTimetableEntry } from '@/lib/dataverse/timetable';
 import { serverError, withSchool } from '@/lib/api-guard';
 
@@ -7,8 +8,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         try {
             const { id } = await params;
             return NextResponse.json({ success: true, data: await getTimetableEntryById(id) });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) { return serverError(e); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Timetable entry not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }
 
@@ -17,8 +22,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         try {
             const { id } = await params;
             return NextResponse.json({ success: true, data: await updateTimetableEntry(id, await request.json()) });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) { return serverError(e); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Timetable entry not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }
 
@@ -28,7 +37,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
             const { id } = await params;
             await deleteTimetableEntry(id);
             return NextResponse.json({ success: true });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) { return serverError(e); }
+        } catch (e: unknown) {
+            if (axios.isAxiosError(e) && e.response?.status === 404) {
+                return NextResponse.json({ success: false, error: 'Timetable entry not found' }, { status: 404 });
+            }
+            return serverError(e);
+        }
     });
 }

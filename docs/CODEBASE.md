@@ -191,8 +191,9 @@ src/app/api/**/*.ts            (Next.js Route Handlers, server-side only)
   │  • serverError(error) — sanitised 500 (full detail in dev, generic in prod)
   ▼
 src/lib/dataverse/*.ts         (OData queries, server-only)
-  │  • dataverseClient automatically appends $filter=_sms_school_value eq '<id>'
-  │  • to every GET — tenants are isolated at the query layer
+  │  • dataverseClient enforces tenant isolation on every op: list GETs get a
+  │    $filter=_sms_school_value; single-record GET/PATCH/DELETE verify the
+  │    record's school and 404 on a cross-tenant mismatch (tenant-guard.ts)
   ▼
 Microsoft Dataverse            (Azure AD client credentials OAuth2)
 ```
@@ -219,13 +220,13 @@ Microsoft Dataverse            (Azure AD client credentials OAuth2)
 Every entity table has `_sms_school_value` linking it to `sms_schools`. The tenant ID flows through the request like this:
 
 1. Login → JWT payload includes `schoolId`
-2. `proxy.ts` decodes JWT → injects `x-school-id` header
+2. `proxy.ts` decodes JWT → strips any client-supplied `x-school-id`, then injects it from the token
 3. Route handlers call `withSchool(req, async () => { ... })` from `api-guard.ts`
 4. `withSchool` calls `withTenant(schoolId, fn)` from `dataverse/tenant.ts`
 5. `AsyncLocalStorage` carries `schoolId` through all nested Dataverse calls
-6. `DataverseClient.get()` reads `getTenantId()` and appends the school filter automatically
+6. `DataverseClient` reads `getTenantId()` and enforces isolation: list GETs are filtered; single-record GET/PATCH/DELETE verify ownership and 404 on a cross-tenant mismatch (helpers in `tenant-guard.ts`, unit-tested)
 
-**Exception:** `sms_schools` itself has no `_sms_school_value` — it is the root entity. Never use the auto-filter for it; call `getSchoolById(session.schoolId)` explicitly.
+**Exception:** `sms_schools` / `sms_schoolbranchs` have no `_sms_school_value` — they are root/tenant tables. Never rely on the auto-filter for them; call `getSchoolById(session.schoolId)` explicitly. The super admin (`bootstrap`, no `schoolId`) is unrestricted.
 
 **School switching:** `POST /api/school/switch { schoolId }` re-issues the JWT with the new `schoolId`. The client must also call `localStorage.removeItem(BRAND_SCHOOL_KEY)` before redirecting to prevent a stale branding flash.
 

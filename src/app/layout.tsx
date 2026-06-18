@@ -21,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Prevent flash of unstyled content — apply dark class before first paint */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
-            var t = localStorage.getItem('sms-theme') || 'system';
+            var p = location.pathname;
+            var isParent = p === '/parent' || p.indexOf('/parent/') === 0;
+            var t = localStorage.getItem(isParent ? 'sms-parent-theme' : 'sms-theme') || 'system';
             var d = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
             if (d) document.documentElement.classList.add('dark');
           } catch(e) {}

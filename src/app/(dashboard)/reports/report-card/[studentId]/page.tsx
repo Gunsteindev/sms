@@ -61,8 +61,12 @@ export default function ReportCardPage() {
 
     if (!data) return null;
 
-    const { student, subjectRows, summary } = data;
+    const { student, school, subjectRows, summary } = data;
     const printDate = new Date().toLocaleDateString('en-GH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const schoolName    = school?.name || 'SchoolMS Academy';
+    const schoolAddress = [school?.address, school?.region].filter(Boolean).join(', ');
+    const schoolInitial = (school?.name || 'S').trim().charAt(0).toUpperCase();
 
     return (
         <div className="space-y-4">
@@ -86,10 +90,16 @@ export default function ReportCardPage() {
                 {/* School header */}
                 <div className="text-center border-b border-slate-200 pb-4 mb-6">
                     <div className="flex justify-center mb-2">
-                        <div className="h-14 w-14 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xl">S</div>
+                        {school?.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={school.logo} alt={schoolName} className="h-14 w-14 rounded-full object-cover" />
+                        ) : (
+                            <div className="h-14 w-14 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xl">{schoolInitial}</div>
+                        )}
                     </div>
-                    <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">SchoolMS Academy</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">P.O. Box 1, Accra, Ghana</p>
+                    <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide">{schoolName}</h1>
+                    {schoolAddress && <p className="text-sm text-slate-500 mt-0.5">{schoolAddress}</p>}
+                    {school?.motto && <p className="text-xs italic text-slate-400 mt-0.5">{school.motto}</p>}
                     <h2 className="mt-3 text-base font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Terminal Report Card</h2>
                 </div>
 
@@ -143,14 +153,14 @@ export default function ReportCardPage() {
                                         {row.finalScore !== null ? row.finalScore : '—'}
                                     </td>
                                     <td className={`border border-slate-200 dark:border-slate-700 px-3 py-2 text-center font-bold ${GES_GRADE_COLORS[row.grade] ?? ''}`}>
-                                        {row.grade ?? '—'}
+                                        {row.grade ?? <span className="text-xs font-normal italic text-slate-400">Pending</span>}
                                     </td>
                                     <td className="border border-slate-200 dark:border-slate-700 px-3 py-2 text-center text-xs text-slate-500">
                                         {row.grade === 'A1' || row.grade === 'B2' ? 'Excellent' :
                                          row.grade === 'B3' || row.grade === 'C4' ? 'Good' :
                                          row.grade === 'C5' || row.grade === 'C6' ? 'Average' :
                                          row.grade === 'D7' ? 'Below Average' :
-                                         row.grade === 'E8' || row.grade === 'F9' ? 'Fail' : '—'}
+                                         row.grade === 'E8' || row.grade === 'F9' ? 'Fail' : 'Awaiting exam'}
                                     </td>
                                 </tr>
                             ))}
@@ -158,7 +168,12 @@ export default function ReportCardPage() {
                         {subjectRows.length > 0 && (
                             <tfoot>
                                 <tr className="bg-slate-100 dark:bg-slate-800 font-semibold text-sm">
-                                    <td className="border border-slate-200 dark:border-slate-700 px-3 py-2" colSpan={3}>Overall Average</td>
+                                    <td className="border border-slate-200 dark:border-slate-700 px-3 py-2" colSpan={3}>
+                                        Overall Average
+                                        {summary.subjectsScored < summary.totalSubjects && (
+                                            <span className="ml-1 text-xs font-normal text-slate-400">({summary.subjectsScored} of {summary.totalSubjects} scored)</span>
+                                        )}
+                                    </td>
                                     <td className="border border-slate-200 dark:border-slate-700 px-3 py-2 text-center">{summary.average ?? '—'}</td>
                                     <td className={`border border-slate-200 dark:border-slate-700 px-3 py-2 text-center font-bold ${GES_GRADE_COLORS[summary.overallGrade] ?? ''}`}>
                                         {summary.overallGrade ?? '—'}
@@ -190,7 +205,7 @@ export default function ReportCardPage() {
                             className="no-print w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                         />
                         <p className="print-only hidden text-sm text-slate-700 min-h-[60px] border-b border-slate-300 pb-2">{teacherRemarks || ' '}</p>
-                        <div className="mt-3 border-t border-slate-300 pt-1">
+                        <div className="mt-3">
                             <p className="text-xs text-slate-400">Signature: ___________________</p>
                         </div>
                     </div>
@@ -204,15 +219,15 @@ export default function ReportCardPage() {
                             className="no-print w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                         />
                         <p className="print-only hidden text-sm text-slate-700 min-h-[60px] border-b border-slate-300 pb-2">{principalRemarks || ' '}</p>
-                        <div className="mt-3 border-t border-slate-300 pt-1">
+                        <div className="mt-3">
                             <p className="text-xs text-slate-400">Signature: ___________________</p>
                         </div>
                     </div>
                 </div>
 
                 {/* School stamp area */}
-                <div className="border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
-                    <p>Next Term Begins: _________________ &nbsp;&nbsp; School Stamp: _________________</p>
+                <div className="pt-4 text-center text-xs text-slate-400">
+                    <p>School Stamp: _________________</p>
                 </div>
             </div>
         </div>

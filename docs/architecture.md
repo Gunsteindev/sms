@@ -51,7 +51,7 @@ export const config = {
 - **Cookie name**: `sms.session`
 - **Algorithm**: HS256
 - **Lifetime**: 24 hours
-- **Secret priority**: `AUTH_SECRET` → `NEXTAUTH_SECRET` → `'dev-fallback-change-in-prod'`
+- **Secret priority**: `AUTH_SECRET` → `NEXTAUTH_SECRET` → dev-only fallback. **In production the app throws if no secret of ≥32 chars is configured** (it will not sign/verify tokens with the public dev fallback).
 - **Payload**: `{ userid, email, name, role, userrole, schoolId }`
 
 ```typescript
@@ -72,12 +72,18 @@ getTenantId(): string | undefined
 
 ### `src/lib/dataverse/client.ts` — Dataverse Client
 
-Singleton `DataverseClient` (axios). On every GET request it:
-1. Auto-attaches a Bearer token from `auth.ts` (cached, refreshed 5 min before expiry)
-2. Reads `getTenantId()` from the tenant resolver
-3. Automatically appends `$filter=_sms_school_value eq '<schoolId>'` to every query
+Singleton `DataverseClient` (axios). It auto-attaches a Bearer token from `auth.ts` (cached, refreshed 5 min before expiry) and reads the active `schoolId` from `getTenantId()`. Tenant isolation is enforced on **every** operation, not just list queries — the pure helpers live in `src/lib/dataverse/tenant-guard.ts` (unit tested):
 
-> **Exception**: `sms_schools` is the root entity and does not have `_sms_school_value`. Route handlers that read the school profile must call `getSchoolById(session.schoolId)` explicitly — do not rely on the auto-filter.
+| Operation | Enforcement |
+|-----------|-------------|
+| Collection GET (`get`) | Appends `$filter=_sms_school_value eq <schoolId>` to the query |
+| Single-record GET (`table(id)`) | Cannot be `$filter`ed, so the client selects `_sms_school_value`, then **throws a 404 if the record belongs to another school** |
+| PATCH / DELETE (`table(id)`) | `assertOwnership()` first reads the record's school and **refuses (404) on a tenant mismatch** before mutating |
+| POST | Binds the new row to the active school via `'sms_school@odata.bind'` |
+
+This closes cross-tenant access by GUID: a user from School A cannot read, update, or delete School B's records even with a known ID. The super admin (`bootstrap`, no `schoolId` in scope) is intentionally unrestricted.
+
+> **Exception**: `sms_schools` / `sms_schoolbranchs` are root/tenant tables with no `_sms_school_value` and are exempt from the filter. Route handlers that read the school profile call `getSchoolById(session.schoolId)` explicitly.
 
 ### `src/lib/api-guard.ts` — Route Handler Utilities
 
@@ -88,6 +94,9 @@ Singleton `DataverseClient` (axios). On every GET request it:
 | `badRequest(msg)` | Returns 400 |
 | `unauthorized()` | Returns 401 |
 | `getSession(req)` | Reads and verifies the JWT cookie (for role-based logic) |
+| `withSchool(req, fn)` | Runs `fn` inside `withTenant(<x-school-id>)` so Dataverse calls are tenant-scoped |
+| `getSchoolId(req)` | Reads the `x-school-id` header (injected by the proxy) |
+| `makeTableGuard(...names)` | Returns an `isTableMissing(e)` check for optional/unconfigured tables |
 
 Usage pattern in every route handler:
 
@@ -193,6 +202,8 @@ const { register, control, handleSubmit, formState: { errors } } = useForm<FormD
 ```
 1. User submits email + password at /auth/login
 2. POST /api/auth/login
+   → Rate-limited per IP (50/15min) and per IP+email (10/15min); over-limit → 429.
+      In-memory limiter (src/lib/rate-limit.ts) — back with Redis for multi-instance deploys.
 3a. Bootstrap check: email+password matches ADMIN_EMAIL/ADMIN_PASSWORD env vars
     → createSessionToken({ userid: 'bootstrap', schoolId: undefined })
 3b. Dataverse user check: getUserForAuth(email) → bcrypt.compare(password, hash)
@@ -209,15 +220,29 @@ const { register, control, handleSubmit, formState: { errors } } = useForm<FormD
 
 | Concern | Implementation |
 |---------|---------------|
-| Route protection | `src/proxy.ts` — all routes except public paths require valid JWT |
-| API protection | Proxy returns 401 before route handler runs |
+| Route + role protection | `src/proxy.ts` — all non-public routes require a valid JWT; `ROLE_ACCESS` enforces per-path role allow-lists |
+| API protection | Proxy returns 401 (unauth) / 403 (wrong role) before the route handler runs |
+| Tenant header integrity | Proxy **strips any client-supplied `x-school-id`** and sets it only from the verified JWT |
+| Tenant isolation | Enforced on list **and** single-record reads, plus PATCH/DELETE (see Dataverse Client) — not just list queries |
 | Input validation | Zod schemas in every POST/PUT route handler via `parseBody` |
-| Error sanitisation | `serverError()` returns generic message in production |
-| Secret storage | Environment variables only — never in code |
-| Token security | httpOnly cookie (JS-inaccessible), sameSite: lax |
-| Dataverse access | Server-side only via Azure AD credentials — never reach the browser |
-| Tenant isolation | `_sms_school_value` filter injected on every OData query |
+| Brute-force protection | Per-IP and per-IP+email rate limiting on `/api/auth/login` (429) |
+| Error sanitisation | `serverError()` returns a generic message in production |
+| Secret storage | Environment variables only; production refuses a weak/missing `AUTH_SECRET` |
+| Token security | httpOnly cookie (JS-inaccessible), `sameSite: lax`, `secure` in production |
+| Dataverse access | Server-side only via Azure AD credentials — never reaches the browser |
 | Password hashing | bcrypt (12 rounds) for all Dataverse user accounts |
+
+> **Known gaps before full commercial launch** (tracked): no audit logging, no JWT revocation before expiry, the rate limiter is per-instance (needs Redis for multi-instance), and no payment-gateway integration. See the project README / assessment notes.
+
+## Role-Based Module Access
+
+Beyond the proxy's path/role guard, the **super admin** can configure which modules each role sees from **User Management → Module Access**. The matrix is stored per-school as JSON in `sms_schools.sms_rolemoduleaccess` and exposed through `BrandContext` (`roleModuleAccess`). The Sidebar and the dashboard route guard consult `roleHasModule()` (in `src/lib/modules.ts`), falling back to the built-in defaults when a role has no saved entry. School-wide module enablement (`sms_enabledmodule`) still applies first.
+
+## Testing & CI
+
+- **Unit tests** — [Vitest](https://vitest.dev). Run with `npm test` (watch: `npm run test:watch`). Test files live beside the code as `*.test.ts`. Current coverage focuses on the security-critical pure logic: tenant isolation (`src/lib/dataverse/tenant-guard.test.ts`) and the login rate limiter (`src/lib/rate-limit.test.ts`).
+- **CI** — `.github/workflows/ci.yml` runs on every push/PR: `npm run lint` → `npm test` → `npm run build`. The lint step fails on **errors** (warnings, e.g. `no-explicit-any` at the Dataverse boundary, are allowed as tracked tech debt).
+- The `scripts/test:*` npm scripts are *manual* Dataverse integration probes, not part of the automated suite.
 
 ## Adding a New API Route
 
