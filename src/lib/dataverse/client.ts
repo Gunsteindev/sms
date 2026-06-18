@@ -1,5 +1,23 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
 import { getAccessToken } from "./auth";
+import {
+    NO_TENANT_TABLES,
+    SCHOOL_VALUE_FIELD,
+    getTableName,
+    isSingleRecordEndpoint,
+    extractRecordId,
+    buildTenantFilteredEndpoint,
+    ensureSelect,
+    isCrossTenantViolation,
+} from "./tenant-guard";
+
+// Thrown when a record belongs to a different school than the active tenant.
+// Shaped like an Axios 404 so route handlers map it to "not found".
+function notFoundError(message = 'Record not found'): Error & { response: { status: number } } {
+    const err = new Error(message) as Error & { response: { status: number } };
+    err.response = { status: 404 };
+    return err;
+}
 
 /** Shape returned by every Dataverse OData collection endpoint */
 export type DvList<T = Record<string, unknown>> = {
@@ -10,12 +28,8 @@ export type DvList<T = Record<string, unknown>> = {
 /** A raw Dataverse entity row before mapping to a domain type */
 export type DvRow = Record<string, unknown>;
 
-// Tables that represent the school/tenant itself — no school filter applied
-const NO_TENANT_TABLES = ['sms_schools', 'sms_schoolbranchs'];
-
 // Pluggable tenant resolver — set by server-side code (tenant.ts) at startup.
 // Kept as a plain variable so client bundles never import async_hooks.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _getTenantId: (() => string | undefined) | null = null;
 
 export function registerTenantResolver(fn: () => string | undefined) {
@@ -76,29 +90,59 @@ class DataverseClient {
         );
     }
 
+    // Raw fetch of a record's owning school, bypassing all tenant logic.
+    // Used by assertOwnership() for writes — kept private to avoid recursion.
+    private async fetchRecordSchool(tableName: string, id: string): Promise<string | undefined> {
+        const r = await this.client.get(`${tableName}(${id})?$select=${SCHOOL_VALUE_FIELD}`);
+        return (r.data as Record<string, unknown> | undefined)?.[SCHOOL_VALUE_FIELD] as string | undefined;
+    }
+
+    // Tenant guard for writes (PATCH/DELETE) which target a record by primary key and
+    // therefore cannot carry a $filter. Verifies the record belongs to the active school
+    // before the mutation runs. Super-admin (no tenant in scope) is unrestricted.
+    private async assertOwnership(endpoint: string): Promise<void> {
+        const schoolId = getSchoolIdFromContext();
+        if (!schoolId) return;
+        const tableName = getTableName(endpoint);
+        if (NO_TENANT_TABLES.includes(tableName)) return;
+        const id = extractRecordId(endpoint);
+        if (!id) return;
+        let owner: string | undefined;
+        try {
+            owner = await this.fetchRecordSchool(tableName, id);
+        } catch {
+            // Record likely doesn't exist — let the underlying op surface the real error.
+            return;
+        }
+        if (isCrossTenantViolation(owner, schoolId)) throw notFoundError();
+    }
+
     // Generic GET method
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async get<T>(endpoint: string, params?: any): Promise<T> {
         const schoolId = getSchoolIdFromContext();
         let ep = endpoint;
 
-        if (schoolId) {
-            const tableName = ep.split('?')[0].split('(')[0];
-            const isSingleRecord = /^[a-z_]+\([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)/i.test(ep);
+        const tableName    = getTableName(ep);
+        const singleRecord = isSingleRecordEndpoint(ep);
+        const tenantScoped = !!schoolId && !NO_TENANT_TABLES.includes(tableName);
 
-            if (!NO_TENANT_TABLES.includes(tableName) && !isSingleRecord) {
-                if (ep.includes('$filter=')) {
-                    // Insert school condition into existing $filter
-                    ep = ep.replace(/(\$filter=[^&]*)/, `$1 and _sms_school_value eq ${schoolId}`);
-                } else if (ep.includes('?')) {
-                    ep = ep + `&$filter=_sms_school_value%20eq%20${schoolId}`;
-                } else {
-                    ep = ep + `?$filter=_sms_school_value%20eq%20${schoolId}`;
-                }
+        if (tenantScoped) {
+            if (singleRecord) {
+                // Can't $filter a retrieve-by-key — fetch the school lookup and verify below.
+                ep = ensureSelect(ep, SCHOOL_VALUE_FIELD);
+            } else {
+                ep = buildTenantFilteredEndpoint(ep, schoolId!);
             }
         }
 
         const response = await this.client.get<T>(ep, { params });
+
+        if (tenantScoped && singleRecord) {
+            const owner = (response.data as Record<string, unknown> | undefined)?.[SCHOOL_VALUE_FIELD] as string | undefined;
+            if (isCrossTenantViolation(owner, schoolId!)) throw notFoundError();
+        }
+
         return response.data;
     }
 
@@ -125,6 +169,7 @@ class DataverseClient {
     // record (at the given id) if it doesn't already exist.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async patch<T>(endpoint: string, data: any): Promise<T> {
+        await this.assertOwnership(endpoint);
         const response = await this.client.patch<T>(endpoint, data, {
             headers: { 'If-Match': '*' },
         });
@@ -148,6 +193,7 @@ class DataverseClient {
 
     // Generic DELETE method
     async delete<T>(endpoint: string): Promise<T> {
+        await this.assertOwnership(endpoint);
         const response = await this.client.delete<T>(endpoint);
         return response.data;
     }

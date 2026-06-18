@@ -16,6 +16,8 @@ export const schoolAPI = {
     setMainBranch:  (id: string)                 => apiClient.put(`/school/branches/${id}`, { setMain: true }),
     updateModules:  (id: string, enabledmodules: string[]) =>
                       apiClient.put(`/school/${id}`, { enabledmodules }),
+    updateRoleAccess: (id: string, rolemoduleaccess: Record<number, string[]>) =>
+                      apiClient.put(`/school/${id}`, { rolemoduleaccess }),
 };
 
 export const usersAPI = {

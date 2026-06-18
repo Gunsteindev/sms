@@ -3,18 +3,25 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     Megaphone, Pin, Users, GraduationCap, UserCircle, UserPlus,
-    RefreshCw, Bell, BookOpen, Calendar, DollarSign, ChevronRight, Search,
-    ShieldAlert, FileText, Printer, MessageSquare, Send,
+    RefreshCw, BookOpen, Calendar, DollarSign, ChevronRight, Search,
+    ShieldAlert, FileText, Printer, MessageSquare, Send, School,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/Textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { announcementsAPI, portalAPI } from '@/lib/api-client';
 import { useSession } from '@/contexts/AuthContext';
 import type { Announcement } from '@/lib/dataverse/announcements';
 
 // ── Local constants ──────────────────────────────────────────────────────────
+
+const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
 
 const AUDIENCE_ICON: Record<number, React.ElementType> = { 1: Users, 2: GraduationCap, 3: UserCircle, 4: UserPlus };
 const AUDIENCE_COLOR: Record<number, string> = {
@@ -45,6 +52,12 @@ const FEE_STATUS_COLOR: Record<number, string> = {
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
 interface ChildInfo    { studentid: string; studentname: string; isprimary: boolean; }
+interface ClassInfo    {
+    studentName: string; rollnumber: string; enrollmentdate: string;
+    classname: string; section: string; roomnumber: string;
+    gradelevel: string; classteacher: string; academicyear: string;
+    capacity: number | null; enrolledcount: number | null;
+}
 interface GradeEntry   { gradeid: string; subjectname: string; assessmenttypename: string; score: number; maxscore: number; date: string; termname: string; }
 interface AttRecord    { attendanceid: string; date: string; attendancestatus: number; }
 interface FeeInvoice   { feeid: string; name: string; amount: number; duedate: string; feestatus: number; feestructurename: string; }
@@ -60,6 +73,7 @@ interface ReportCard {
     summary: { average: number | null; overallGrade: string | null; totalSubjects: number; subjectsScored: number; };
 }
 interface ChildData {
+    classInfo: ClassInfo | null;
     grades: GradeEntry[];
     attendance: { records: AttRecord[]; summary: { present: number; absent: number; late: number; excused: number; total: number; }; };
     fees: { invoices: FeeInvoice[]; summary: { totalOwed: number; totalPaid: number; }; };
@@ -103,33 +117,44 @@ function scoreCls(score: number, max: number) {
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
+function InfoField({ label, value }: { label: string; value?: string | null }) {
+    return (
+        <div>
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">{label}</dt>
+            <dd className="mt-0.5 text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{value || '—'}</dd>
+        </div>
+    );
+}
+
 function AnnouncementCard({ a }: { a: Announcement }) {
     const AudIcon = AUDIENCE_ICON[a.audience] ?? Users;
     const isExpired = a.expirydate && new Date(a.expirydate) < new Date();
     return (
-        <div className={`relative rounded-xl border bg-white dark:bg-slate-900 p-5 shadow-sm ${a.ispinned ? 'border-amber-200 dark:border-amber-800' : 'border-slate-200 dark:border-slate-800'}`}>
+        <Card className={`relative gap-0 py-0 ${a.ispinned ? 'ring-amber-200 dark:ring-amber-800' : ''}`}>
             {a.ispinned && <div className="absolute inset-x-0 top-0 h-1 rounded-t-xl bg-amber-400" />}
-            <div className="flex items-start gap-3">
-                <div className={`rounded-lg p-2.5 mt-0.5 flex-shrink-0 ${a.ispinned ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
-                    <Megaphone className={`h-4 w-4 ${a.ispinned ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {a.ispinned && <Pin className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
-                        <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-snug">{a.name}</h3>
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${AUDIENCE_COLOR[a.audience]}`}>
-                            <AudIcon className="h-3 w-3" />{AUDIENCE_LABEL[a.audience]}
-                        </span>
-                        {isExpired && <Badge variant="destructive">Expired</Badge>}
+            <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                    <div className={`rounded-lg p-2.5 mt-0.5 flex-shrink-0 ${a.ispinned ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
+                        <Megaphone className={`h-4 w-4 ${a.ispinned ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500'}`} />
                     </div>
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{a.message}</p>
-                    <div className="mt-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
-                        <span>Posted {a.publishdate ? fmtDate(a.publishdate.slice(0, 10)) : '—'}</span>
-                        {a.expirydate && <span>· Expires {fmtDate(a.expirydate.slice(0, 10))}</span>}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {a.ispinned && <Pin className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-snug">{a.name}</h3>
+                            <Badge className={AUDIENCE_COLOR[a.audience]}>
+                                <AudIcon className="h-3 w-3" />{AUDIENCE_LABEL[a.audience]}
+                            </Badge>
+                            {isExpired && <Badge variant="destructive">Expired</Badge>}
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">{a.message}</p>
+                        <div className="mt-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+                            <span>Posted {a.publishdate ? fmtDate(a.publishdate.slice(0, 10)) : '—'}</span>
+                            {a.expirydate && <span>· Expires {fmtDate(a.expirydate.slice(0, 10))}</span>}
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -318,54 +343,79 @@ export default function PortalPage() {
     const expired = filteredNotices.filter(a => a.expirydate && new Date(a.expirydate) < new Date());
     const selectedChild = children.find(c => c.studentid === selectedId);
 
-    const tabCls = (t: string) =>
-        `px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === t ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`;
-
     const onRefresh = tab === 'notices'  ? loadNotices
         : tab === 'feedback' ? loadFeedback
         : () => { loadChildren(); if (selectedId) loadChildData(selectedId); };
     const isRefreshing = loadingNotices || loadingChildren || loadingChild || loadingFeedback;
-
     return (
         <div className="space-y-6">
 
-            {/* Welcome */}
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-5">
-                <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-amber-400 p-3">
-                        <Bell className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-lg font-bold text-amber-900 dark:text-amber-100">Welcome, {name}</h1>
-                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
-                            {notices.length} announcement{notices.length !== 1 ? 's' : ''} · {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                        </p>
-                    </div>
-                    <div className="ml-auto">
-                        <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} className="border-amber-300 text-amber-700 hover:bg-amber-100">
-                            <RefreshCw className={`h-4 w-4 mr-1.5${isRefreshing ? ' animate-spin' : ''}`} /> Refresh
+            {/* Welcome hero */}
+            <section className="space-y-4">
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 p-6 sm:p-7 shadow-sm">
+                    {/* decorative glow */}
+                    <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
+                    <div className="pointer-events-none absolute -right-4 bottom-[-3rem] h-32 w-32 rounded-full bg-orange-300/30 blur-2xl" />
+                    <div className="relative flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-xs font-medium uppercase tracking-wider text-amber-50/80">
+                                {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                            <h1 className="mt-1 text-2xl font-bold text-white truncate">Welcome, {name} 👋</h1>
+                            <p className="mt-1.5 text-sm text-amber-50/90">
+                                {notices.length > 0
+                                    ? `You have ${notices.length} announcement${notices.length !== 1 ? 's' : ''} to review`
+                                    : 'You’re all caught up — no new announcements'}
+                            </p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onRefresh}
+                            disabled={isRefreshing}
+                            className="flex-shrink-0 border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white backdrop-blur-sm"
+                        >
+                            <RefreshCw className={`h-4 w-4 sm:mr-1.5${isRefreshing ? ' animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">Refresh</span>
                         </Button>
                     </div>
                 </div>
-            </div>
 
-            {/* Tab switcher */}
-            <div className="flex border-b border-slate-200 dark:border-slate-700">
-                <button type="button" onClick={() => setTab('notices')} className={tabCls('notices')}>
-                    Notices
-                    {notices.length > 0 && <span className="ml-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs px-1.5 py-0.5">{notices.length}</span>}
-                </button>
-                <button type="button" onClick={() => setTab('children')} className={tabCls('children')}>
-                    My Children
-                    {children.length > 0 && <span className="ml-1.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs px-1.5 py-0.5">{children.length}</span>}
-                </button>
-                <button type="button" onClick={() => setTab('feedback')} className={tabCls('feedback')}>
-                    Feedback
-                    {feedback.length > 0 && <span className="ml-1.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs px-1.5 py-0.5">{feedback.length}</span>}
-                </button>
-            </div>
+                {/* Section selector — cards replace the old tab bar */}
+                <div className="grid grid-cols-3 gap-3">
+                    {[
+                        { key: 'notices'  as const, icon: Megaphone,     label: 'Notices',     count: notices.length,  chip: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
+                        { key: 'children' as const, icon: GraduationCap, label: 'My Children', count: children.length, chip: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+                        { key: 'feedback' as const, icon: MessageSquare, label: 'Feedback',    count: feedback.length, chip: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' },
+                    ].map(({ key, icon: Icon, label, count, chip }) => {
+                        const active = tab === key;
+                        return (
+                            <Card
+                                key={key}
+                                size="sm"
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={active}
+                                onClick={() => setTab(key)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTab(key); } }}
+                                className={`cursor-pointer py-3 outline-none transition-all focus-visible:ring-2 focus-visible:ring-amber-400 ${active ? 'bg-amber-50 ring-2 ring-amber-400 dark:bg-amber-900/20' : 'hover:ring-foreground/20'}`}
+                            >
+                                <CardContent className="flex items-center gap-3 px-3">
+                                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg transition-colors ${active ? 'bg-amber-500 text-white' : chip}`}>
+                                        <Icon className="h-4 w-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className={`truncate text-sm font-semibold leading-tight ${active ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-slate-100'}`}>{label}</p>
+                                        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{count} {count === 1 ? 'item' : 'items'}</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
+                </div>
+            </section>
 
-            {/* ── NOTICES TAB ── */}
+            {/* ── NOTICES ── */}
             {tab === 'notices' && (
                 <div>
                     {loadingNotices ? (
@@ -423,7 +473,7 @@ export default function PortalPage() {
                 </div>
             )}
 
-            {/* ── CHILDREN TAB ── */}
+            {/* ── CHILDREN ── */}
             {tab === 'children' && (
                 <div className="space-y-6">
                     {loadingChildren && (
@@ -478,158 +528,198 @@ export default function PortalPage() {
                     {!loadingChild && childData && (
                         <div className="space-y-5">
 
+                            {/* Class Information */}
+                            {childData.classInfo && (
+                                <Card>
+                                    <CardHeader className="flex items-center gap-2 space-y-0">
+                                        <School className="h-4 w-4 text-indigo-500" />
+                                        <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Class Information</CardTitle>
+                                        {childData.classInfo.classname && (
+                                            <Badge className="ml-auto bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                                {childData.classInfo.classname}
+                                            </Badge>
+                                        )}
+                                    </CardHeader>
+                                    <CardContent>
+                                        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                                            <InfoField label="Class" value={childData.classInfo.classname} />
+                                            <InfoField label="Grade Level" value={childData.classInfo.gradelevel} />
+                                            <InfoField label="Section" value={childData.classInfo.section} />
+                                            <InfoField label="Class Teacher" value={childData.classInfo.classteacher} />
+                                            <InfoField label="Room" value={childData.classInfo.roomnumber} />
+                                            <InfoField label="Academic Year" value={childData.classInfo.academicyear} />
+                                            <InfoField label="Student No." value={childData.classInfo.rollnumber} />
+                                            <InfoField label="Enrolled On" value={childData.classInfo.enrollmentdate ? fmtDate(childData.classInfo.enrollmentdate.slice(0, 10)) : ''} />
+                                            <InfoField
+                                                label="Class Size"
+                                                value={childData.classInfo.capacity != null
+                                                    ? `${childData.classInfo.enrolledcount ?? '—'} / ${childData.classInfo.capacity}`
+                                                    : ''}
+                                            />
+                                        </dl>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             {/* Attendance */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
-                                <div className="flex items-center gap-2 mb-4">
+                            <Card>
+                                <CardHeader className="flex items-center gap-2 space-y-0">
                                     <Calendar className="h-4 w-4 text-blue-500" />
-                                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">Attendance</h3>
+                                    <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Attendance</CardTitle>
                                     <span className="ml-auto text-xs text-slate-400">{childData.attendance.summary.total} records</span>
-                                </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                                    {[
-                                        { label: 'Present', count: childData.attendance.summary.present, cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
-                                        { label: 'Absent',  count: childData.attendance.summary.absent,  cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
-                                        { label: 'Late',    count: childData.attendance.summary.late,    cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
-                                        { label: 'Excused', count: childData.attendance.summary.excused, cls: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
-                                    ].map(s => (
-                                        <div key={s.label} className={`rounded-lg p-3 text-center ${s.cls}`}>
-                                            <p className="text-2xl font-bold">{s.count}</p>
-                                            <p className="text-xs mt-0.5">{s.label}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                                {childData.attendance.records.length > 0 && (
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Recent</p>
-                                        {childData.attendance.records.slice(0, 8).map(r => (
-                                            <div key={r.attendanceid} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                                                <span className="text-sm text-slate-700 dark:text-slate-300">{fmtDate(r.date)}</span>
-                                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${attBadgeCls(r.attendancestatus)}`}>{ATT_STATUS[r.attendancestatus] ?? '—'}</span>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                                        {[
+                                            { label: 'Present', count: childData.attendance.summary.present, cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+                                            { label: 'Absent',  count: childData.attendance.summary.absent,  cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+                                            { label: 'Late',    count: childData.attendance.summary.late,    cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+                                            { label: 'Excused', count: childData.attendance.summary.excused, cls: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
+                                        ].map(s => (
+                                            <div key={s.label} className={`rounded-lg p-3 text-center ${s.cls}`}>
+                                                <p className="text-2xl font-bold">{s.count}</p>
+                                                <p className="text-xs mt-0.5">{s.label}</p>
                                             </div>
                                         ))}
                                     </div>
-                                )}
-                            </div>
+                                    {childData.attendance.records.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Recent</p>
+                                            {childData.attendance.records.slice(0, 8).map(r => (
+                                                <div key={r.attendanceid} className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                                                    <span className="text-sm text-slate-700 dark:text-slate-300">{fmtDate(r.date)}</span>
+                                                    <Badge className={attBadgeCls(r.attendancestatus)}>{ATT_STATUS[r.attendancestatus] ?? '—'}</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             {/* Grades */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
-                                <div className="flex items-center gap-2 mb-4">
+                            <Card>
+                                <CardHeader className="flex items-center gap-2 space-y-0">
                                     <BookOpen className="h-4 w-4 text-violet-500" />
-                                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">Recent Grades</h3>
-                                </div>
-                                {childData.grades.length === 0 ? (
-                                    <p className="text-sm text-slate-400 text-center py-6">No grades recorded yet</p>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="border-b border-slate-200 dark:border-slate-700">
-                                                    <th className="text-left py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</th>
-                                                    <th className="text-left py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
-                                                    <th className="text-right py-2 pr-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Score</th>
-                                                    <th className="text-left py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Term</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
+                                    <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Recent Grades</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {childData.grades.length === 0 ? (
+                                        <p className="text-sm text-slate-400 text-center py-6">No grades recorded yet</p>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Subject</TableHead>
+                                                    <TableHead>Type</TableHead>
+                                                    <TableHead className="text-right">Score</TableHead>
+                                                    <TableHead>Term</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
                                                 {childData.grades.slice(0, 15).map(g => (
-                                                    <tr key={g.gradeid} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                                                        <td className="py-2 pr-4 font-medium text-slate-900 dark:text-slate-100">{g.subjectname || '—'}</td>
-                                                        <td className="py-2 pr-4 text-slate-600 dark:text-slate-400">{g.assessmenttypename}</td>
-                                                        <td className="py-2 pr-4 text-right">
+                                                    <TableRow key={g.gradeid}>
+                                                        <TableCell className="font-medium text-slate-900 dark:text-slate-100">{g.subjectname || '—'}</TableCell>
+                                                        <TableCell className="text-slate-600 dark:text-slate-400">{g.assessmenttypename}</TableCell>
+                                                        <TableCell className="text-right">
                                                             <span className={`font-semibold ${scoreCls(g.score, g.maxscore)}`}>{g.score}/{g.maxscore}</span>
-                                                        </td>
-                                                        <td className="py-2 text-xs text-slate-500 dark:text-slate-400">{g.termname || '—'}</td>
-                                                    </tr>
+                                                        </TableCell>
+                                                        <TableCell className="text-xs text-slate-500 dark:text-slate-400">{g.termname || '—'}</TableCell>
+                                                    </TableRow>
                                                 ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             {/* Fees */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
-                                <div className="flex items-center gap-2 mb-4">
+                            <Card>
+                                <CardHeader className="flex items-center gap-2 space-y-0">
                                     <DollarSign className="h-4 w-4 text-emerald-500" />
-                                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">Fee Balance</h3>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mb-4">
-                                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-3">
-                                        <p className="text-xs text-red-500 dark:text-red-400 font-medium">Outstanding</p>
-                                        <p className="text-xl font-bold text-red-700 dark:text-red-300 mt-0.5">{fmtCurrency(childData.fees.summary.totalOwed)}</p>
+                                    <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Fee Balance</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
+                                        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-3">
+                                            <p className="text-xs text-red-500 dark:text-red-400 font-medium">Outstanding</p>
+                                            <p className="text-xl font-bold text-red-700 dark:text-red-300 mt-0.5">{fmtCurrency(childData.fees.summary.totalOwed)}</p>
+                                        </div>
+                                        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-3">
+                                            <p className="text-xs text-emerald-500 dark:text-emerald-400 font-medium">Paid</p>
+                                            <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(childData.fees.summary.totalPaid)}</p>
+                                        </div>
                                     </div>
-                                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-3">
-                                        <p className="text-xs text-emerald-500 dark:text-emerald-400 font-medium">Paid</p>
-                                        <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-0.5">{fmtCurrency(childData.fees.summary.totalPaid)}</p>
-                                    </div>
-                                </div>
-                                {childData.fees.invoices.length === 0 ? (
-                                    <p className="text-sm text-slate-400 text-center py-4">No fee invoices</p>
-                                ) : (
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Invoices</p>
-                                        {childData.fees.invoices.map(f => (
-                                            <div key={f.feeid} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{f.name || f.feestructurename || 'Fee'}</p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400">Due {fmtDate(f.duedate?.slice(0, 10) ?? '')}</p>
+                                    {childData.fees.invoices.length === 0 ? (
+                                        <p className="text-sm text-slate-400 text-center py-4">No fee invoices</p>
+                                    ) : (
+                                        <div>
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Invoices</p>
+                                            {childData.fees.invoices.map(f => (
+                                                <div key={f.feeid} className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{f.name || f.feestructurename || 'Fee'}</p>
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400">Due {fmtDate(f.duedate?.slice(0, 10) ?? '')}</p>
+                                                    </div>
+                                                    <div className="text-right ml-4 flex-shrink-0 space-y-1">
+                                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{fmtCurrency(f.amount)}</p>
+                                                        <Badge className={FEE_STATUS_COLOR[f.feestatus]}>{FEE_STATUS[f.feestatus]}</Badge>
+                                                    </div>
                                                 </div>
-                                                <div className="text-right ml-4 flex-shrink-0">
-                                                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{fmtCurrency(f.amount)}</p>
-                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${FEE_STATUS_COLOR[f.feestatus]}`}>{FEE_STATUS[f.feestatus]}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             {/* Disciplinary */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
-                                <div className="flex items-center gap-2 mb-4">
+                            <Card>
+                                <CardHeader className="flex items-center gap-2 space-y-0">
                                     <ShieldAlert className="h-4 w-4 text-rose-500" />
-                                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">Disciplinary</h3>
+                                    <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Disciplinary</CardTitle>
                                     {childData.disciplinary.length > 0 && (
                                         <span className="ml-auto text-xs text-slate-400">{childData.disciplinary.length} record{childData.disciplinary.length !== 1 ? 's' : ''}</span>
                                     )}
-                                </div>
-                                {childData.disciplinary.length === 0 ? (
-                                    <p className="text-sm text-emerald-600 dark:text-emerald-400 text-center py-4">✓ Clean record — no incidents</p>
-                                ) : (
-                                    <div className="space-y-2">
-                                        {childData.disciplinary.map(d => (
-                                            <div key={d.disciplinaryid} className="rounded-lg border border-slate-100 dark:border-slate-800 p-3">
-                                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
-                                                        {d.incidenttypename || 'Incident'}
-                                                    </span>
-                                                    <span className="text-xs text-slate-400">{fmtDate(d.date?.slice(0, 10) ?? '')}</span>
-                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${d.resolved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}`}>
-                                                        {d.resolved ? 'Resolved' : 'Open'}
-                                                    </span>
+                                </CardHeader>
+                                <CardContent>
+                                    {childData.disciplinary.length === 0 ? (
+                                        <p className="text-sm text-emerald-600 dark:text-emerald-400 text-center py-4">✓ Clean record — no incidents</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {childData.disciplinary.map(d => (
+                                                <div key={d.disciplinaryid} className="rounded-lg border border-slate-100 dark:border-slate-800 p-3">
+                                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                        <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300">
+                                                            {d.incidenttypename || 'Incident'}
+                                                        </Badge>
+                                                        <span className="text-xs text-slate-400">{fmtDate(d.date?.slice(0, 10) ?? '')}</span>
+                                                        <Badge className={d.resolved ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}>
+                                                            {d.resolved ? 'Resolved' : 'Open'}
+                                                        </Badge>
+                                                    </div>
+                                                    {d.description && <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">{d.description}</p>}
+                                                    {d.action && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1"><span className="font-medium">Action:</span> {d.action}</p>}
                                                 </div>
-                                                {d.description && <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">{d.description}</p>}
-                                                {d.action && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1"><span className="font-medium">Action:</span> {d.action}</p>}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             {/* Report Card */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
-                                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                            <Card>
+                                <CardHeader className="flex items-center gap-2 space-y-0 flex-wrap">
                                     <FileText className="h-4 w-4 text-blue-500" />
-                                    <h3 className="font-semibold text-slate-900 dark:text-slate-100">Report Card</h3>
+                                    <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Report Card</CardTitle>
                                     <div className="ml-auto flex items-center gap-2">
                                         {childData.terms.length > 0 && (
-                                            <select
-                                                value={selectedTerm}
-                                                onChange={e => onTermChange(e.target.value)}
-                                                className="h-9 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm px-2 text-slate-900 dark:text-slate-100"
-                                            >
-                                                {childData.terms.map(t => <option key={t.termid} value={t.termid}>{t.name}</option>)}
-                                            </select>
+                                            <SelectRoot value={selectedTerm} onValueChange={(v) => onTermChange((v as string) ?? '')}>
+                                                <SelectTrigger className="w-40 h-9 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100">
+                                                    <SelectValue>{childData.terms.find(t => t.termid === selectedTerm)?.name ?? 'Select term'}</SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {childData.terms.map(t => <SelectItem key={t.termid} value={t.termid}>{t.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </SelectRoot>
                                         )}
                                         {childData.reportCard && childData.reportCard.subjectRows.length > 0 && (
                                             <Button variant="outline" size="sm" onClick={printReportCard}>
@@ -637,105 +727,115 @@ export default function PortalPage() {
                                             </Button>
                                         )}
                                     </div>
-                                </div>
-
-                                {!childData.reportCard || childData.reportCard.subjectRows.length === 0 ? (
-                                    <p className="text-sm text-slate-400 text-center py-6">No report card available for this term yet</p>
-                                ) : (
-                                    <>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm border-collapse">
-                                                <thead>
-                                                    <tr className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500">
-                                                        <th className="border border-slate-200 dark:border-slate-700 px-3 py-2 text-left">Subject</th>
-                                                        <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center">Class<br/><span className="font-normal normal-case text-[10px]">(30%)</span></th>
-                                                        <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center">Exam<br/><span className="font-normal normal-case text-[10px]">(70%)</span></th>
-                                                        <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center">Total</th>
-                                                        <th className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center">Grade</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
+                                </CardHeader>
+                                <CardContent>
+                                    {!childData.reportCard || childData.reportCard.subjectRows.length === 0 ? (
+                                        <p className="text-sm text-slate-400 text-center py-6">No report card available for this term yet</p>
+                                    ) : (
+                                        <>
+                                            <Table className="border-collapse">
+                                                <TableHeader>
+                                                    <TableRow className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500">
+                                                        <TableHead className="border border-slate-200 dark:border-slate-700 normal-case">Subject</TableHead>
+                                                        <TableHead className="border border-slate-200 dark:border-slate-700 text-center">Class<br/><span className="font-normal normal-case text-[10px]">(30%)</span></TableHead>
+                                                        <TableHead className="border border-slate-200 dark:border-slate-700 text-center">Exam<br/><span className="font-normal normal-case text-[10px]">(70%)</span></TableHead>
+                                                        <TableHead className="border border-slate-200 dark:border-slate-700 text-center">Total</TableHead>
+                                                        <TableHead className="border border-slate-200 dark:border-slate-700 text-center">Grade</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
                                                     {childData.reportCard.subjectRows.map((r, i) => (
-                                                        <tr key={r.subjectid} className={i % 2 ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}>
-                                                            <td className="border border-slate-200 dark:border-slate-700 px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+                                                        <TableRow key={r.subjectid} className={i % 2 ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}>
+                                                            <TableCell className="border border-slate-200 dark:border-slate-700 font-medium text-slate-900 dark:text-slate-100">
                                                                 {r.subjectname}{r.subjectcode && <span className="ml-1 text-xs text-slate-400">({r.subjectcode})</span>}
-                                                            </td>
-                                                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center text-slate-600 dark:text-slate-300">{r.classScore ?? '—'}</td>
-                                                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center text-slate-600 dark:text-slate-300">{r.examScore ?? '—'}</td>
-                                                            <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center font-semibold text-slate-900 dark:text-slate-100">{r.finalScore ?? '—'}</td>
-                                                            <td className={`border border-slate-200 dark:border-slate-700 px-2 py-2 text-center font-bold ${r.grade ? GES_GRADE_COLORS[r.grade] : 'text-slate-400'}`}>
+                                                            </TableCell>
+                                                            <TableCell className="border border-slate-200 dark:border-slate-700 text-center text-slate-600 dark:text-slate-300">{r.classScore ?? '—'}</TableCell>
+                                                            <TableCell className="border border-slate-200 dark:border-slate-700 text-center text-slate-600 dark:text-slate-300">{r.examScore ?? '—'}</TableCell>
+                                                            <TableCell className="border border-slate-200 dark:border-slate-700 text-center font-semibold text-slate-900 dark:text-slate-100">{r.finalScore ?? '—'}</TableCell>
+                                                            <TableCell className={`border border-slate-200 dark:border-slate-700 text-center font-bold ${r.grade ? GES_GRADE_COLORS[r.grade] : 'text-slate-400'}`}>
                                                                 {r.grade ?? <span className="text-xs font-normal italic">Pending</span>}
-                                                            </td>
-                                                        </tr>
+                                                            </TableCell>
+                                                        </TableRow>
                                                     ))}
-                                                </tbody>
-                                                <tfoot>
-                                                    <tr className="bg-slate-50 dark:bg-slate-800 font-semibold">
-                                                        <td className="border border-slate-200 dark:border-slate-700 px-3 py-2" colSpan={3}>Overall Average</td>
-                                                        <td className="border border-slate-200 dark:border-slate-700 px-2 py-2 text-center">{childData.reportCard.summary.average ?? '—'}</td>
-                                                        <td className={`border border-slate-200 dark:border-slate-700 px-2 py-2 text-center font-bold ${childData.reportCard.summary.overallGrade ? GES_GRADE_COLORS[childData.reportCard.summary.overallGrade] : 'text-slate-400'}`}>
+                                                </TableBody>
+                                                <TableFooter>
+                                                    <TableRow className="bg-slate-50 dark:bg-slate-800 font-semibold">
+                                                        <TableCell className="border border-slate-200 dark:border-slate-700" colSpan={3}>Overall Average</TableCell>
+                                                        <TableCell className="border border-slate-200 dark:border-slate-700 text-center">{childData.reportCard.summary.average ?? '—'}</TableCell>
+                                                        <TableCell className={`border border-slate-200 dark:border-slate-700 text-center font-bold ${childData.reportCard.summary.overallGrade ? GES_GRADE_COLORS[childData.reportCard.summary.overallGrade] : 'text-slate-400'}`}>
                                                             {childData.reportCard.summary.overallGrade ?? '—'}
-                                                        </td>
-                                                    </tr>
-                                                </tfoot>
-                                            </table>
-                                        </div>
-                                        {childData.reportCard.summary.subjectsScored < childData.reportCard.summary.totalSubjects && (
-                                            <p className="text-xs text-slate-400 mt-2">
-                                                {childData.reportCard.summary.subjectsScored} of {childData.reportCard.summary.totalSubjects} subjects scored — the rest are awaiting exam results.
-                                            </p>
-                                        )}
-                                    </>
-                                )}
-                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                </TableFooter>
+                                            </Table>
+                                            {childData.reportCard.summary.subjectsScored < childData.reportCard.summary.totalSubjects && (
+                                                <p className="text-xs text-slate-400 mt-2">
+                                                    {childData.reportCard.summary.subjectsScored} of {childData.reportCard.summary.totalSubjects} subjects scored — the rest are awaiting exam results.
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                         </div>
                     )}
                 </div>
             )}
 
-            {/* ── FEEDBACK TAB ── */}
+            {/* ── FEEDBACK ── */}
             {tab === 'feedback' && (
                 <div className="space-y-5">
                     {/* Submit form */}
-                    <form onSubmit={submitFeedback} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 space-y-4">
-                        <div className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4 text-amber-500" />
-                            <h3 className="font-semibold text-slate-900 dark:text-slate-100">Send Feedback or a Complaint</h3>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Type</label>
-                                <select value={fbType} onChange={e => setFbType(e.target.value)}
-                                    className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm px-2 text-slate-900 dark:text-slate-100">
-                                    {Object.entries(FB_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                                </select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Regarding (optional)</label>
-                                <select value={fbChild} onChange={e => setFbChild(e.target.value)}
-                                    className="w-full h-10 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm px-2 text-slate-900 dark:text-slate-100">
-                                    <option value="">— General —</option>
-                                    {children.map(c => <option key={c.studentid} value={c.studentid}>{c.studentname}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Subject</label>
-                            <Input value={fbSubject} onChange={e => setFbSubject(e.target.value)} placeholder="Brief subject…" />
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Message</label>
-                            <textarea value={fbMessage} onChange={e => setFbMessage(e.target.value)} rows={4}
-                                placeholder="Write your feedback or complaint in detail…"
-                                className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm px-3 py-2 text-slate-900 dark:text-slate-100 resize-none" />
-                        </div>
-                        <div className="flex justify-end">
-                            <Button type="submit" disabled={submittingFb}>
-                                <Send className="h-4 w-4 mr-1.5" /> {submittingFb ? 'Sending…' : 'Submit'}
-                            </Button>
-                        </div>
-                    </form>
+                    <Card>
+                        <form onSubmit={submitFeedback} className="flex flex-col gap-4">
+                            <CardHeader className="flex items-center gap-2 space-y-0">
+                                <MessageSquare className="h-4 w-4 text-amber-500" />
+                                <CardTitle className="font-semibold text-slate-900 dark:text-slate-100">Send Feedback or a Complaint</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label>Type</Label>
+                                        <SelectRoot value={fbType} onValueChange={(v) => setFbType((v as string) ?? '1')}>
+                                            <SelectTrigger className={ST}>
+                                                <SelectValue>{FB_TYPES[Number(fbType)] ?? 'Feedback'}</SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Object.entries(FB_TYPES).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                                            </SelectContent>
+                                        </SelectRoot>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label>Regarding (optional)</Label>
+                                        <SelectRoot value={fbChild} onValueChange={(v) => setFbChild((v as string) ?? '')}>
+                                            <SelectTrigger className={ST}>
+                                                <SelectValue>{children.find(c => c.studentid === fbChild)?.studentname ?? '— General —'}</SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="">— General —</SelectItem>
+                                                {children.map(c => <SelectItem key={c.studentid} value={c.studentid}>{c.studentname}</SelectItem>)}
+                                            </SelectContent>
+                                        </SelectRoot>
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="fb-subject">Subject</Label>
+                                    <Input id="fb-subject" value={fbSubject} onChange={e => setFbSubject(e.target.value)} placeholder="Brief subject…" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="fb-message">Message</Label>
+                                    <Textarea id="fb-message" value={fbMessage} onChange={e => setFbMessage(e.target.value)} rows={4}
+                                        placeholder="Write your feedback or complaint in detail…" />
+                                </div>
+                                <div className="flex justify-end">
+                                    <Button type="submit" disabled={submittingFb}>
+                                        <Send className="h-4 w-4 mr-1.5" /> {submittingFb ? 'Sending…' : 'Submit'}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </form>
+                    </Card>
 
                     {/* Past submissions */}
                     <div>
@@ -750,22 +850,24 @@ export default function PortalPage() {
                         ) : (
                             <div className="space-y-3">
                                 {feedback.map(f => (
-                                    <div key={f.feedbackid} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{FB_TYPES[f.feedbacktype] ?? 'Feedback'}</span>
-                                            <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">{f.subject}</h3>
-                                            <span className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${FB_STATUS_COLOR[f.status]}`}>{FB_STATUS[f.status] ?? 'Submitted'}</span>
-                                        </div>
-                                        {f.studentname && <p className="text-xs text-slate-400 mt-1">Regarding {f.studentname}</p>}
-                                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 whitespace-pre-wrap">{f.message}</p>
-                                        <p className="text-xs text-slate-400 mt-2">{fmtDate(f.createdon?.slice(0, 10) ?? '')}</p>
-                                        {f.response && (
-                                            <div className="mt-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-3">
-                                                <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">School response</p>
-                                                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{f.response}</p>
+                                    <Card key={f.feedbackid} className="gap-0 py-0">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <Badge variant="secondary">{FB_TYPES[f.feedbacktype] ?? 'Feedback'}</Badge>
+                                                <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">{f.subject}</h3>
+                                                <Badge className={`ml-auto ${FB_STATUS_COLOR[f.status]}`}>{FB_STATUS[f.status] ?? 'Submitted'}</Badge>
                                             </div>
-                                        )}
-                                    </div>
+                                            {f.studentname && <p className="text-xs text-slate-400 mt-1">Regarding {f.studentname}</p>}
+                                            <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 whitespace-pre-wrap">{f.message}</p>
+                                            <p className="text-xs text-slate-400 mt-2">{fmtDate(f.createdon?.slice(0, 10) ?? '')}</p>
+                                            {f.response && (
+                                                <div className="mt-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-3">
+                                                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-1">School response</p>
+                                                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{f.response}</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
                                 ))}
                             </div>
                         )}

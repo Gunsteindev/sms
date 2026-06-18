@@ -9,7 +9,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # Start development server (Turbopack)
 npm run build        # Production build — must pass with zero TS errors before any PR
-npm run lint         # Run ESLint
+npm run lint         # Run ESLint (CI gates on errors; warnings allowed)
+npm test             # Vitest unit tests (tenant isolation, rate limiter)
 
 # Dataverse scripts (require .env.local)
 npm run test:connection   # Test Azure AD token + Dataverse connectivity
@@ -48,7 +49,7 @@ Browser → src/lib/api-client.ts (axios, baseURL: /api)
 
 ### Key Layers
 
-**`src/proxy.ts`** — Next.js 16 route guard (replaces deprecated `middleware.ts`). Exported function must be named `proxy`, not `middleware`. Runs before every matched request. Returns `401` for unauthenticated API calls; redirects to `/auth/login` for page requests. Decodes the JWT and injects `x-school-id: <schoolId>` header so route handlers can read the active tenant. Public paths: `/api/auth/*`, `/api/health`, `/auth/login`, `/onboarding`.
+**`src/proxy.ts`** — Next.js 16 route guard (replaces deprecated `middleware.ts`). Exported function must be named `proxy`, not `middleware`. Runs before every matched request. Returns `401` for unauthenticated API calls and `403` for wrong-role access (per the `ROLE_ACCESS` allow-list); redirects to `/auth/login` for page requests. **Strips any client-supplied `x-school-id` header**, then injects `x-school-id: <schoolId>` from the verified JWT so the tenant can only come from the token. Public paths: `/api/auth/*`, `/api/health`, `/auth/login`, `/onboarding`.
 
 **`src/lib/api-guard.ts`** — Server-side utilities:
 - `serverError(error)` — sanitised 500 (full message in dev, generic in prod)
@@ -56,9 +57,9 @@ Browser → src/lib/api-client.ts (axios, baseURL: /api)
 - `parseBody(req, zodSchema)` — JSON parse + Zod validate; returns `{ data }` or `{ response }`
 - `getSession(req)` — reads and verifies the JWT session cookie
 
-**`src/lib/session.ts`** — JWT sign/verify using `jose`. Cookie: `sms.session` (httpOnly, sameSite: lax). Token lifetime: 24 h. Payload includes `userid`, `email`, `name`, `role`, `userrole`, `schoolId`. Secret from `AUTH_SECRET ?? NEXTAUTH_SECRET ?? 'dev-fallback-change-in-prod'`.
+**`src/lib/session.ts`** — JWT sign/verify using `jose`. Cookie: `sms.session` (httpOnly, sameSite: lax). Token lifetime: 24 h. Payload includes `userid`, `email`, `name`, `role`, `userrole`, `schoolId`. Secret from `AUTH_SECRET ?? NEXTAUTH_SECRET`; in production the app **throws** if the secret is missing/weak (<32 chars) rather than using the dev fallback. Login (`/api/auth/login`) is rate-limited (in-memory, `src/lib/rate-limit.ts`).
 
-**`src/lib/dataverse/client.ts`** — Singleton `DataverseClient` (axios). Auto-attaches Bearer token from `auth.ts` (cached, refreshed 5 min before expiry). Reads the active `schoolId` via the tenant resolver and automatically appends `$filter=_sms_school_value eq '<schoolId>'` to every GET request — **except** for tables that are the root entity themselves (`sms_schools`) or explicitly exempt.
+**`src/lib/dataverse/client.ts`** — Singleton `DataverseClient` (axios). Auto-attaches Bearer token from `auth.ts` (cached, refreshed 5 min before expiry). Reads the active `schoolId` via the tenant resolver and enforces tenant isolation on **every** operation (pure helpers in `tenant-guard.ts`): collection GETs get a `_sms_school_value` filter; single-record GETs verify `_sms_school_value` after fetch and throw 404 on mismatch; PATCH/DELETE verify ownership first (`assertOwnership`). Root/tenant tables (`sms_schools`, `sms_schoolbranchs`) and the super admin (no `schoolId` in scope) are exempt.
 
 **`src/lib/dataverse/tenant.ts`** — `AsyncLocalStorage`-based school-ID resolver. `withTenant(schoolId, fn)` runs `fn` with the given school in scope. `getTenantId()` returns the current school ID. Registered with `DataverseClient` via `registerTenantResolver()` to avoid importing `async_hooks` on the client bundle.
 
@@ -72,7 +73,7 @@ Browser → src/lib/api-client.ts (axios, baseURL: /api)
 
 **`src/contexts/AuthContext.tsx`** — Client-side session user state. `SessionUser` includes `schoolId?: string`.
 
-**`src/contexts/BrandContext.tsx`** — Per-school branding state. Fetches from `GET /api/school` on mount; caches in `localStorage` under keys `sms-brand-colors` and `sms-brand-school`. Provides `colors { primary, sidebar }`, `school { name, motto, logo }`, `setColors`, `setSchool`. Applies colors immediately as CSS variables (`--school-primary`, `--school-sidebar`, `--primary`, `--ring`). Export `BRAND_SCHOOL_KEY = 'sms-brand-school'` for use in school-switch flows (clear before redirecting to prevent stale flash).
+**`src/contexts/BrandContext.tsx`** — Per-school branding state. Fetches from `GET /api/school` on mount; caches in `localStorage` under keys `sms-brand-colors` and `sms-brand-school`. Provides `colors { primary, sidebar }`, `school { name, motto, logo }`, `enabledModules`, `roleModuleAccess`, plus their setters. Applies colors immediately as CSS variables (`--school-primary`, `--school-sidebar`, `--primary`, `--ring`). Export `BRAND_SCHOOL_KEY = 'sms-brand-school'` for use in school-switch flows (clear before redirecting to prevent stale flash). `enabledModules` (school-wide) and `roleModuleAccess` (per-role, set by super admin in User Management → Module Access; stored in `sms_rolemoduleaccess`) drive Sidebar + route visibility via `roleHasModule()` in `src/lib/modules.ts`.
 
 ### Multi-Tenancy
 
@@ -100,6 +101,17 @@ Two separate concerns:
 - **Register new school** — 3-step wizard (profile → location → curriculum) → `POST /api/onboarding/complete` → redirect to dashboard.
 
 Admins can return to `/onboarding` at any time to switch between schools or add new ones.
+
+### Parent Portal
+
+`/parent` (route group `src/app/(parent)/`) is a standalone parent-facing experience, separate from the admin dashboard shell (`/portal` redirects here). Built with shadcn/ui components and a card-based section selector (Notices / My Children / Feedback). It runs its **own `ThemeProvider` (`storageKey="sms-parent-theme"`)** so its light/dark choice is independent of the admin theme; the global provider defers the `<html>` class on `/parent` routes and the inline FOUC script reads the parent key there.
+
+Endpoints under `/api/portal/*` are **parent-scoped**: each verifies the caller is a parent linked to the requested student (via `getParentByEmail` + `getParentStudents`) and returns `403` otherwise. `GET /api/portal/children/[studentId]` returns `classInfo`, attendance, grades, fees, disciplinary, terms, and the report card.
+
+### Testing & CI
+
+- **`npm test`** — Vitest unit tests (`*.test.ts` beside the code). Security-critical coverage: `src/lib/dataverse/tenant-guard.test.ts` (cross-tenant isolation) and `src/lib/rate-limit.test.ts`.
+- **`.github/workflows/ci.yml`** runs `lint → test → build` on push/PR. Lint fails on **errors only** — `@typescript-eslint/no-explicit-any` and `react-hooks/set-state-in-effect` are downgraded to warnings in `eslint.config.mjs`, and `scripts/**` is ignored.
 
 ### Sidebar Branding
 

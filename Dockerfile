@@ -13,9 +13,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build-time env vars (non-secret, required by Next.js at build time)
+# Build-time, non-secret only. The app reads no secrets at build time, so secrets
+# (AUTH_SECRET, AZURE_*, ADMIN_*) are NOT passed here — they would otherwise be
+# baked into an image layer. Provide them at runtime (see docker-compose.yml).
 ARG NEXTAUTH_URL
-ARG NEXTAUTH_SECRET
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
@@ -28,6 +29,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Runtime secrets are injected by the orchestrator (docker-compose / k8s / platform).
+# AUTH_SECRET (or NEXTAUTH_SECRET) MUST be ≥32 chars in production — the app throws
+# on a missing/weak secret. Required: DATAVERSE_URL, AZURE_TENANT_ID, AZURE_CLIENT_ID,
+# AZURE_CLIENT_SECRET, AUTH_SECRET, NEXTAUTH_URL, ADMIN_EMAIL, ADMIN_PASSWORD.
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs \

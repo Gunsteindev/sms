@@ -176,8 +176,11 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL(user.userrole === PARENT ? '/parent' : '/dashboard', request.url));
     }
 
-    // Inject school context header for route handlers
+    // Inject school context header for route handlers.
+    // Always strip any client-supplied value first so the tenant can only ever come
+    // from the verified JWT — never from a forged request header.
     const requestHeaders = new Headers(request.headers);
+    requestHeaders.delete('x-school-id');
     if (user?.schoolId) requestHeaders.set('x-school-id', user.schoolId);
     return NextResponse.next({ request: { headers: requestHeaders } });
 }

@@ -24,13 +24,15 @@ Root entity. Has no `_sms_school_value` (it IS the school). Use `getSchoolById(s
 | `sms_address` | `address` | string | |
 | `sms_region` | `region` | string | |
 | `sms_district` | `district` | string | |
-| `sms_emiscode` | `emiscode` | string | GES EMIS code |
+| `sms_emiscode` | `emiscode` | string | EMIS / institution code |
 | `sms_type` | `type` | int | 1=GES, 2=Cambridge, 3=IB, 4=American, 5=French, 6=Mixed |
 | `sms_level` | `level` | int | 1=Primary, 2=JHS, 3=SHS, 4=International, 5=All |
 | `sms_logo` | `logo` | string | Image URL |
 | `sms_primarycolor` | `primarycolor` | string | Hex colour |
 | `sms_sidebarcolor` | `sidebarcolor` | string | Hex colour |
 | `sms_currency` | `currency` | string | e.g. GHS |
+| `sms_enabledmodule` | `enabledmodules` | string (memo) | JSON array of school-wide enabled module keys |
+| `sms_rolemoduleaccess` | `rolemoduleaccess` | string (memo) | JSON map `{ "<roleNumber>": ["moduleKey", …] }` — per-role module access set by the super admin |
 
 ---
 
@@ -289,7 +291,7 @@ Each school has its own set of academic year records.
 | `sms_examresultid` | `examresultid` | GUID | |
 | `sms_score` | `score` | decimal | |
 | `sms_percentage` | `percentage` | decimal | `(score / totalmarks) × 100` |
-| `sms_gradeletter` | `gradeletter` | string | GES letter (A1–F9) |
+| `sms_gradeletter` | `gradeletter` | string | Letter grade (A1–F9) |
 | `sms_gradepointvalue` | `gradepointvalue` | decimal | |
 | `sms_ispassed` | `ispassed` | boolean | |
 | `sms_remarks` | `remarks` | string | |

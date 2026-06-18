@@ -18,10 +18,16 @@ out
 # Dev tooling
 .eslintrc*
 .prettierrc*
+eslint.config.*
+vitest.config.*
 *.test.*
 *.spec.*
 __tests__
 coverage
+.eslint-report.json
+
+# CI
+.github
 
 # Editor
 .vscode

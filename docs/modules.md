@@ -143,7 +143,7 @@ Line chart showing daily attendance rates over the last 30 days.
 
 ## Gradebook `/gradebook`
 
-Enter and review continuous assessment scores using the GES framework.
+Enter and review continuous assessment scores using a weighted assessment framework.
 
 ### Filter Bar (cascading)
 Class → Subject → Academic Year → Term
@@ -161,7 +161,7 @@ Class → Subject → Academic Year → Term
 
 Click any cell to edit the score (0–100). **Save All** bulk-upserts all changes.
 
-The Computed Grade column applies the GES formula and shows the letter grade (A1–F9) in real time.
+The Computed Grade column applies the grading formula and shows the letter grade (A1–F9) in real time.
 
 ---
 
@@ -179,7 +179,7 @@ Enter scores per student per exam. Percentage and grade letter are auto-calculat
 
 ## Report Cards `/reports/report-card`
 
-Generates GES-compliant termly report cards.
+Generates termly report cards.
 
 **Step 1** — Select: Academic Year → Term → Class → Student → Generate.
 
@@ -190,7 +190,7 @@ Report sections:
 2. Student info (name, roll number, class, term, date)
 3. Subject table: Class Score (30%) | Exam Score (70%) | Total | Grade | Remarks
 4. Summary: average score, overall grade, total subjects
-5. GES grade scale reference
+5. Grade scale reference
 
 Print button opens the browser print dialog. Sidebar and nav are hidden via `@media print`.
 
@@ -339,15 +339,24 @@ Medical clearance from the Health module is required before assigning a student 
 - Fee collection and outstanding balance reports
 
 ### National Exams `/reports/national-exams`
-BECE / WASSCE entry tracking — candidate index numbers, results entry, pass rate analysis.
+National-exam entry tracking (e.g. BECE / WASSCE) — candidate index numbers, results entry, pass rate analysis.
 
 ---
 
-## Parent Portal `/portal`
+## Parent Portal `/parent`
 
-Read-only view for parents with portal user accounts:
-- Pinned and recent school announcements
-- Child's attendance and academic summary
+A standalone, parent-facing experience (separate from the admin dashboard shell; `/portal` redirects here). Parents with a linked account land here after login. It has its **own light/dark theme** (`sms-parent-theme`), independent of the admin theme, and a card-based section selector (no tab bar).
+
+**Sections:**
+- **Notices** — pinned and recent school announcements (audience: All / Parents), searchable.
+- **My Children** — pick a child to see their details:
+  - **Class Information** — class, grade level, section, class teacher, room, academic year, student number, enrolment date, class size.
+  - Attendance summary + recent records, recent grades, fee balance + invoices, disciplinary records, and a printable termly report card (term selector).
+- **Feedback** — submit feedback/complaints/suggestions (optionally about a specific child) and view past submissions with the school's responses.
+
+**Authorization:** the portal endpoints verify the caller is a parent linked to the requested student — a parent can only read their own children's data and can only attach feedback to their own children (otherwise `403`).
+
+Data comes from `/api/portal/children`, `/api/portal/children/[studentId]`, and `/api/portal/feedback`.
 
 ---
 
@@ -386,3 +395,7 @@ Create fee categories before building fee structures.
 
 ### User Management `/setup/users`
 Create and manage per-school system user accounts with role assignment. Roles: Admin, Teacher, Finance, Inventory Manager, Transport Manager, Pool Attendant, Parent, Kitchen Attendant.
+
+**Tabs:**
+- **Users** — the account list (add / edit / activate / deactivate / delete), search, and role filter.
+- **Module Access** (super admin only) — a roles × modules matrix to grant each role specific modules. Toggle a single cell, a whole row (module for all roles), or a column (all modules for a role); **Reset to defaults** restores the built-in mapping. Saved per-school to `sms_schools.sms_rolemoduleaccess` and applied immediately to the sidebar and route guard via `BrandContext`.

@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { Plus, Pencil, Trash2, ShieldCheck, Search, Eye, EyeOff, UserCog, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
+import { Plus, Pencil, Trash2, ShieldCheck, Search, Eye, EyeOff, UserCog, Loader2, CheckCircle2, XCircle, Check, Save, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,9 +14,15 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { SelectRoot, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/Select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/Pagination';
-import { usersAPI } from '@/lib/api-client';
+import { usersAPI, schoolAPI } from '@/lib/api-client';
 import { USER_ROLES } from '@/lib/dataverse/users';
 import type { SmsUser } from '@/lib/dataverse/users';
+import { useSession } from '@/contexts/AuthContext';
+import { useBrand } from '@/contexts/BrandContext';
+import {
+    MODULE_GROUPS, ALL_MODULE_KEYS, ACCESS_ROLES, defaultRoleModuleAccess,
+    type RoleModuleAccess,
+} from '@/lib/modules';
 
 const PAGE_SIZE = 10;
 const ST = 'w-full h-10 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100';
@@ -73,7 +79,172 @@ function PasswordInput({ id, placeholder, ...props }: React.ComponentProps<'inpu
     );
 }
 
+/* ── Module Access matrix (super admin only) ── */
+function ModuleAccessPanel() {
+    const { roleModuleAccess, setRoleModuleAccess } = useBrand();
+    const [schoolId, setSchoolId] = useState<string | null>(null);
+    const [draft,    setDraft]    = useState<RoleModuleAccess>({});
+    const [loading,  setLoading]  = useState(true);
+    const [saving,   setSaving]   = useState(false);
+
+    // Ensure every access role has an array entry.
+    const normalize = (a: RoleModuleAccess): RoleModuleAccess => {
+        const out: RoleModuleAccess = {};
+        for (const r of ACCESS_ROLES) out[r] = [...(a[r] ?? [])];
+        return out;
+    };
+
+    useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (schoolAPI.getProfile() as Promise<any>).then((res: any) => {
+            const p = res?.data;
+            if (p?.schoolid) setSchoolId(p.schoolid);
+            const access: RoleModuleAccess = p?.rolemoduleaccess && Object.keys(p.rolemoduleaccess).length > 0
+                ? p.rolemoduleaccess
+                : (Object.keys(roleModuleAccess).length ? roleModuleAccess : defaultRoleModuleAccess());
+            setDraft(normalize(access));
+        }).catch(() => setDraft(normalize(roleModuleAccess)))
+          .finally(() => setLoading(false));
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const has = (role: number, key: string) => (draft[role] ?? []).includes(key);
+
+    const toggle = (role: number, key: string) => setDraft(prev => {
+        const set = new Set(prev[role] ?? []);
+        if (set.has(key)) set.delete(key); else set.add(key);
+        return { ...prev, [role]: [...set] };
+    });
+
+    const toggleRoleAll = (role: number) => setDraft(prev => {
+        const allOn = ALL_MODULE_KEYS.every(k => (prev[role] ?? []).includes(k));
+        return { ...prev, [role]: allOn ? [] : [...ALL_MODULE_KEYS] };
+    });
+
+    const toggleModuleAll = (key: string) => setDraft(prev => {
+        const allOn = ACCESS_ROLES.every(r => (prev[r] ?? []).includes(key));
+        const next = { ...prev };
+        for (const r of ACCESS_ROLES) {
+            const set = new Set(next[r] ?? []);
+            if (allOn) set.delete(key); else set.add(key);
+            next[r] = [...set];
+        }
+        return next;
+    });
+
+    const resetDefaults = () => setDraft(normalize(defaultRoleModuleAccess()));
+
+    const save = async () => {
+        if (!schoolId) { toast.error('No school in context'); return; }
+        setSaving(true);
+        try {
+            await schoolAPI.updateRoleAccess(schoolId, draft);
+            setRoleModuleAccess(draft); // update live so the sidebar reflects it immediately
+            toast.success('Module access saved');
+        } catch { toast.error('Failed to save module access'); }
+        finally { setSaving(false); }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Tick a module to grant that role access. Changes apply to the current school once saved.
+                    <span className="block text-xs text-slate-400 mt-0.5">Admins always retain full access; the super admin bypasses these limits.</span>
+                </p>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={resetDefaults} disabled={saving}>Reset to defaults</Button>
+                    <Button onClick={save} disabled={saving}>
+                        {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+                        {saving ? 'Saving…' : 'Save Access'}
+                    </Button>
+                </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                    <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-800">
+                            <th className="sticky left-0 z-10 bg-white dark:bg-slate-900 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Module
+                            </th>
+                            {ACCESS_ROLES.map(r => (
+                                <th key={r} className="px-3 py-3 text-center align-bottom">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleRoleAll(r)}
+                                        className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors whitespace-nowrap"
+                                        title={`Toggle all modules for ${USER_ROLES[r]}`}
+                                    >
+                                        {USER_ROLES[r]}
+                                    </button>
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {MODULE_GROUPS.map(group => (
+                            <Fragment key={group.group}>
+                                <tr className="bg-slate-50 dark:bg-slate-800/40">
+                                    <td colSpan={ACCESS_ROLES.length + 1} className="sticky left-0 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                                        {group.group}
+                                    </td>
+                                </tr>
+                                {group.modules.map(mod => (
+                                    <tr key={mod.key} className="border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                                        <td className="sticky left-0 z-10 bg-white dark:bg-slate-900 px-4 py-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleModuleAll(mod.key)}
+                                                className="text-left group"
+                                                title={`Toggle ${mod.label} for all roles`}
+                                            >
+                                                <span className="block text-xs font-medium text-slate-800 dark:text-slate-200 group-hover:text-blue-600">{mod.label}</span>
+                                                <span className="block text-[10px] text-slate-400 leading-tight">{mod.desc}</span>
+                                            </button>
+                                        </td>
+                                        {ACCESS_ROLES.map(r => {
+                                            const on = has(r, mod.key);
+                                            return (
+                                                <td key={r} className="px-3 py-2 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggle(r, mod.key)}
+                                                        aria-pressed={on}
+                                                        aria-label={`${on ? 'Remove' : 'Grant'} ${mod.label} for ${USER_ROLES[r]}`}
+                                                        className={`inline-flex h-5 w-5 items-center justify-center rounded border transition-colors ${
+                                                            on
+                                                                ? 'border-blue-500 bg-blue-500 text-white'
+                                                                : 'border-slate-300 dark:border-slate-600 hover:border-blue-400'
+                                                        }`}
+                                                    >
+                                                        {on && <Check className="h-3 w-3" />}
+                                                    </button>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </Fragment>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
 export default function UsersPage() {
+    const { data: session } = useSession();
+    const isSuperAdmin = session?.user?.userid === 'bootstrap';
+    const [tab, setTab] = useState<'users' | 'access'>('users');
     const [users,        setUsers]        = useState<SmsUser[]>([]);
     const [loading,      setLoading]      = useState(true);
     const [search,       setSearch]       = useState('');
@@ -166,11 +337,39 @@ export default function UsersPage() {
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">User Management</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage staff accounts and role-based access</p>
                 </div>
-                <Button onClick={() => { resetC({ userrole: 2 }); setCreateOpen(true); }}>
-                    <Plus className="h-4 w-4 mr-1.5" /> Add User
-                </Button>
+                {tab === 'users' && (
+                    <Button onClick={() => { resetC({ userrole: 2 }); setCreateOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1.5" /> Add User
+                    </Button>
+                )}
             </div>
 
+            {/* Tabs — Module Access is super-admin only */}
+            {isSuperAdmin && (
+                <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+                    {([
+                        { key: 'users',  label: 'Users',         icon: UserCog },
+                        { key: 'access', label: 'Module Access', icon: SlidersHorizontal },
+                    ] as const).map(({ key, label, icon: Icon }) => (
+                        <button
+                            key={key}
+                            onClick={() => setTab(key)}
+                            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                                tab === key
+                                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                            }`}
+                        >
+                            <Icon className="h-4 w-4" /> {label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {tab === 'access' && isSuperAdmin && <ModuleAccessPanel />}
+
+            {tab === 'users' && (
+            <>
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative max-w-sm w-full">
@@ -278,6 +477,8 @@ export default function UsersPage() {
                     <Pagination page={page} totalPages={totalPages} total={filtered.length} pageSize={PAGE_SIZE} label="user" onChange={setPage} />
                 )}
             </div>
+            </>
+            )}
 
             {/* ── Create modal ── */}
             <Dialog open={createOpen} onOpenChange={o => { if (!o) setCreateOpen(false); }}>

@@ -76,6 +76,8 @@ export default function FeedbackAdminPage() {
         try {
             await feedbackAPI.update(editing.feedbackid, { status: Number(respStatus), response: respText });
             toast.success('Response saved');
+            // Tell the sidebar to re-count the "new" badge immediately
+            window.dispatchEvent(new Event('feedback:changed'));
             setEditing(null); load();
         } catch { toast.error('Failed to save'); }
         finally { setSaving(false); }

@@ -1,6 +1,6 @@
-# Ghana School Management System (SMS)
+# School Management System (SMS)
 
-A multi-tenant, full-stack school management system built with Next.js 16 and Microsoft Dataverse, designed for Ghanaian nursery-to-secondary schools following Ghana Education Service (GES) standards.
+A multi-tenant, full-stack school management system built with Next.js 16 and Microsoft Dataverse for nursery-to-secondary schools. It supports multiple curriculum types (GES, Cambridge, IB, American, French), configurable modules, and role-based access — running many independent schools from a single installation.
 
 ## Features
 
@@ -13,7 +13,7 @@ A multi-tenant, full-stack school management system built with Next.js 16 and Mi
 | Classes & Subjects | Class management with grade levels and departments |
 | Timetable | Weekly period scheduling per class |
 | Attendance | Daily mark-attendance with trend charts |
-| Gradebook | Class scores + exam scores → GES letter grades (A1–F9) |
+| Gradebook | Class scores + exam scores → automatic letter grades (GES A1–F9 scale built in) |
 | Exams | Exam scheduling and result entry |
 | Enrollments | Student-class enrollment management |
 | Promotions | End-of-year bulk student promotion / retention |
@@ -56,10 +56,10 @@ A multi-tenant, full-stack school management system built with Next.js 16 and Mi
 | Onboarding | Guided setup wizard to register a new school or switch between schools |
 | School Profile | Logo, motto, colors, address, EMIS code, curriculum type |
 | Branding | Per-school sidebar colors and logo applied dynamically via CSS variables |
-| User Management | Role-based access with per-school user accounts |
+| User Management | Per-school user accounts + a super-admin **Module Access** matrix to grant each role specific modules |
 | Reports | National exam results and custom report generation |
 | AI Assistant | Built-in AI chat for data queries |
-| Student / Parent Portal | Self-service portal access |
+| Parent Portal | Standalone `/parent` experience: announcements, per-child class info / attendance / grades / fees / report card, and feedback — with its own light/dark theme, independent of the admin theme |
 
 ## Tech Stack
 
@@ -73,7 +73,8 @@ A multi-tenant, full-stack school management system built with Next.js 16 and Mi
 | UI | Tailwind CSS v4, shadcn/ui, Lucide icons |
 | Forms | react-hook-form + Zod (client and server validation) |
 | i18n | 5 locales: English, French, Spanish, German, Portuguese |
-| Dark mode | Tailwind `dark:` classes + system preference toggle |
+| Dark mode | Tailwind `dark:` classes + system preference toggle (parent portal has its own scoped theme) |
+| Testing | Vitest unit tests (`npm test`) + GitHub Actions CI (lint → test → build) |
 
 ## Getting Started
 
@@ -136,7 +137,7 @@ src/
 │   │   ├── classes/            # Class management
 │   │   ├── subjects/           # Subject catalogue
 │   │   ├── attendance/         # Daily attendance
-│   │   ├── gradebook/          # Scores and GES grade calculation
+│   │   ├── gradebook/          # Scores and grade calculation
 │   │   ├── exams/              # Exam scheduling and results
 │   │   ├── enrollments/        # Student-class enrollment
 │   │   ├── fees/               # Fee invoices
@@ -187,7 +188,7 @@ src/
 | `AZURE_TENANT_ID` | Yes | Azure AD tenant ID |
 | `AZURE_CLIENT_ID` | Yes | App registration client ID |
 | `AZURE_CLIENT_SECRET` | Yes | App registration client secret |
-| `AUTH_SECRET` | Yes | JWT signing secret (min 32 chars) |
+| `AUTH_SECRET` | Yes | JWT signing secret. **Production requires ≥32 chars** — the app throws on a missing/weak secret |
 | `NEXTAUTH_SECRET` | Yes | Fallback JWT secret |
 | `NEXTAUTH_URL` | Yes | Public app base URL |
 | `ADMIN_EMAIL` | Yes | Bootstrap admin email (env-only, no Dataverse lookup) |
@@ -198,8 +199,8 @@ src/
 Each school is a fully isolated tenant. The mechanism:
 
 1. **Login** — the `sms.session` JWT embeds a `schoolId` (the school's Dataverse GUID).
-2. **Proxy** (`src/proxy.ts`) — on every request, decodes the JWT and injects `x-school-id: <schoolId>` as a request header.
-3. **Dataverse client** (`src/lib/dataverse/tenant.ts`) — reads `schoolId` from `AsyncLocalStorage`; every OData query automatically appends `$filter=_sms_school_value eq '<schoolId>'`.
+2. **Proxy** (`src/proxy.ts`) — on every request, decodes the JWT and injects `x-school-id: <schoolId>`, **stripping any client-supplied value** so the tenant can only come from the verified token.
+3. **Dataverse client** (`src/lib/dataverse/client.ts` + `tenant.ts`) — reads `schoolId` from `AsyncLocalStorage` and enforces isolation on **every** operation: list queries get a `_sms_school_value` filter, and single-record reads / PATCH / DELETE verify the record's school and return 404 on a cross-tenant mismatch.
 4. **School switching** — `POST /api/school/switch` re-issues the JWT with the new `schoolId` and reloads the dashboard.
 5. **Branding** — `BrandContext` fetches the active school's name, motto, and logo on mount; stores them in `localStorage` for instant display; applies primary/sidebar colors as CSS variables.
 
@@ -262,8 +263,14 @@ npx ts-node --skipProject scripts/<script-name>.ts
 ```bash
 npm run dev              # Development server (Turbopack)
 npm run build            # Production build (must pass — zero TS errors)
-npm run lint             # ESLint
-npm run test:connection  # Test Azure AD token + Dataverse connectivity
-npm run test:dataverse   # Full Dataverse CRUD test
-npm run test:quick       # Quick smoke test
+npm run lint             # ESLint (CI gates on errors; warnings allowed)
+npm test                 # Vitest unit tests (tenant isolation, rate limiter)
+npm run test:watch       # Vitest in watch mode
+npm run test:connection  # Test Azure AD token + Dataverse connectivity (manual, needs .env.local)
+npm run test:dataverse   # Full Dataverse CRUD test (manual)
+npm run test:quick       # Quick smoke test (manual)
 ```
+
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push and pull request: **lint → unit tests → production build**. The build is the hard gate (zero TypeScript errors); lint fails only on errors (not warnings).

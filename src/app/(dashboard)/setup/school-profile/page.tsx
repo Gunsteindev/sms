@@ -55,6 +55,7 @@ const DEFAULT_DRAFT: Omit<SchoolProfile, 'schoolid'> = {
   website: '', emiscode: '', district: '', region: '', logo: '',
   primarycolor: '#2563eb', sidebarcolor: '#0f172a',
   enabledmodules: [],
+  rolemoduleaccess: {},
 };
 
 const COLOR_PRESETS: { name: string; primary: string; sidebar: string }[] = [
@@ -291,7 +292,7 @@ export default function SchoolProfilePage() {
         if (profileRes?.data) {
           const p: SchoolProfile = profileRes.data;
           setSchoolId(p.schoolid);
-          setDraft({ name: p.name, motto: p.motto, type: p.type, level: p.level, address: p.address, phone: p.phone, email: p.email, currency: p.currency, website: p.website, emiscode: p.emiscode, district: p.district, region: p.region, logo: p.logo ?? '', primarycolor: p.primarycolor || colors.primary, sidebarcolor: p.sidebarcolor || colors.sidebar, enabledmodules: p.enabledmodules });
+          setDraft({ name: p.name, motto: p.motto, type: p.type, level: p.level, address: p.address, phone: p.phone, email: p.email, currency: p.currency, website: p.website, emiscode: p.emiscode, district: p.district, region: p.region, logo: p.logo ?? '', primarycolor: p.primarycolor || colors.primary, sidebarcolor: p.sidebarcolor || colors.sidebar, enabledmodules: p.enabledmodules, rolemoduleaccess: p.rolemoduleaccess ?? {} });
         }
         if (branchRes?.data) setBranches(branchRes.data as SchoolBranch[]);
       } catch {

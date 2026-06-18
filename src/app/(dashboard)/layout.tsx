@@ -7,7 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useBrand } from '@/contexts/BrandContext';
-import { moduleForPath } from '@/lib/modules';
+import { moduleForPath, roleHasModule } from '@/lib/modules';
 import { LayoutGrid, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -39,8 +39,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: sessionData, status } = useSession();
   const router   = useRouter();
   const pathname = usePathname();
-  const { enabledModules } = useBrand();
+  const { enabledModules, roleModuleAccess } = useBrand();
   const isSuperAdmin = sessionData?.user?.userid === 'bootstrap';
+  const role = sessionData?.user?.userrole ?? 1;
 
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -80,7 +81,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Resolve which module (if any) this path belongs to.
   // Super admin bypasses the guard — they need full access to manage all schools.
   const requiredModule = moduleForPath(pathname);
-  const moduleBlocked  = !isSuperAdmin && requiredModule !== null && !enabledModules.includes(requiredModule);
+  const moduleBlocked  = !isSuperAdmin && requiredModule !== null && (
+    // Blocked if the school hasn't enabled it, or this role isn't granted access to it.
+    !enabledModules.includes(requiredModule) || !roleHasModule(roleModuleAccess, role, requiredModule)
+  );
 
   // Find a friendly display name for the blocked module
   const blockedLabel = requiredModule

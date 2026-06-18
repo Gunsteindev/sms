@@ -7,12 +7,12 @@ import Link from 'next/link';
 import {
   School, Users, Calendar, DollarSign, BookOpen, BarChart3,
   ArrowRight, CheckCircle2, GraduationCap, UserCheck, TrendingUp,
-  ShieldCheck, Zap, Globe, ClipboardList, Clock, Library,
+  ShieldCheck, Globe, Library,
   FileText, Award, Package, ShoppingCart, CalendarOff,
   Megaphone, Bus, Trophy, HeartPulse, ShieldAlert, UserPlus,
   Waves, BookMarked, Building2, Settings, Star, ChevronRight,
   Layers, LayoutDashboard, UserCog, Briefcase, BookOpenCheck,
-  Lock, Server, RefreshCw, Bell,
+  RefreshCw, Bell,
 } from 'lucide-react';
 
 /* ─── Module categories ─────────────────────────────────────────────── */
@@ -27,7 +27,7 @@ const CATEGORIES = [
       { icon: BookOpen,      title: 'Class Organisation',     desc: 'Create classes, assign form teachers, track enrolment capacity per grade level.' },
       { icon: BookMarked,    title: 'Subjects & Timetable',   desc: 'Define subjects, build weekly schedules, and assign teachers to periods.' },
       { icon: Calendar,      title: 'Attendance Tracking',    desc: 'Mark daily attendance per class, view visual calendars, and monitor trends.' },
-      { icon: BookOpenCheck, title: 'Gradebook & GES Grades', desc: 'Enter classwork, homework, mid-term, and end-of-term scores. Auto-calculates A1–F9.' },
+      { icon: BookOpenCheck, title: 'Gradebook & Grading',    desc: 'Enter classwork, homework, mid-term, and end-of-term scores with automatic weighted letter grades.' },
       { icon: FileText,      title: 'Report Cards',           desc: 'Generate terminal report cards per student, per term — ready in seconds.' },
       { icon: Award,         title: 'Student Promotions',     desc: 'Promote, retain, transfer, or graduate whole classes at end of year.' },
       { icon: FileText,      title: 'Exam Management',        desc: 'Schedule exams, record results by subject, and track performance trends.' },
@@ -76,7 +76,7 @@ const CATEGORIES = [
     pill:   'bg-pink-50 text-pink-700 border-pink-200',
     modules: [
       { icon: BarChart3,  title: 'Reports & Analytics', desc: 'Attendance trends, fee collection charts, performance dashboards, and KPI summaries.' },
-      { icon: FileText,   title: 'National Exams',      desc: 'Track BECE and WASSCE candidates, centres, and predicted outcomes.' },
+      { icon: FileText,   title: 'National Exams',      desc: 'Track national-exam candidates, centres, and outcomes (e.g. BECE & WASSCE).' },
       { icon: Building2,  title: 'Departments',         desc: 'Organise staff into academic and administrative departments.' },
       { icon: Settings,   title: 'School Setup',        desc: 'Configure academic years, terms, grade levels, houses, programme tracks, and fee types.' },
       { icon: UserCog,    title: 'User Management',     desc: 'Role-based access control — Admin, Teacher, Finance, Inventory, Transport, Pool, Parent.' },
@@ -91,43 +91,7 @@ const STATS = [
   { value: `${ALL_MODULES.length}`, label: 'Integrated Modules',      icon: Layers      },
   { value: '8',                      label: 'Role-based Access Levels', icon: ShieldCheck },
   { value: '99.9%',                  label: 'Uptime SLA',               icon: TrendingUp  },
-  { value: '100%',                   label: 'GES-Aligned Grading',      icon: GraduationCap },
-];
-
-/* ─── Key Features ──────────────────────────────────────────────────── */
-const KEY_FEATURES = [
-  {
-    icon: School,
-    color: 'from-blue-500 to-cyan-500',
-    glow:  'shadow-blue-500/20',
-    title: 'Multi-School Management',
-    desc:  'Run a network of schools from a single login. Switch between campuses, manage each school\'s data in complete isolation, and register new schools with a 3-step setup wizard.',
-    points: ['Isolated data per school', '3-step school registration', 'Instant school switching'],
-  },
-  {
-    icon: Layers,
-    color: 'from-violet-500 to-purple-500',
-    glow:  'shadow-violet-500/20',
-    title: 'Configurable Module Access',
-    desc:  'Enable only the modules each school needs. Toggle features on or off per institution — staff see only what is relevant to their school.',
-    points: ['Per-school module control', 'Sidebar updates instantly', 'No feature bloat'],
-  },
-  {
-    icon: Lock,
-    color: 'from-emerald-500 to-teal-500',
-    glow:  'shadow-emerald-500/20',
-    title: 'Role-Based Access Control',
-    desc:  'Eight distinct user roles — from Administrator to Parent. Each role sees only the pages and data relevant to their responsibilities.',
-    points: ['8 pre-defined roles', 'Per-role page visibility', 'Secure JWT sessions'],
-  },
-  {
-    icon: Server,
-    color: 'from-orange-500 to-amber-500',
-    glow:  'shadow-orange-500/20',
-    title: 'Enterprise-Grade Backend',
-    desc:  'Built on Microsoft Dataverse with Azure AD authentication. Your data lives in a secure, scalable cloud database with automatic backups and 99.9% uptime.',
-    points: ['Microsoft Dataverse storage', 'Azure AD token auth', 'OData REST API'],
-  },
+  { value: '5',                      label: 'Interface Languages',      icon: Globe },
 ];
 
 /* ─── User roles ────────────────────────────────────────────────────── */
@@ -146,7 +110,7 @@ const ROLES = [
 const TRUST = [
   { icon: ShieldCheck, label: 'Enterprise-grade security'   },
   { icon: RefreshCw,   label: 'Real-time data sync'         },
-  { icon: Globe,       label: 'Microsoft Dataverse backend' },
+  { icon: Globe,       label: 'Secure cloud hosting'        },
   { icon: UserCheck,   label: 'Role-based access control'   },
 ];
 
@@ -230,7 +194,7 @@ function DashboardMock() {
 
       {/* Floating grade card */}
       <div className="absolute -right-4 -top-5 rounded-xl border border-white/12 bg-linear-to-br from-violet-500/25 to-purple-500/12 p-3 shadow-xl backdrop-blur-md w-40">
-        <p className="text-[9px] text-white/45">GES Grade Average</p>
+        <p className="text-[9px] text-white/45">Grade Average</p>
         <p className="text-sm font-black text-white mt-0.5">B2 — 72.4%</p>
         <div className="flex items-center gap-1 mt-1">
           <Star className="h-2.5 w-2.5 text-violet-300" />
@@ -274,10 +238,9 @@ export default function LandingPage() {
           </div>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-slate-400 md:flex">
-            <a href="#features" className="transition-colors hover:text-white">Features</a>
             <a href="#modules"  className="transition-colors hover:text-white">Modules</a>
             <a href="#roles"    className="transition-colors hover:text-white">Roles</a>
-            <a href="#ghana"    className="transition-colors hover:text-white">Ghana GES</a>
+            <a href="#assessment" className="transition-colors hover:text-white">Grading</a>
             <Link href="/docs"  className="transition-colors hover:text-white">Docs</Link>
           </nav>
 
@@ -328,7 +291,7 @@ export default function LandingPage() {
               {/* Badge */}
               <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-indigo-400/22 bg-indigo-400/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-indigo-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                Ghana GES-Aligned · {ALL_MODULES.length} Modules · 8 Roles
+                {ALL_MODULES.length} Modules · 8 Roles · Multi-School
               </div>
 
               <h1 className="text-5xl font-black leading-[1.06] tracking-tight text-white sm:text-6xl lg:text-[4.25rem]">
@@ -420,66 +383,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── Key Features ───────────────────────────────────────────────── */}
-        <section
-          id="features"
-          className="bg-slate-950 py-28"
-          style={{
-            backgroundImage: 'radial-gradient(rgba(99,102,241,0.04) 1.5px, transparent 1.5px)',
-            backgroundSize: '28px 28px',
-          }}
-        >
-          <div className="mx-auto max-w-7xl px-6">
-            <div className="mb-16 text-center">
-              <span className="mb-4 inline-block rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-1 text-xs font-bold uppercase tracking-widest text-cyan-400">
-                Platform Highlights
-              </span>
-              <h2 className="text-4xl font-black text-white">
-                Built for how schools<br />
-                <span
-                  className="bg-clip-text text-transparent"
-                  style={{ backgroundImage: 'linear-gradient(135deg, #67e8f9 0%, #818cf8 100%)' }}
-                >
-                  actually operate
-                </span>
-              </h2>
-              <p className="mx-auto mt-4 max-w-xl text-base text-slate-400">
-                Every design decision reflects real school workflows — not generic enterprise software.
-              </p>
-            </div>
-
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {KEY_FEATURES.map(({ icon: Icon, color, glow, title, desc, points }) => (
-                <div
-                  key={title}
-                  className="group relative flex flex-col rounded-2xl border border-white/8 bg-white/4 p-6 transition-all duration-300 hover:border-white/14 hover:bg-white/7 hover:-translate-y-1"
-                >
-                  {/* Top accent */}
-                  <div className={`absolute inset-x-0 top-0 h-px bg-linear-to-r ${color} opacity-0 transition-opacity duration-300 group-hover:opacity-60 rounded-t-2xl`} />
-
-                  <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br ${color} shadow-lg ${glow}`}>
-                    <Icon className="h-6 w-6 text-white" />
-                  </div>
-
-                  <h3 className="mb-2 text-sm font-bold text-white">{title}</h3>
-                  <p className="mb-5 text-xs leading-relaxed text-slate-500 flex-1">{desc}</p>
-
-                  <ul className="space-y-1.5">
-                    {points.map(p => (
-                      <li key={p} className="flex items-center gap-2 text-xs text-slate-400">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
-                        {p}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Ghana GES callout ──────────────────────────────────────────── */}
-        <section id="ghana" className="bg-slate-900 py-16 border-y border-white/6">
+        {/* ── Assessment callout ─────────────────────────────────────────── */}
+        <section id="assessment" className="bg-slate-900 py-16 border-y border-white/6">
           <div className="mx-auto max-w-5xl px-6">
             <div
               className="relative overflow-hidden rounded-2xl px-8 py-10 text-white"
@@ -500,15 +405,15 @@ export default function LandingPage() {
                   <GraduationCap className="h-8 w-8 text-white" />
                 </div>
                 <div className="text-center sm:text-left flex-1">
-                  <p className="text-xl font-black">Built for Ghana&apos;s Schools</p>
+                  <p className="text-xl font-black">Assessment &amp; report cards, built in</p>
                   <p className="text-sm text-blue-100 mt-2 leading-relaxed max-w-xl">
-                    GES grading formula baked in — Classwork + Homework + Mid-Term (30%) added
-                    to End-of-Term (70%) automatically. Grades A1–F9 with GES remarks. BECE and
-                    WASSCE candidate tracking. Report cards formatted to national standards.
+                    Configurable grading with weighted continuous-assessment and exam scores,
+                    automatic letter grades and remarks, and term report cards formatted to your
+                    standards — plus national-exam candidate tracking (e.g. Ghana&apos;s BECE &amp; WASSCE).
                   </p>
                 </div>
                 <div className="shrink-0 flex flex-col gap-2">
-                  {['A1–F9 Auto-graded', 'BECE / WASSCE Ready', 'GES Report Cards'].map(t => (
+                  {['Automatic letter grades', 'Continuous assessment', 'Printable report cards'].map(t => (
                     <div key={t} className="flex items-center gap-2 text-sm text-blue-100">
                       <CheckCircle2 className="h-4 w-4 text-cyan-300 shrink-0" />
                       {t}
@@ -667,20 +572,20 @@ export default function LandingPage() {
             <div className="grid gap-8 sm:grid-cols-3">
               {[
                 {
-                  step: '01', title: 'Sign in',
-                  desc: 'Access the secure admin portal from any device. Use the onboarding wizard to register your school — name, location, and curriculum settings in 3 steps.',
+                  step: '01', title: 'Register your school',
+                  desc: 'Sign in and add your school with the guided wizard — identity & curriculum, contact details, then logo and brand colours in three quick steps.',
                   color: 'from-blue-600 to-cyan-600',
                   glow: 'shadow-blue-500/30',
                 },
                 {
-                  step: '02', title: 'Configure Modules',
-                  desc: 'Enable the modules your school needs — Academic, Finance, Operations, Welfare, and more. Each school in your network can have different modules active.',
+                  step: '02', title: 'Enable your modules',
+                  desc: 'Turn on only the modules your school needs — Academic, Finance, Operations, Welfare, and more. Each school can run a different set, changeable anytime.',
                   color: 'from-indigo-600 to-violet-600',
                   glow: 'shadow-violet-500/30',
                 },
                 {
-                  step: '03', title: 'Manage & Report',
-                  desc: 'Add students and staff, mark attendance, collect fees, enter grades, and generate GES-formatted report cards — all from one unified dashboard.',
+                  step: '03', title: 'Manage & report',
+                  desc: 'Add students and staff, mark attendance, collect fees, enter grades, and generate formatted report cards — all from one unified dashboard.',
                   color: 'from-violet-600 to-pink-600',
                   glow: 'shadow-pink-500/30',
                 },
@@ -732,7 +637,7 @@ export default function LandingPage() {
 
             <p className="mx-auto mt-5 max-w-md text-lg text-slate-400">
               Sign in to your administrator account and experience the difference a
-              unified, GES-aligned platform makes.
+              unified, all-in-one platform makes.
             </p>
 
             <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -753,7 +658,7 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-10 flex flex-wrap justify-center gap-6 text-sm text-slate-600">
-              {['Ghana GES-aligned grading', 'Microsoft Dataverse powered', 'Role-based access control', 'Multi-school support'].map(t => (
+              {['Configurable grading scales', 'Secure cloud hosting', 'Role-based access control', 'Multi-school support'].map(t => (
                 <span key={t} className="flex items-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5 text-cyan-600/50" />
                   {t}
@@ -778,7 +683,7 @@ export default function LandingPage() {
                 <span className="text-sm font-bold text-white">SchoolMS</span>
               </div>
               <p className="text-xs text-slate-600 max-w-56 leading-relaxed">
-                Ghana GES-aligned school administration platform — built for real schools, powered by Microsoft Dataverse.
+                A complete, multi-school administration platform — built for real schools.
               </p>
             </div>
 
@@ -786,10 +691,9 @@ export default function LandingPage() {
             <div className="flex gap-12 text-sm">
               <div className="flex flex-col gap-2.5">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Platform</p>
-                <a href="#features" className="text-slate-500 hover:text-white transition-colors text-xs">Features</a>
-                <a href="#modules"  className="text-slate-500 hover:text-white transition-colors text-xs">Modules</a>
-                <a href="#roles"    className="text-slate-500 hover:text-white transition-colors text-xs">User Roles</a>
-                <a href="#ghana"    className="text-slate-500 hover:text-white transition-colors text-xs">Ghana GES</a>
+                <a href="#modules"    className="text-slate-500 hover:text-white transition-colors text-xs">Modules</a>
+                <a href="#roles"      className="text-slate-500 hover:text-white transition-colors text-xs">User Roles</a>
+                <a href="#assessment" className="text-slate-500 hover:text-white transition-colors text-xs">Grading</a>
               </div>
               <div className="flex flex-col gap-2.5">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Account</p>
@@ -806,7 +710,7 @@ export default function LandingPage() {
               © {new Date().getFullYear()} SchoolMS. All rights reserved.
             </p>
             <p className="text-xs text-slate-700">
-              Powered by Microsoft Dataverse · Next.js · {ALL_MODULES.length} modules
+              {ALL_MODULES.length} integrated modules · 8 roles · multi-school
             </p>
           </div>
         </div>

@@ -8,8 +8,11 @@ All endpoints are under `/api/`. Every response follows the shape:
 ```
 
 Unauthenticated requests return `401 { "success": false, "error": "Unauthorized" }`.  
+Requests by a role without access to the path return `403 { "success": false, "error": "Forbidden" }`.  
 Validation errors return `400` with a field-level error string.  
 Server errors return `500 { "success": false, "error": "Internal server error" }` (full message in development only).
+
+Single-record reads/updates/deletes for a record that belongs to **another school** return `404` (cross-tenant isolation).
 
 All data endpoints are automatically scoped to the active school via the `x-school-id` header (injected by `src/proxy.ts`). No client needs to pass a school ID explicitly.
 
@@ -27,8 +30,10 @@ Log in. Checks bootstrap admin (env vars) first, then Dataverse `sms_users`.
 
 **Response** — sets `sms.session` cookie (httpOnly, 24 h)
 ```json
-{ "ok": true }
+{ "ok": true, "userrole": 1 }
 ```
+
+**Rate limited**: per IP (50 / 15 min) and per IP+email (10 / 15 min). Over the limit → `429 { "error": "Too many login attempts. Please try again later." }` with a `Retry-After` header.
 
 ---
 
@@ -74,6 +79,42 @@ Switch the active school. Re-issues the JWT with the new `schoolId`.
 
 ### `PUT /api/school`
 Update the active school's profile.
+
+### `PUT /api/school/[id]` (super admin only)
+Update a school's module configuration. Accepts either or both fields:
+
+**Body**
+```json
+{
+  "enabledmodules": ["students", "fees", "..."],
+  "rolemoduleaccess": { "2": ["students", "classes"], "3": ["fees"] }
+}
+```
+`rolemoduleaccess` keys are role numbers; values are module keys. Returns `403` for non-super-admin callers.
+
+---
+
+## Parent Portal
+
+Parent-facing endpoints. The caller must be a parent linked to the student; otherwise `403`.
+
+### `GET /api/portal/children`
+List the logged-in parent's linked children.
+
+**Response**: `{ "success": true, "data": [{ "studentid", "studentname", "isprimary" }], "parentFound": true, "parentName": "..." }`
+
+### `GET /api/portal/children/[studentId]`
+Full per-child summary: `classInfo`, attendance (+summary), grades, fees (+summary), disciplinary, terms, and the term report card.
+
+| Query Param | Description |
+|-------------|-------------|
+| `termId` | Report card term (defaults to the most recent) |
+
+### `GET /api/portal/feedback`
+List the parent's submitted feedback.
+
+### `POST /api/portal/feedback`
+Submit feedback. **Fields**: `subject`, `message`, `feedbacktype` (1=Feedback, 2=Complaint, 3=Suggestion, 4=Question), optional `studentid` (must be the parent's child).
 
 ---
 

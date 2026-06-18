@@ -372,7 +372,7 @@ export default function EnrollmentsPage() {
                         {search || statusFilter !== 'all' ? 'No enrollments match your filters' : 'No enrollments yet'}
                     </p>
                     {!search && statusFilter === 'all' && (
-                        <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Click "Enroll Student" to get started</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-600 mt-1">Click &ldquo;Enroll Student&rdquo; to get started</p>
                     )}
                 </div>
             ) : (

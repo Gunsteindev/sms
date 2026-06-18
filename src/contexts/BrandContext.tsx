@@ -2,11 +2,12 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { schoolAPI } from '@/lib/api-client';
-import { ALL_MODULE_KEYS } from '@/lib/modules';
+import { ALL_MODULE_KEYS, defaultRoleModuleAccess, type RoleModuleAccess } from '@/lib/modules';
 import { useSession } from '@/contexts/AuthContext';
 
 const COLORS_KEY              = 'sms-brand-colors';
 export const MODULES_KEY      = 'sms-enabled-modules';
+export const ROLE_ACCESS_KEY  = 'sms-role-module-access';
 export const BRAND_SCHOOL_KEY = 'sms-brand-school';
 const DEFAULT: BrandColors = { primary: '#2563eb', sidebar: '#0f172a' };
 
@@ -14,19 +15,22 @@ export interface BrandColors { primary: string; sidebar: string; }
 export interface BrandSchool { name: string; motto: string; logo: string; }
 
 interface BrandContextValue {
-  colors:            BrandColors;
-  school:            BrandSchool;
-  enabledModules:    string[];
-  setColors:         (c: BrandColors) => void;
-  setSchool:         (s: BrandSchool) => void;
-  setEnabledModules: (keys: string[]) => void;
+  colors:              BrandColors;
+  school:              BrandSchool;
+  enabledModules:      string[];
+  roleModuleAccess:    RoleModuleAccess;
+  setColors:           (c: BrandColors) => void;
+  setSchool:           (s: BrandSchool) => void;
+  setEnabledModules:   (keys: string[]) => void;
+  setRoleModuleAccess: (map: RoleModuleAccess) => void;
 }
 
 const DEFAULT_SCHOOL: BrandSchool = { name: '', motto: '', logo: '' };
 
 const BrandContext = createContext<BrandContextValue>({
   colors: DEFAULT, school: DEFAULT_SCHOOL, enabledModules: ALL_MODULE_KEYS,
-  setColors: () => {}, setSchool: () => {}, setEnabledModules: () => {},
+  roleModuleAccess: defaultRoleModuleAccess(),
+  setColors: () => {}, setSchool: () => {}, setEnabledModules: () => {}, setRoleModuleAccess: () => {},
 });
 
 function applyColors(c: BrandColors) {
@@ -66,6 +70,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     return ALL_MODULE_KEYS;
   });
 
+  const [roleModuleAccess, setRoleModuleAccessState] = useState<RoleModuleAccess>(() => {
+    if (typeof window === 'undefined') return defaultRoleModuleAccess();
+    try {
+      const saved = localStorage.getItem(ROLE_ACCESS_KEY);
+      if (saved) return JSON.parse(saved) as RoleModuleAccess;
+    } catch { /* ignore */ }
+    return defaultRoleModuleAccess();
+  });
+
   // Apply cached colors immediately on mount
   useEffect(() => { applyColors(colors); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -100,6 +113,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
         : ALL_MODULE_KEYS;
       setEnabledModulesState(mods);
       localStorage.setItem(MODULES_KEY, JSON.stringify(mods));
+
+      // If the school has no saved role→module map, fall back to the built-in defaults
+      const access: RoleModuleAccess = p.rolemoduleaccess && Object.keys(p.rolemoduleaccess).length > 0
+        ? p.rolemoduleaccess
+        : defaultRoleModuleAccess();
+      setRoleModuleAccessState(access);
+      localStorage.setItem(ROLE_ACCESS_KEY, JSON.stringify(access));
     }).catch(() => {});
   }, [status]); // re-run when auth status changes
 
@@ -118,8 +138,13 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(MODULES_KEY, JSON.stringify(keys));
   };
 
+  const setRoleModuleAccess = (map: RoleModuleAccess) => {
+    setRoleModuleAccessState(map);
+    localStorage.setItem(ROLE_ACCESS_KEY, JSON.stringify(map));
+  };
+
   return (
-    <BrandContext.Provider value={{ colors, school, enabledModules, setColors, setSchool, setEnabledModules }}>
+    <BrandContext.Provider value={{ colors, school, enabledModules, roleModuleAccess, setColors, setSchool, setEnabledModules, setRoleModuleAccess }}>
       {children}
     </BrandContext.Provider>
   );
