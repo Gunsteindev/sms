@@ -36,6 +36,9 @@ const STATUS_VARIANT: Record<number, 'success' | 'warning' | 'destructive' | 'de
     1: 'success', 2: 'warning', 3: 'destructive', 4: 'default',
 };
 
+// Mobile Money (4) and Bank Transfer (2) require a transaction/reference number; Cash (1) does not.
+const REFERENCE_REQUIRED_METHODS = new Set(['2', '4']);
+
 const schema = z.object({
     studentid:      z.string().optional(),
     feeid:          z.string().optional(),
@@ -45,7 +48,10 @@ const schema = z.object({
     paymentstatus:  z.string().default('1'),
     transactionid:  z.string().optional(),
     receiptnumber:  z.string().optional(),
-});
+}).refine(
+    d => !REFERENCE_REQUIRED_METHODS.has(d.paymentmethod) || !!d.transactionid?.trim(),
+    { path: ['transactionid'], message: 'Transaction / reference no. is required for Mobile Money and Bank Transfer' },
+);
 type FormData = z.infer<typeof schema>;
 
 function F({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
@@ -80,6 +86,9 @@ function FeePaymentForm({ defaultValues, fees, onSubmit, onCancel }: {
 
     const selectedStudent = watch('studentid');
     const studentItems = useMemo(() => fees.filter(f => f.studentid === selectedStudent), [fees, selectedStudent]);
+
+    // Mobile Money / Bank Transfer need a reference for reconciliation; Cash does not.
+    const refRequired = REFERENCE_REQUIRED_METHODS.has(watch('paymentmethod'));
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -161,8 +170,8 @@ function FeePaymentForm({ defaultValues, fees, onSubmit, onCancel }: {
                 </F>
             </div>
             <div className="grid grid-cols-2 gap-3">
-                <F id="transactionid" label="Transaction ID">
-                    <Input id="transactionid" {...register('transactionid')} placeholder="Optional" />
+                <F id="transactionid" label={`Transaction / Reference No.${refRequired ? ' *' : ''}`} error={errors.transactionid?.message}>
+                    <Input id="transactionid" {...register('transactionid')} placeholder={refRequired ? 'MoMo / bank reference' : 'Optional'} />
                 </F>
                 <F id="receiptnumber" label="Receipt Number">
                     <Input id="receiptnumber" {...register('receiptnumber')} placeholder="Auto-generated if blank" />
