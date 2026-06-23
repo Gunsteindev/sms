@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface PaginatedResult<T> {
     data?: T[];
     totalCount?: number;
+}
+
+/** Server-rendered seed for the first page, so the mount fetch can be skipped. */
+export interface InitialList<T> {
+    items: T[];
+    totalCount: number;
 }
 
 /**
@@ -21,12 +27,17 @@ interface PaginatedResult<T> {
  */
 export function usePaginatedList<T>(
     fetchFn: () => Promise<PaginatedResult<T>>,
-    deps: unknown[]
+    deps: unknown[],
+    initial?: InitialList<T>
 ) {
-    const [items, setItems]     = useState<T[]>([]);
-    const [totalCount, setTotal] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const [items, setItems]     = useState<T[]>(initial?.items ?? []);
+    const [totalCount, setTotal] = useState(initial?.totalCount ?? 0);
+    const [loading, setLoading] = useState(!initial);
     const [error, setError]     = useState<string | null>(null);
+
+    // When seeded with server-rendered data, skip the very first (mount) fetch —
+    // its deps already match the initial render. Subsequent dep changes refetch.
+    const skipNextRun = useRef(!!initial);
 
     const run = useCallback(async () => {
         setLoading(true);
@@ -46,7 +57,10 @@ export function usePaginatedList<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, deps);
 
-    useEffect(() => { run(); }, [run]);
+    useEffect(() => {
+        if (skipNextRun.current) { skipNextRun.current = false; return; }
+        run();
+    }, [run]);
 
     return { items, totalCount, loading, error, refetch: run };
 }

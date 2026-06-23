@@ -1,13 +1,14 @@
 'use client';
 
-import { usePaginatedList } from './usePaginatedList';
+import { usePaginatedList, type InitialList } from './usePaginatedList';
 import { studentsAPI } from '@/lib/api/people';
 import type { Student } from '@/lib/dataverse/students';
 
-export function useStudents(page = 1, pageSize = 20, search?: string, status?: number) {
+export function useStudents(page = 1, pageSize = 20, search?: string, status?: number, initial?: InitialList<Student>) {
     const { items, totalCount, loading, error, refetch } = usePaginatedList<Student>(
         () => studentsAPI.getAll({ search, status, page, pageSize }) as unknown as Promise<{ data: Student[]; totalCount: number }>,
-        [search, status, page, pageSize]
+        [search, status, page, pageSize],
+        initial
     );
 
     return {
